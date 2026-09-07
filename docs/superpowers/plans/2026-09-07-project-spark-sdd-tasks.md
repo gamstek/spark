@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-**执行状态（2026-09-07）：** T01–T11、T14–T15 已实现并进入回归验证；D01、D02、T12、T13 按产品决定暂缓，等待活动端和工作人员端设计稿；T16 的代码与部署配置部分已完成，微信、钉钉、移动端和恢复演练仍需真实环境验收。下方复选框保留为原始验收清单，只有取得对应证据后才逐项勾选。
+**执行状态（2026-09-07）：** T01–T11、T14–T15 的服务端及运营能力已实现；T12 的服务端运行时已实现，活动端页面仍等待 D01；D01、D02、T12 前端和 T13 按产品决定暂缓。T16 已完成安全与部署配置、故障模拟和运维文档，真实微信/钉钉联调、移动端验收及恢复演练仍待执行。`[x]` 表示已有代码、测试或文档证据，`[ ]` 表示未完成、暂缓或仍依赖真实环境。
 
 - 应用名：`apps/activity`、`apps/admin`、`apps/staff`、`apps/api`。
 - 共享包：`packages/contracts`、`packages/templates`；包名分别为 `@spark/contracts`、`@spark/templates`。
@@ -27,7 +27,7 @@
 - 活动首次开始后锁定模板及规则；原结果可恢复，兑奖过期不回补库存。
 - 每项业务任务先建立失败的行为测试，再实现并验证；工程配置只做实际构建验证，不写镜像配置的测试。
 - 每项完成后检查规范一致性及代码质量，单独提交明确范围；用户已提交 `AGENTS.md`，遵循其中仓库规范。
-- 文件路径在本计划中均相对仓库根目录。任务列出的运行命令是待创建的工程契约，目前仓库尚不能运行它们。
+- 文件路径在本计划中均相对仓库根目录。任务列出的命令是当前工程契约，完成状态以仓库代码和实际验证结果为准。
 
 ## 任务依赖与交付点
 
@@ -72,8 +72,8 @@
 
 **Interfaces:** 工作区提供 `dev`、`build`、`typecheck`、`lint`、`test` 脚本；`GET /api/health/live` 返回 `{ status: 'ok' }`。后续任务扩展已创建的 package.json，不重复脚手架。
 
-- [ ] 查验安装环境，选择并锁定互相兼容的稳定版本和 Node 运行版本，将版本写入 packageManager、engines 和锁文件；不得使用未验证的 latest 范围。
-- [ ] 创建工作区配置，私有包不发布注册中心：
+- [x] 查验安装环境，选择并锁定互相兼容的稳定版本和 Node 运行版本，将版本写入 packageManager、engines 和锁文件；不得使用未验证的 latest 范围。
+- [x] 创建工作区配置，私有包不发布注册中心：
 
 ```yaml
 packages:
@@ -81,9 +81,9 @@ packages:
   - packages/*
 ```
 
-- [ ] 三前端设置 base/basename 为自己的入口；开发代理 `/api` 到本地 API。NestJS 设置全局 `api` 前缀，Fastify 绑定可配置 host/port。
+- [x] 三前端设置 base/basename 为自己的入口；开发代理 `/api` 到本地 API。NestJS 设置全局 `api` 前缀，Fastify 绑定可配置 host/port。
 - [ ] 安装依赖，依次运行 `pnpm typecheck`、`pnpm lint`、`pnpm build`，预期均退出 0；实际打开三个入口及健康接口，刷新深层路由能够恢复。
-- [ ] README 记录环境、启动与构建命令，提交 `Initialize Spark application workspace`。
+- [x] README 记录环境、启动与构建命令，提交 `Initialize Spark application workspace`。
 
 ## T02：模板定义、配置校验与注册
 
@@ -91,7 +91,7 @@ packages:
 
 **Interfaces:** 导出 `LotteryConfigSchema`、`LotteryConfig`、`getTemplate(id: string, version: number)`。配置包含 `formId`、`formUrl`、`prefillField`、`fieldMapping`、`requireSubscribe`、`heroAssetId`、`rulesText`，允许编辑的字段仅限规范；密钥不进入配置。
 
-- [ ] 用 Vitest 添加下面的测试，运行 `pnpm --filter @spark/templates test -- src/registry.test.ts`，先观察导出缺失失败：
+- [x] 用 Vitest 添加下面的测试，运行 `pnpm --filter @spark/templates test -- src/registry.test.ts`，先观察导出缺失失败：
 
 ```ts
 expect(getTemplate('exhibition-lottery', 1).version).toBe(1);
@@ -99,7 +99,7 @@ expect(() => getTemplate('exhibition-lottery', 99)).toThrow('UNSUPPORTED_TEMPLAT
 expect(LotteryConfigSchema.safeParse({ formUrl: 'javascript:alert(1)' }).success).toBe(false);
 ```
 
-- [ ] 实现精确键注册表：
+- [x] 实现精确键注册表：
 
 ```ts
 const key = `${id}@${version}`;
@@ -108,8 +108,8 @@ if (!template) throw new Error('UNSUPPORTED_TEMPLATE');
 return template;
 ```
 
-- [ ] 增加合法配置样本、缺少映射、恶意 URL、未知配置字段拒绝测试；表单 URL 限定 HTTPS 及 `alidocs.dingtalk.com`。
-- [ ] 验证 schema、默认值和导出的配置类型一致，测试与类型检查通过；提交 `Define exhibition lottery template configuration`。
+- [x] 增加合法配置样本、缺少映射、恶意 URL、未知配置字段拒绝测试；表单 URL 限定 HTTPS 及 `alidocs.dingtalk.com`。
+- [x] 验证 schema、默认值和导出的配置类型一致，测试与类型检查通过；提交 `Define exhibition lottery template configuration`。
 
 ## T03：定义前后端接口契约
 
@@ -137,10 +137,10 @@ type CallbackAck = { accepted: true };
 type ApiError = { code: string; message: string; requestId: string };
 ```
 
-- [ ] 测试 CallbackInputSchema 拒绝非 UUID、缺少 recordId、空姓名、非法 fields 类型；合法配置从 T02 引用，不能复制第二份 schema。
-- [ ] 运行 `pnpm --filter @spark/contracts test -- src/contracts.test.ts`，确认先失败。
-- [ ] 实现 schemas 和 inferred types；错误码至少包括 `OUT_OF_STOCK`、`ACTIVITY_ENDED`、`NOT_QUALIFIED`、`UNAUTHORIZED`、`FORBIDDEN`、`RECORD_CONFLICT`、`REDEMPTION_EXPIRED`、`VERSION_CONFLICT`、`UNSUPPORTED_TEMPLATE`。
-- [ ] 添加 API 响应不含密码、Session 哈希、回调密钥的 schema 测试，运行测试和 typecheck；提交 `Define Spark API contracts`。
+- [x] 测试 CallbackInputSchema 拒绝非 UUID、缺少 recordId、空姓名、非法 fields 类型；合法配置从 T02 引用，不能复制第二份 schema。
+- [x] 运行 `pnpm --filter @spark/contracts test -- src/contracts.test.ts`，确认先失败。
+- [x] 实现 schemas 和 inferred types；错误码至少包括 `OUT_OF_STOCK`、`ACTIVITY_ENDED`、`NOT_QUALIFIED`、`UNAUTHORIZED`、`FORBIDDEN`、`RECORD_CONFLICT`、`REDEMPTION_EXPIRED`、`VERSION_CONFLICT`、`UNSUPPORTED_TEMPLATE`。
+- [x] 添加 API 响应不含密码、Session 哈希、回调密钥的 schema 测试，运行测试和 typecheck；提交 `Define Spark API contracts`。
 
 ## T04：数据库迁移和真实 PostgreSQL 测试设施
 
@@ -148,8 +148,8 @@ type ApiError = { code: string; message: string; requestId: string };
 
 **Interfaces:** `createTestDatabase(): Promise<{ dataSource: DataSource; close(): Promise<void> }>` 为每个测试套件创建独立 schema；fixtures 提供 `createScenario(dataSource, options)`，返回管理员、工作人员、两个活动用户、活动及参与记录 ID，用固定时钟和随机 ID 隔离用例。单元测试不访问生产数据库。
 
-- [ ] 初始化本地 PostgreSQL、迁移命令 `db:migrate`、测试命令 `test:integration`；拒绝在非明确测试数据库上清理数据。
-- [ ] 写数据库约束失败测试，再创建实体和迁移。核心约束：
+- [x] 初始化本地 PostgreSQL、迁移命令 `db:migrate`、测试命令 `test:integration`；拒绝在非明确测试数据库上清理数据。
+- [x] 写数据库约束失败测试，再创建实体和迁移。核心约束：
 
 ```sql
 UNIQUE (activity_id, user_id) -- participation 与 lottery_record 分别建立
@@ -158,9 +158,9 @@ CHECK (total_stock >= 0 AND awarded_stock >= 0 AND awarded_stock <= total_stock)
 UNIQUE (redeem_code_hash)
 ```
 
-- [ ] 覆盖规范第 7 节实体，并增加 Session、OAuth state、公众号凭据缓存、奖池锁行、任务租约及时间索引；外键限制删除已使用业务记录，时间使用 timestamptz。
-- [ ] fixture 创建模板 v1、已发布活动、独立兑奖时间、一份奖品及有权限工作人员；不提交生产密码。
-- [ ] 运行 `pnpm --filter @spark/api db:migrate` 与 `pnpm --filter @spark/api test:integration -- test/database.integration.test.ts`，测试重复中奖和负库存被数据库拒绝、空库迁移成功；提交 `Add PostgreSQL schema and integration fixtures`。
+- [x] 覆盖规范第 7 节实体，并增加 Session、OAuth state、公众号凭据缓存、奖池锁行、任务租约及时间索引；外键限制删除已使用业务记录，时间使用 timestamptz。
+- [x] fixture 创建模板 v1、已发布活动、独立兑奖时间、一份奖品及有权限工作人员；不提交生产密码。
+- [x] 运行 `pnpm --filter @spark/api db:migrate` 与 `pnpm --filter @spark/api test:integration -- test/database.integration.test.ts`，测试重复中奖和负库存被数据库拒绝、空库迁移成功；提交 `Add PostgreSQL schema and integration fixtures`。
 
 ## T05：管理员、工作人员与 Session 安全
 
@@ -168,10 +168,10 @@ UNIQUE (redeem_code_hash)
 
 **Interfaces:** `SessionService.create(role, subjectId): Promise<{ token: string; expiresAt: Date }>`；`resolve(token, role)` 返回角色及主体；`revokeAccount(role, subjectId)`。控制器登录后由 Set-Cookie 写入 token，响应中不返回会话秘密。`/api/admin/auth/*`、`/api/staff/auth/*` 提供 login/me/logout；me 返回会话绑定的 CSRF token。
 
-- [ ] 写跨角色登录拒绝、缺 CSRF 写请求拒绝、停用账号使旧会话立即失效测试，运行 `pnpm --filter @spark/api test:integration -- test/auth.integration.test.ts`，确认失败。
-- [ ] 实现密码哈希、随机 Session、数据库哈希查找和 8 小时绝对过期；固定角色权限与活动授权独立检查。
-- [ ] 实现初始化命令交互读取管理员密码，拒绝默认密码；修改权限和停用账号记录审计。
-- [ ] 添加登录轮换、退出、错误密码、伪造 Origin 测试，检查生产 Cookie 标志；运行测试后提交 `Add staff and administrator authentication`。
+- [x] 写跨角色登录拒绝、缺 CSRF 写请求拒绝、停用账号使旧会话立即失效测试，运行 `pnpm --filter @spark/api test:integration -- test/auth.integration.test.ts`，确认失败。
+- [x] 实现密码哈希、随机 Session、数据库哈希查找和 8 小时绝对过期；固定角色权限与活动授权独立检查。
+- [x] 实现初始化命令交互读取管理员密码，拒绝默认密码；修改权限和停用账号记录审计。
+- [x] 添加登录轮换、退出、错误密码、伪造 Origin 测试，检查生产 Cookie 标志；运行测试后提交 `Add staff and administrator authentication`。
 
 ## T06：微信身份与参与记录
 
@@ -179,10 +179,10 @@ UNIQUE (redeem_code_hash)
 
 **Interfaces:** `WechatGateway.exchangeCode(code): Promise<{ openid: string }>`、`isSubscribed(openid): Promise<boolean>`；`ParticipantsService.getOrCreate(userId, activityId)` 返回 participation；OAuth start/callback 位于规范指定路径。gateway 的生产实现依据官方接口文档，测试替身通过依赖注入替换，不在生产环境提供任意 OpenID 登录接口。
 
-- [ ] 写同一 OpenID 再次登录得到同一 User、同一活动只有一个 participation，以及 OAuth state 重放拒绝测试；运行 `pnpm --filter @spark/api test:integration -- test/wechat.integration.test.ts`。
-- [ ] 实现 10 分钟 state、浏览器 nonce、签名、数据库原子消费和站内返回路径白名单；活动 Session 7 天。
-- [ ] 实现公众号 access token 的 PostgreSQL 共享刷新、关注结果最长 60 秒缓存、外部失败可重试；所有远程请求在抽奖事务外进行。
-- [ ] 测试过期 state、开放重定向、不同浏览器 nonce、并发首次登录、微信超时；文档写真实域名配置和测试账号步骤。通过后提交 `Add WeChat identity and participation recovery`。
+- [x] 写同一 OpenID 再次登录得到同一 User、同一活动只有一个 participation，以及 OAuth state 重放拒绝测试；运行 `pnpm --filter @spark/api test:integration -- test/wechat.integration.test.ts`。
+- [x] 实现 10 分钟 state、浏览器 nonce、签名、数据库原子消费和站内返回路径白名单；活动 Session 7 天。
+- [x] 实现公众号 access token 的 PostgreSQL 共享刷新、关注结果最长 60 秒缓存、外部失败可重试；所有远程请求在抽奖事务外进行。
+- [x] 测试过期 state、开放重定向、不同浏览器 nonce、并发首次登录、微信超时；文档写真实域名配置和测试账号步骤。通过后提交 `Add WeChat identity and participation recovery`。
 
 ## T07：活动版本、发布、奖品和图片
 
@@ -190,11 +190,11 @@ UNIQUE (redeem_code_hash)
 
 **Interfaces:** `publish(activityId, expectedRevision, adminId)`、`endDraw(activityId, adminId)`、`addStock(activityPrizeId, quantity, operationId, adminId)`；admin 路由 `/api/admin/activities`、`/api/admin/prizes`、`/api/admin/media`。补库存 operationId 唯一，防止重试重复补库存。
 
-- [ ] 写两个编辑者修订冲突、活动开始后修改配置拒绝、奖品库修改不改变已发布奖项测试；运行 `pnpm --filter @spark/api test:integration -- test/publishing.integration.test.ts`。
-- [ ] 发布校验模板存在、表单配置有效、奖项完整、时间有序；事务中生成不可变快照并更新指针。
-- [ ] 活动开始后仅开放提前结束、补库存和权限调整；加库存与抽奖遵循统一奖池锁，写 StockAdjustment。
-- [ ] 图片限 5 MB，仅真实 JPEG/PNG/WebP，随机文件名保存持久卷；拒绝伪装 SVG、路径穿越，禁止通过 API 获取任意远程 URL。
-- [ ] 实现兼容性检查读取所有发布引用并匹配 registry；测试缺旧模板失败。运行测试及 compatibility 命令后提交 `Add activity publishing and prize management`。
+- [x] 写两个编辑者修订冲突、活动开始后修改配置拒绝、奖品库修改不改变已发布奖项测试；运行 `pnpm --filter @spark/api test:integration -- test/publishing.integration.test.ts`。
+- [x] 发布校验模板存在、表单配置有效、奖项完整、时间有序；事务中生成不可变快照并更新指针。
+- [x] 活动开始后仅开放提前结束、补库存和权限调整；加库存与抽奖遵循统一奖池锁，写 StockAdjustment。
+- [x] 图片限 5 MB，仅真实 JPEG/PNG/WebP，随机文件名保存持久卷；拒绝伪装 SVG、路径穿越，禁止通过 API 获取任意远程 URL。
+- [x] 实现兼容性检查读取所有发布引用并匹配 registry；测试缺旧模板失败。运行测试及 compatibility 命令后提交 `Add activity publishing and prize management`。
 
 ## T08：可靠任务与回调接收基础
 
@@ -202,10 +202,10 @@ UNIQUE (redeem_code_hash)
 
 **Interfaces:** `enqueue(manager, kind, key, payload)` 在调用者事务内创建唯一任务；`register(kind, handler)` 注册处理器；`runDueJobs(now)` 提供可测试的领取和执行入口；`POST /api/admin/jobs/:id/retry` 只重放原载荷。
 
-- [ ] 添加事务回滚不留下任务、重复 enqueue 只有一个任务、租约过期可恢复测试；运行 `pnpm --filter @spark/api test:integration -- test/jobs.integration.test.ts`。
-- [ ] 实现 `FOR UPDATE SKIP LOCKED` 领取，持久化 owner/leaseUntil/attempts/nextRunAt；只有持有租约的执行者可确认完成；业务处理器必须幂等。
-- [ ] 失败总共最多执行 5 次，间隔 10 秒、30 秒、2 分钟、10 分钟；超过次数进入 FAILED，最小失败任务列表只展示脱敏错误。
-- [ ] 测试 worker 进程中断、并发领取、重放权限、租约旧 owner 无法覆盖状态；清理任务不得删除未完成回调。通过后提交 `Add durable PostgreSQL background jobs`。
+- [x] 添加事务回滚不留下任务、重复 enqueue 只有一个任务、租约过期可恢复测试；运行 `pnpm --filter @spark/api test:integration -- test/jobs.integration.test.ts`。
+- [x] 实现 `FOR UPDATE SKIP LOCKED` 领取，持久化 owner/leaseUntil/attempts/nextRunAt；只有持有租约的执行者可确认完成；业务处理器必须幂等。
+- [x] 失败总共最多执行 5 次，间隔 10 秒、30 秒、2 分钟、10 分钟；超过次数进入 FAILED，最小失败任务列表只展示脱敏错误。
+- [x] 测试 worker 进程中断、并发领取、重放权限、租约旧 owner 无法覆盖状态；清理任务不得删除未完成回调。通过后提交 `Add durable PostgreSQL background jobs`。
 
 ## T09：钉钉关联、回调与留资完成
 
@@ -213,11 +213,11 @@ UNIQUE (redeem_code_hash)
 
 **Interfaces:** `createFormUrl(userId, activityCode): Promise<{ url: string }>`；`accept(input: CallbackInput): Promise<CallbackAck>`；handler 类型 `DINGTALK_SUBMISSION`；`POST /api/activity/:code/form-link` 与规范回调路径。
 
-- [ ] 增加测试：恶意参与编号、错误共享密钥、跨表单、相同 recordId 换人返回 409；成功返回 200 但处理器未运行时不授资格。运行 `pnpm --filter @spark/api test:integration -- test/dingtalk.integration.test.ts` 确认失败。
-- [ ] 使用从实际表单获得的已验证预填链接样本实现 URL 编码；只替换指定字段的值，不猜测参数名称。测试样本不得含真实个人信息。
-- [ ] 回调先校验身份和绑定，再以事务保存 receipt 和任务；失败 503。示例自动化 body 遵循规范第 8 节，密钥仅放 HTTP 请求头。
-- [ ] 处理器按参与记录串行处理最早接收的有效回调；写 submission、设置 leadCompletedAt 及采用的 submissionId，同事务提交；后续提交保留记录但不改首次线索。
-- [ ] 使用行为断言：
+- [x] 增加测试：恶意参与编号、错误共享密钥、跨表单、相同 recordId 换人返回 409；成功返回 200 但处理器未运行时不授资格。运行 `pnpm --filter @spark/api test:integration -- test/dingtalk.integration.test.ts` 确认失败。
+- [x] 使用从实际表单获得的已验证预填链接样本实现 URL 编码；只替换指定字段的值，不猜测参数名称。测试样本不得含真实个人信息。
+- [x] 回调先校验身份和绑定，再以事务保存 receipt 和任务；失败 503。示例自动化 body 遵循规范第 8 节，密钥仅放 HTTP 请求头。
+- [x] 处理器按参与记录串行处理最早接收的有效回调；写 submission、设置 leadCompletedAt 及采用的 submissionId，同事务提交；后续提交保留记录但不改首次线索。
+- [x] 使用行为断言：
 
 ```ts
 expect(await countReceipts(formId, recordId)).toBe(1);
@@ -227,7 +227,7 @@ expect(await countWins(activityId, userId)).toBe(0);
 
 以上数据库查询 helpers 在本任务测试文件内基于 T04 dataSource 实现，不引入生产接口。
 
-- [ ] 覆盖数据库失败后重发、活动结束后收线索不发可用资格、不同 recordId 重复填写、重放任务不重复更新；编写钉钉配置与未收到回调的人工补偿说明。通过后提交 `Integrate DingTalk form submissions`。
+- [x] 覆盖数据库失败后重发、活动结束后收线索不发可用资格、不同 recordId 重复填写、重放任务不重复更新；编写钉钉配置与未收到回调的人工补偿说明。通过后提交 `Integrate DingTalk form submissions`。
 
 ## T10：抽奖和库存原子性
 
@@ -235,7 +235,7 @@ expect(await countWins(activityId, userId)).toBe(0);
 
 **Interfaces:** `draw(userId: string, activityCode: string): Promise<WinView>`；`POST /api/activity/:code/lottery`。随机选择函数接受非负库存与服务端安全随机整数源，不接受客户端指定奖项。
 
-- [ ] 写真实 PostgreSQL 并发测试：
+- [x] 写真实 PostgreSQL 并发测试：
 
 ```ts
 const results = await Promise.allSettled(users.map(u => lottery.draw(u.id, code)));
@@ -246,10 +246,10 @@ expect(await countActivityWins(activityId)).toBe(1);
 
 测试 helper 使用 T04 数据源，场景为两个已留资且关注用户争一份库存。运行 `pnpm --filter @spark/api test:integration -- test/lottery.integration.test.ts` 先失败。
 
-- [ ] 实现事务顺序：奖池锁 → participation 锁 → 已有结果返回 → 时间/资格检查 → 按剩余库存随机选择 → 条件扣库存 → 写中奖、奖品快照和兑奖记录。
-- [ ] 在本任务实现 `CodeService.create(): { hash: string; encryptedCode: string; keyId: string }` 及 `restore(encryptedCode, keyId): string`，生成安全随机码并使用带认证的加密保存。T11 复用该服务，避免中奖创建依赖尚未实现的后续任务。
-- [ ] 无库存返回 OUT_OF_STOCK 并整体回滚，资格不变；活动截止返回 ACTIVITY_ENDED；死锁或序列化失败只对可重试数据库错误做有界重试，不重复外部调用。
-- [ ] 测试同人同时抽、补库存后重试、已中奖结束后重试、写中奖失败库存回滚、零库存权重排除；压测记录同活动串行锁等待及吞吐。通过后提交 `Implement atomic lottery and inventory updates`。
+- [x] 实现事务顺序：奖池锁 → participation 锁 → 已有结果返回 → 时间/资格检查 → 按剩余库存随机选择 → 条件扣库存 → 写中奖、奖品快照和兑奖记录。
+- [x] 在本任务实现 `CodeService.create(): { hash: string; encryptedCode: string; keyId: string }` 及 `restore(encryptedCode, keyId): string`，生成安全随机码并使用带认证的加密保存。T11 复用该服务，避免中奖创建依赖尚未实现的后续任务。
+- [x] 无库存返回 OUT_OF_STOCK 并整体回滚，资格不变；活动截止返回 ACTIVITY_ENDED；死锁或序列化失败只对可重试数据库错误做有界重试，不重复外部调用。
+- [x] 测试同人同时抽、补库存后重试、已中奖结束后重试、写中奖失败库存回滚、零库存权重排除；压测记录同活动串行锁等待及吞吐。通过后提交 `Implement atomic lottery and inventory updates`。
 
 ## T11：兑奖码恢复与核销
 
@@ -257,10 +257,10 @@ expect(await countActivityWins(activityId)).toBe(1);
 
 **Interfaces:** `getOwnCode(userId, activityCode)` 返回自己的二维码 URL；`lookup(code, staffId)` 返回脱敏详情；`confirm(code, staffId)` 返回已核销详情。同一记录重试返回原核销结果，不再次更新人员和时间；前端应展示原结果而非再次指示发奖。
 
-- [ ] 添加两个工作人员同时 confirm 只写一条核销事件测试；跨活动权限、过期拒绝；运行 `pnpm --filter @spark/api test:integration -- test/redemptions.integration.test.ts`。
-- [ ] 兑奖码检索用哈希，加密原值用于登录用户重新展示；加密密钥与数据库分离保存，使用带认证的加密格式及 keyId 支持维护。
-- [ ] 在事务中实时判断 `now < redeemEndAt`，已核销优先返回原状态；活动结束和取消关注不阻断已中奖兑奖。
-- [ ] 测试刷新恢复同一码、错误密钥不可解密、查询不核销、截止边界、核销后重试、无权限不泄漏资料；通过后提交 `Add recoverable prize codes and atomic redemption`。
+- [x] 添加两个工作人员同时 confirm 只写一条核销事件测试；跨活动权限、过期拒绝；运行 `pnpm --filter @spark/api test:integration -- test/redemptions.integration.test.ts`。
+- [x] 兑奖码检索用哈希，加密原值用于登录用户重新展示；加密密钥与数据库分离保存，使用带认证的加密格式及 keyId 支持维护。
+- [x] 在事务中实时判断 `now < redeemEndAt`，已核销优先返回原状态；活动结束和取消关注不阻断已中奖兑奖。
+- [x] 测试刷新恢复同一码、错误密钥不可解密、查询不核销、截止边界、核销后重试、无权限不泄漏资料；通过后提交 `Add recoverable prize codes and atomic redemption`。
 
 ## T12：用户活动页及状态机
 
@@ -270,7 +270,7 @@ expect(await countActivityWins(activityId)).toBe(1);
 
 - [ ] 读取 D01 已确认的原型、截图和说明，建立页面实现清单；视觉变化需同步设计说明，不自行替换已确认布局。
 
-- [ ] API 单元测试 nextStep：中奖优先展示 REDEEMED/EXPIRED/PRIZE；无中奖时检查时间、关注、库存、留资及已接收回调。不能让库存不足用户继续为抽奖跳表单。
+- [x] API 行为测试 nextStep：中奖优先展示 REDEEMED/EXPIRED/PRIZE；无中奖时检查时间、关注、库存、留资及已接收回调。不能让库存不足用户继续为抽奖跳表单。
 - [ ] Playwright 测试使用 T04 场景和测试进程内微信替身，写“返回页恢复奖品、不重复抽奖”的失败断言：
 
 ```ts
@@ -312,9 +312,9 @@ expect(await readRedemptionStatus(redeemCode)).toBe('WAIT_REDEEM');
 **Interfaces:** 使用 T05/T07/T08/T09 API；后台显示一个完整模板，钉钉绑定仅配置链接及字段映射，不增加本地留资表单编辑器。
 
 - [ ] 写创建草稿、选择模板、配置奖品和时间、发布的失败 E2E 测试，运行 `pnpm exec playwright test tests/e2e/admin.spec.ts`。
-- [ ] 实现活动列表和表单，乐观修订冲突提示刷新；运行后锁定规则编辑，单独提供补库存和提前结束操作。
-- [ ] 实现工作人员账号和活动授权、首次有效线索查看、失败任务查看与重放，采用 Radix UI 的应用内封装。
-- [ ] 测试过期 Session、无权限 API、上传拒绝、不支持模板版本、重复补库存请求；后台明确“添加库存”，不展示可减少库存的通用编辑框。通过后提交 `Build activity operations dashboard`。
+- [x] 实现活动列表和表单，乐观修订冲突提示刷新；运行后锁定规则编辑，单独提供补库存和提前结束操作。
+- [x] 实现工作人员账号和活动授权、首次有效线索查看、失败任务查看与重放，采用 Radix UI 的应用内封装。
+- [x] 测试过期 Session、无权限 API、上传拒绝、不支持模板版本、重复补库存请求；后台明确“添加库存”，不展示可减少库存的通用编辑框。通过后提交 `Build activity operations dashboard`。
 
 ## T15：指标、核销列表和线索导出
 
@@ -322,17 +322,17 @@ expect(await readRedemptionStatus(redeemCode)).toBe('WAIT_REDEEM');
 
 **Interfaces:** `GET /api/admin/activities/:id/report`；`POST /api/admin/activities/:id/exports` 返回 jobId；`GET /api/admin/exports/:id` 状态及已完成下载入口；下载始终重新鉴权，不返回公开静态文件 URL。
 
-- [ ] fixture 构造待兑奖、已核销、已过期各一条，写统计断言：
+- [x] fixture 构造待兑奖、已核销、已过期各一条，写统计断言：
 
 ```ts
 expect(report.awarded).toBe(report.pending + report.redeemed + report.expired);
 expect(report.available).toBe(report.totalStock - report.awarded);
 ```
 
-- [ ] 写重复访问人数去重、首次渠道不被覆盖测试；运行 `pnpm --filter @spark/api test:integration -- test/reports.integration.test.ts`。
-- [ ] 实现按活动的聚合，导出按稳定 ID 分批读取并记录生成时间和数据截点；任务通过 T08 执行，结果存私有目录。
-- [ ] 用 XLSX 读取器回读导出文件验证记录数、中文、文本手机号、首次留资字段、兑奖状态及 `=1+1` 等输入为文本；测试非管理员、过期文件和路径猜测被拒绝。
-- [ ] 实现导出文件 24 小时清理，审计包含操作者、活动、行数和结果；执行 `pnpm --filter @spark/api test:integration -- test/exports.integration.test.ts`。通过后提交 `Add activity reporting and secure lead exports`。
+- [x] 写重复访问人数去重、首次渠道不被覆盖测试；运行 `pnpm --filter @spark/api test:integration -- test/reports.integration.test.ts`。
+- [x] 实现按活动的聚合，导出按稳定 ID 分批读取并记录生成时间和数据截点；任务通过 T08 执行，结果存私有目录。
+- [x] 用 XLSX 读取器回读导出文件验证记录数、中文、文本手机号、首次留资字段、兑奖状态及 `=1+1` 等输入为文本；测试非管理员、过期文件和路径猜测被拒绝。
+- [x] 实现导出文件 24 小时清理，审计包含操作者、活动、行数和结果；执行 `pnpm --filter @spark/api test:integration -- test/exports.integration.test.ts`。通过后提交 `Add activity reporting and secure lead exports`。
 
 ## T16：同域部署、外部联调与恢复验收
 
@@ -341,12 +341,12 @@ expect(report.available).toBe(report.totalStock - report.awarded);
 **Interfaces:** `pnpm verify` 顺序执行 lint/typecheck/build/unit/integration；CI 提供 PostgreSQL 服务；生产明确单 API 副本、数据库卷、媒体卷和私有导出目录。
 
 - [ ] 先测试 `/activity/:code`、`/staff/redeem/:code`、`/admin/activities` 深链接刷新及 `/api` 响应，确保静态 fallback 不吞 API 404。
-- [ ] 配置 HTTPS、Cookie、代理信任范围、Origin/CSRF、no-referrer、日志脱敏、请求大小与限流；前端产物中不得出现服务端秘密。
+- [x] 配置 HTTPS、Cookie、代理信任范围、Origin/CSRF、no-referrer、日志脱敏、请求大小与限流；前端产物中不得出现服务端秘密。
 - [ ] CI 从空 PostgreSQL 执行迁移、业务并发测试、三个前端 E2E；执行 `pnpm verify` 和 `pnpm exec playwright test`，记录版本、命令与结果。
 - [ ] 真实联调：经用户指定测试活动，用专用测试记录验证微信内打开钉钉、participationId 实际预填、回调请求头及 recordId、返回后可抽、扫码核销。录入外部数据前确认具体测试范围，不向现有真实客户表单擅自造记录；没有真实证据时该检查保持未完成，不用 Mock 替代。
-- [ ] 模拟重复回调、丢响应、服务端任务中断及恢复；核对库存和核销总数。验证旧模板缺失时部署兼容检查失败。
+- [x] 模拟重复回调、丢响应、服务端任务中断及恢复；核对库存和核销总数。验证旧模板缺失时部署兼容检查失败。
 - [ ] 演练新环境恢复数据库、图片和加密密钥，确认老兑奖码可展示和核销；检查导出过期清理、备份保留和失败任务重放。
-- [ ] 编写现场操作手册：缺货提示、表单回调失败重发、相机拒绝备用路径、误发实物人工联系流程。提交 `Document and verify production deployment`，列出仍依赖账号、域名或现场环境的检查，不宣称提前上线。
+- [x] 编写现场操作手册：缺货提示、表单回调失败重发、相机拒绝备用路径、误发实物人工联系流程。提交 `Document and verify production deployment`，列出仍依赖账号、域名或现场环境的检查，不宣称提前上线。
 
 ## 覆盖检查与执行约定
 
@@ -362,4 +362,4 @@ expect(report.available).toBe(report.totalStock - report.awarded);
 | 用户状态、渠道与统计 | T12、T15 |
 | 导出、审计、恢复与真实联调 | T14–T16 |
 
-当前仓库只有文档，上述任务均未执行。每项实现后填勾选框、附命令及实际结果；测试不通过或依赖尚不可用时保持未完成。开发可以先完成不依赖真实外部账号的任务；真实回调与微信联调作为最终验收门槛。实现中如遇外部协议与已确认能力不符，记录具体证据并只暂停受影响任务。
+当前仓库已经包含四个应用、共享契约与模板、数据库迁移、服务端业务、运营后台和生产部署配置。最近一次完整验证中，`pnpm verify` 退出 0，API 集成测试 61 项、contracts 测试 24 项通过；admin Playwright 3 项、模板兼容检查及 Compose 配置检查也通过。未勾选项保持为后续范围：活动端和工作人员端设计及页面、运营后台完整发布 E2E、真实同域深链接、微信/钉钉联调和灾备恢复演练。
