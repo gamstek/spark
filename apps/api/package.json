@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "test": "vitest run --config vitest.unit.config.ts --passWithNoTests",
     "test:integration": "vitest run --config vitest.config.ts",
-    "db:migrate": "tsx database/migrate.ts"
+    "db:migrate": "tsx database/migrate.ts",
+    "admin:create": "tsx database/seeds/create-admin.ts"
   },
   "dependencies": {
     "@nestjs/common": "12.0.1",
