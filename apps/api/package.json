@@ -5,11 +5,13 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "start": "node dist/main.js",
+    "start": "node dist/src/main.js",
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false && tsc -p tsconfig.test.json --pretty false",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --config vitest.unit.config.ts --passWithNoTests",
+    "test:integration": "vitest run --config vitest.config.ts",
+    "db:migrate": "tsx database/migrate.ts"
   },
   "dependencies": {
     "@nestjs/common": "12.0.1",
