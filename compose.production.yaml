@@ -20,8 +20,8 @@ services:
 
   api:
     build:
-      context: ..
-      dockerfile: docker/api.Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     command: >-
       sh -c "node apps/api/dist/database/migrate.js && pnpm --filter @spark/api
@@ -51,8 +51,8 @@ services:
 
   web:
     build:
-      context: ..
-      dockerfile: docker/web.Dockerfile
+      context: .
+      dockerfile: nginx/Dockerfile
     restart: unless-stopped
     depends_on:
       - api
@@ -60,7 +60,7 @@ services:
       - '80:80'
       - '443:443'
     volumes:
-      - ./certs:/etc/nginx/certs:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
       - media:/usr/share/nginx/media:ro
 
 volumes:

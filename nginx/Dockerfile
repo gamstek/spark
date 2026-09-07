@@ -8,8 +8,8 @@ RUN pnpm --filter @spark/activity build && \
     pnpm --filter @spark/admin build
 
 FROM nginx:1.29-alpine
-COPY docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf
-COPY docker/nginx/proxy_params /etc/nginx/proxy_params
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx/proxy_params /etc/nginx/proxy_params
 COPY --from=build /app/apps/activity/dist /usr/share/nginx/html/activity
 COPY --from=build /app/apps/staff/dist /usr/share/nginx/html/staff
 COPY --from=build /app/apps/admin/dist /usr/share/nginx/html/admin

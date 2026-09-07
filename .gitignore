@@ -13,4 +13,4 @@ playwright-report/
 test-results/
 apps/api/uploads/
 apps/api/exports/
-docker/certs/
+nginx/certs/
