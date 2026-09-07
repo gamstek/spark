@@ -1,5 +1,11 @@
 {
   "singleQuote": true,
+  "tabWidth": 2,
+  "useTabs": false,
   "trailingComma": "all",
-  "printWidth": 100
+  "printWidth": 80,
+  "singleAttributePerLine": true,
+  "bracketSameLine": false,
+  "proseWrap": "always",
+  "endOfLine": "lf"
 }
