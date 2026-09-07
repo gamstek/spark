@@ -7,7 +7,13 @@ import {
 import { promisify } from 'node:util';
 
 import { Inject, Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
+
+import {
+  AdminAccount,
+  AuditEvent,
+  StaffAccount,
+} from '../../database/entities/index.js';
 
 const scrypt = promisify(scryptCallback);
 type AccountRole = 'ADMIN' | 'STAFF';
@@ -38,17 +44,19 @@ export class AccountsService {
     username: string,
     password: string,
   ): Promise<{ id: string; displayName: string } | null> {
-    const table = role === 'ADMIN' ? 'admin_account' : 'staff_account';
-    const rows = await this.dataSource.query<
-      { id: string; display_name: string; password_hash: string }[]
-    >(
-      `SELECT id, display_name, password_hash FROM ${table} WHERE username=$1 AND disabled_at IS NULL`,
-      [username],
-    );
-    const account = rows[0];
-    if (!account || !(await verifyPassword(password, account.password_hash)))
+    const account =
+      role === 'ADMIN'
+        ? await this.dataSource.getRepository(AdminAccount).findOneBy({
+            username,
+            disabledAt: IsNull(),
+          })
+        : await this.dataSource.getRepository(StaffAccount).findOneBy({
+            username,
+            disabledAt: IsNull(),
+          });
+    if (!account || !(await verifyPassword(password, account.passwordHash)))
       return null;
-    return { id: account.id, displayName: account.display_name };
+    return { id: account.id, displayName: account.displayName };
   }
 
   async disable(
@@ -58,13 +66,23 @@ export class AccountsService {
   ): Promise<void> {
     const table = role === 'ADMIN' ? 'admin_account' : 'staff_account';
     await this.dataSource.transaction(async (manager) => {
-      await manager.query(`UPDATE ${table} SET disabled_at=now() WHERE id=$1`, [
-        subjectId,
-      ]);
-      await manager.query(
-        `INSERT INTO audit_event (id, actor_type, actor_id, action, resource_type, resource_id) VALUES ($1,'ADMIN',$2,'ACCOUNT_DISABLED',$3,$4)`,
-        [randomUUID(), actorAdminId, table, subjectId],
-      );
+      if (role === 'ADMIN') {
+        await manager.getRepository(AdminAccount).update(subjectId, {
+          disabledAt: () => 'now()',
+        });
+      } else {
+        await manager.getRepository(StaffAccount).update(subjectId, {
+          disabledAt: () => 'now()',
+        });
+      }
+      await manager.getRepository(AuditEvent).insert({
+        id: randomUUID(),
+        actorType: 'ADMIN',
+        actorId: actorAdminId,
+        action: 'ACCOUNT_DISABLED',
+        resourceType: table,
+        resourceId: subjectId,
+      });
     });
   }
 }

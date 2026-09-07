@@ -222,25 +222,25 @@ git commit -m "Use repository for administrator seed"
 - Preserves: current controller response shapes, authorization behavior, session
   revocation, and audit records.
 
-- [ ] **Step 1: Complete characterization coverage for account administration**
+- [x] **Step 1: Complete characterization coverage for account administration**
 
 Cover administrator login lookup, staff creation/update/disable/reset,
 permission replacement, and audit persistence through public service or HTTP
 behavior. Assert database results, not mocked repository calls.
 
-- [ ] **Step 2: Run both suites and require a green refactoring baseline**
+- [x] **Step 2: Run both suites and require a green refactoring baseline**
 
 Run the two integration suites. All behavior assertions must pass before this
 internal refactor; if a missing behavior is discovered, add its failing
 regression test and fix that behavior separately before continuing.
 
-- [ ] **Step 3: Refactor simple CRUD to repositories**
+- [x] **Step 3: Refactor simple CRUD to repositories**
 
 Use injected or data-source repositories for single-table operations. Use one
 `EntityManager` transaction when permissions and audit records change together.
 Keep specialized raw SQL only where it carries a documented PostgreSQL behavior.
 
-- [ ] **Step 4: Run auth, staff, and full API integration tests**
+- [x] **Step 4: Run auth, staff, and full API integration tests**
 
 ```bash
 pnpm --filter @spark/api test:integration
@@ -248,7 +248,7 @@ pnpm --filter @spark/api test:integration
 
 Expected: all API integration tests pass with no response-contract changes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/auth apps/api/src/staff apps/api/test

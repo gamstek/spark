@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ActivitiesService } from '../src/activities/activities.service.js';
 import { PublishService } from '../src/activities/publish.service.js';
+import { AccountsService } from '../src/auth/accounts.service.js';
+import { SessionService } from '../src/auth/session.service.js';
 import { PrizesService } from '../src/prizes/prizes.service.js';
 import { StaffService } from '../src/staff/staff.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
@@ -167,16 +169,32 @@ describe('admin operations', () => {
       [created.id],
     );
     expect(stored[0]?.password_hash).not.toContain('temporary-password');
+
+    const sessions = new SessionService(database.dataSource, 'test-secret');
+    const session = await sessions.create('STAFF', created.id);
     await service.update(
       created.id,
       { displayName: 'Updated operator', activityIds: [] },
       scenario.adminId,
     );
+    await expect(
+      service.hasActivityPermission(created.id, scenario.activityId),
+    ).resolves.toBe(false);
     await service.resetPassword(
       created.id,
       'replacement-password',
       scenario.adminId,
     );
+    await expect(sessions.resolve(session.token, 'STAFF')).resolves.toBeNull();
+
+    const accounts = new AccountsService(database.dataSource);
+    await expect(
+      accounts.authenticate('STAFF', 'operator-new', 'temporary-password'),
+    ).resolves.toBeNull();
+    await expect(
+      accounts.authenticate('STAFF', 'operator-new', 'replacement-password'),
+    ).resolves.toMatchObject({ id: created.id });
+
     await service.setDisabled(created.id, true, scenario.adminId);
     const updated = (await service.list()) as {
       id: string;
@@ -191,5 +209,21 @@ describe('admin operations', () => {
     expect(
       updated.find((row) => row.id === created.id)?.disabled_at,
     ).not.toBeNull();
+    await expect(
+      accounts.authenticate('STAFF', 'operator-new', 'replacement-password'),
+    ).resolves.toBeNull();
+
+    const auditActions = await database.dataSource.query<{ action: string }[]>(
+      `SELECT action FROM audit_event WHERE resource_id=$1`,
+      [created.id],
+    );
+    expect(auditActions.map(({ action }) => action)).toEqual(
+      expect.arrayContaining([
+        'STAFF_CREATED',
+        'STAFF_UPDATED',
+        'STAFF_PASSWORD_RESET',
+        'STAFF_DISABLED',
+      ]),
+    );
   });
 });
