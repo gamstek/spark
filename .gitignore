@@ -1,1 +1,15 @@
 .worktrees/
+node_modules/
+.turbo/
+dist/
+*.tsbuildinfo
+coverage/
+.env
+.env.*
+!.env.example
+.npm-cache/
+.pnpm-store/
+playwright-report/
+test-results/
+apps/api/uploads/
+apps/api/exports/

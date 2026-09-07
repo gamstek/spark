@@ -1,0 +1,31 @@
+{
+  "name": "spark",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "verify": "turbo run lint typecheck test build"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.4.1",
+    "eslint": "10.0.1",
+    "prettier": "3.9.6",
+    "turbo": "2.10.12",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.69.0",
+    "vitest": "5.0.0"
+  }
+}
