@@ -12,6 +12,8 @@ export class WechatSubscriptionCache1788739201000 implements MigrationInterface 
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX wechat_identity_subscription_cache_idx; ALTER TABLE wechat_identity DROP COLUMN subscription_checked_at, DROP COLUMN subscribed;`);
+    await queryRunner.query(
+      `DROP INDEX wechat_identity_subscription_cache_idx; ALTER TABLE wechat_identity DROP COLUMN subscription_checked_at, DROP COLUMN subscribed;`,
+    );
   }
 }

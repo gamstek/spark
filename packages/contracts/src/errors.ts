@@ -1,10 +1,59 @@
 import { z } from 'zod';
 
 export const ApiErrorCodeSchema = z.enum([
-  'OUT_OF_STOCK', 'ACTIVITY_ENDED', 'NOT_QUALIFIED', 'UNAUTHORIZED', 'FORBIDDEN',
-  'RECORD_CONFLICT', 'REDEMPTION_EXPIRED', 'VERSION_CONFLICT', 'UNSUPPORTED_TEMPLATE',
+  'OUT_OF_STOCK',
+  'ACTIVITY_ENDED',
+  'NOT_QUALIFIED',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'RECORD_CONFLICT',
+  'REDEMPTION_EXPIRED',
+  'VERSION_CONFLICT',
+  'UNSUPPORTED_TEMPLATE',
+  'VALIDATION_ERROR',
+  'ACTIVITY_NOT_FOUND',
+  'ACTIVITY_LOCKED',
+  'ACTIVITY_STARTED',
+  'DRAFT_NOT_FOUND',
+  'EXPORT_NOT_FOUND',
+  'PRIZE_CODE_NOT_FOUND',
+  'PRIZE_CODE_NOT_AVAILABLE',
+  'CSRF_INVALID',
+  'ORIGIN_INVALID',
+  'INTERNAL_ERROR',
+  'INVALID_ACTIVITY',
+  'INVALID_ACTIVITY_TIME',
+  'INVALID_TEMPLATE_CONFIG',
+  'PRIZE_REQUIRED',
+  'CALLBACK_INVALID',
+  'CALLBACK_NOT_PERSISTED',
+  'CALLBACK_UNAUTHORIZED',
+  'FORM_PARTICIPATION_MISMATCH',
+  'RECORD_PARTICIPATION_CONFLICT',
+  'FORM_PREFILL_SAMPLE_INVALID',
+  'FORM_NOT_AVAILABLE',
+  'EXPORT_STORAGE_INVALID',
+  'DATABASE_UNAVAILABLE',
+  'LEAD_REQUIRED',
+  'SUBSCRIPTION_REQUIRED',
+  'MEDIA_TOO_LARGE',
+  'UNSUPPORTED_MEDIA',
+  'INVALID_PRIZE',
+  'INVALID_STOCK_QUANTITY',
+  'INVALID_PASSWORD',
+  'INVALID_STAFF',
+  'STAFF_NOT_FOUND',
+  'OAUTH_STATE_INVALID',
+  'RETURN_PATH_INVALID',
+  'WECHAT_REQUEST_FAILED',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 
-export const ApiErrorSchema = z.object({ code: ApiErrorCodeSchema, message: z.string().min(1).max(500), requestId: z.string().min(1).max(128) }).strict();
+export const ApiErrorSchema = z
+  .object({
+    code: ApiErrorCodeSchema,
+    message: z.string().min(1).max(500),
+    requestId: z.string().min(1).max(128),
+  })
+  .strict();
 export type ApiError = z.infer<typeof ApiErrorSchema>;

@@ -1,4 +1,11 @@
-import { Button, Card, Flex, Heading, Table, TextField } from '@radix-ui/themes';
+import {
+  Button,
+  Card,
+  Flex,
+  Heading,
+  Table,
+  TextField,
+} from '@radix-ui/themes';
 import { randomUUID } from '../../random';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -14,9 +21,22 @@ export function PrizesPage() {
   const { id } = useParams();
   const [rows, setRows] = useState<Prize[]>([]);
   const [message, setMessage] = useState('');
-  const load = () => api<Prize[]>(`admin/prizes/activities/${id}`).then(setRows);
+  const [started, setStarted] = useState(false);
+  const load = () =>
+    api<Prize[]>(`admin/prizes/activities/${id}`).then(setRows);
   useEffect(() => {
     void load();
+    api<{ published_version_id: string | null; starts_at: string | null }>(
+      `admin/activities/${id}`,
+    ).then((activity) => {
+      setStarted(
+        Boolean(
+          activity.published_version_id &&
+          activity.starts_at &&
+          new Date(activity.starts_at) <= new Date(),
+        ),
+      );
+    });
   }, [id]);
   async function create(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,7 +56,10 @@ export function PrizesPage() {
     const f = new FormData(e.currentTarget);
     await api(`admin/prizes/activity-prizes/${prizeId}/stock`, {
       method: 'POST',
-      body: JSON.stringify({ quantity: Number(f.get('quantity')), operationId: randomUUID() }),
+      body: JSON.stringify({
+        quantity: Number(f.get('quantity')),
+        operationId: randomUUID(),
+      }),
     });
     setMessage('库存已添加');
     await load();
@@ -56,7 +79,12 @@ export function PrizesPage() {
               <Table.Cell>
                 <form onSubmit={(e) => add(r.id, e)}>
                   <Flex gap="2">
-                    <TextField.Root name="quantity" type="number" min="1" placeholder="增加数量" />
+                    <TextField.Root
+                      name="quantity"
+                      type="number"
+                      min="1"
+                      placeholder="增加数量"
+                    />
                     <Button type="submit">添加库存</Button>
                   </Flex>
                 </form>
@@ -65,23 +93,35 @@ export function PrizesPage() {
           ))}
         </Table.Body>
       </Table.Root>
-      <Card>
-        <form onSubmit={create}>
-          <Flex gap="2">
-            <TextField.Root name="name" placeholder="奖品名称" required />
-            <TextField.Root name="stock" type="number" min="0" placeholder="初始库存" required />
-            <TextField.Root
-              name="weight"
-              type="number"
-              min="0.000001"
-              step="any"
-              placeholder="权重"
-              required
-            />
-            <Button type="submit">新增奖项</Button>
-          </Flex>
-        </form>
-      </Card>
+      {!started && (
+        <Card>
+          <form onSubmit={create}>
+            <Flex gap="2">
+              <TextField.Root
+                name="name"
+                placeholder="奖品名称"
+                required
+              />
+              <TextField.Root
+                name="stock"
+                type="number"
+                min="0"
+                placeholder="初始库存"
+                required
+              />
+              <TextField.Root
+                name="weight"
+                type="number"
+                min="0.000001"
+                step="any"
+                placeholder="权重"
+                required
+              />
+              <Button type="submit">新增奖项</Button>
+            </Flex>
+          </form>
+        </Card>
+      )}
       {message && <p>{message}</p>}
     </>
   );

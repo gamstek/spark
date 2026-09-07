@@ -40,6 +40,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @spark/api db:migrate
+      - run: pnpm --filter @spark/api templates:check
       - run: pnpm verify
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test tests/e2e/admin.spec.ts

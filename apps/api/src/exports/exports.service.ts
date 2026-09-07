@@ -104,12 +104,19 @@ export class ExportsService {
   async cleanupExpired(): Promise<number> {
     const rows = await this.dataSource.query<
       { id: string; storage_key: string | null }[]
-    >(
-      `DELETE FROM export_job WHERE expires_at<=now() RETURNING id,storage_key`,
-    );
-    for (const row of rows)
-      if (row.storage_key && /^[0-9a-f-]+\.xlsx$/i.test(row.storage_key))
-        await unlink(join(this.root, row.storage_key)).catch(() => undefined);
+    >(`SELECT id,storage_key FROM export_job WHERE expires_at<=now()`);
+    for (const row of rows) {
+      if (row.storage_key && /^[0-9a-f-]+\.xlsx$/i.test(row.storage_key)) {
+        await unlink(join(this.root, row.storage_key)).catch(
+          (error: NodeJS.ErrnoException) => {
+            if (error.code !== 'ENOENT') throw error;
+          },
+        );
+      }
+      await this.dataSource.query(`DELETE FROM export_job WHERE id=$1`, [
+        row.id,
+      ]);
+    }
     return rows.length;
   }
 }

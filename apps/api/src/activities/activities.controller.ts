@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ActivityInputSchema } from '@spark/contracts';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { RequireSession, SessionGuard } from '../auth/session.guard.js';
 import { ActivitiesService } from './activities.service.js';
@@ -18,16 +29,29 @@ export class ActivitiesController {
   @Get(':id') get(@Param('id') id: string) {
     return this.activities.get(id);
   }
-  @Post() @UseGuards(CsrfGuard) create(@Body() body: Parameters<ActivitiesService['create']>[0]) {
-    return this.activities.create(body);
+  @Post() @UseGuards(CsrfGuard) create(@Body() body: unknown) {
+    return this.activities.create(ActivityInputSchema.parse(body));
   }
   @Patch(':id/draft') @UseGuards(CsrfGuard) updateDraft(
     @Param('id') id: string,
-    @Body() body: { expectedRevision: number; name?: string; config?: unknown },
+    @Body()
+    body: {
+      expectedRevision: number;
+      name?: string;
+      config?: unknown;
+      startsAt?: string;
+      drawEndsAt?: string;
+      endsAt?: string;
+      redeemEndsAt?: string;
+    },
   ) {
     return this.activities.updateDraft(id, body.expectedRevision, {
       name: body.name,
       config: body.config,
+      startsAt: body.startsAt,
+      drawEndsAt: body.drawEndsAt,
+      endsAt: body.endsAt,
+      redeemEndsAt: body.redeemEndsAt,
     });
   }
   @Post(':id/publish') @UseGuards(CsrfGuard) publish(
@@ -35,7 +59,11 @@ export class ActivitiesController {
     @Body() body: { expectedRevision: number },
     @Req() request: AdminRequest,
   ) {
-    return this.publishing.publish(id, body.expectedRevision, request.session.subjectId);
+    return this.publishing.publish(
+      id,
+      body.expectedRevision,
+      request.session.subjectId,
+    );
   }
   @Post(':id/end-draw') @UseGuards(CsrfGuard) async endDraw(
     @Param('id') id: string,

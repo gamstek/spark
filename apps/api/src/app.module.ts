@@ -46,6 +46,14 @@ import { ExportsController } from './exports/exports.controller.js';
 import { ExportsService } from './exports/exports.service.js';
 import { ExportsHandler } from './exports/exports.handler.js';
 import { ExportsCleanupService } from './exports/exports-cleanup.service.js';
+import { JobsWorker } from './jobs/jobs.worker.js';
+import { JOB_POLL_INTERVAL_MS, JobsRunner } from './jobs/jobs.runner.js';
+import { RuntimeController } from './runtime/runtime.controller.js';
+import { RuntimeService } from './runtime/runtime.service.js';
+import {
+  MAINTENANCE_INTERVAL_MS,
+  MaintenanceService,
+} from './maintenance/maintenance.service.js';
 
 @Module({
   controllers: [
@@ -65,6 +73,7 @@ import { ExportsCleanupService } from './exports/exports-cleanup.service.js';
     RedemptionsController,
     ReportsController,
     ExportsController,
+    RuntimeController,
   ],
   providers: [
     {
@@ -114,6 +123,19 @@ import { ExportsCleanupService } from './exports/exports-cleanup.service.js';
     ExportsService,
     ExportsCleanupService,
     ExportsHandler,
+    RuntimeService,
+    MaintenanceService,
+    {
+      provide: MAINTENANCE_INTERVAL_MS,
+      useFactory: () =>
+        Number(process.env.MAINTENANCE_INTERVAL_MS ?? 60 * 60 * 1000),
+    },
+    JobsWorker,
+    JobsRunner,
+    {
+      provide: JOB_POLL_INTERVAL_MS,
+      useFactory: () => Number(process.env.JOB_POLL_INTERVAL_MS ?? 1000),
+    },
   ],
 })
 export class AppModule {}

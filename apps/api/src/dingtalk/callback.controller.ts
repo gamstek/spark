@@ -1,7 +1,19 @@
-import { Body, Controller, Headers, Inject, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  Inject,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 
 import { RequireSession, SessionGuard } from '../auth/session.guard.js';
-import { DingTalkCallbackService, type CallbackInput } from './callback.service.js';
+import {
+  DingTalkCallbackService,
+  type CallbackInput,
+} from './callback.service.js';
 import { DingTalkPrefillService } from './prefill.service.js';
 
 type ActivityRequest = { session: { subjectId: string } };
@@ -9,13 +21,20 @@ type ActivityRequest = { session: { subjectId: string } };
 @Controller()
 export class DingTalkCallbackController {
   constructor(
-    @Inject(DingTalkCallbackService) private readonly callbacks: DingTalkCallbackService,
-    @Inject(DingTalkPrefillService) private readonly prefill: DingTalkPrefillService,
+    @Inject(DingTalkCallbackService)
+    private readonly callbacks: DingTalkCallbackService,
+    @Inject(DingTalkPrefillService)
+    private readonly prefill: DingTalkPrefillService,
   ) {}
 
   @Post('integrations/dingtalk/form-submissions')
-  accept(@Body() input: CallbackInput, @Headers('authorization') authorization?: string) {
-    const secret = authorization?.startsWith('Bearer ') ? authorization.slice(7) : '';
+  accept(
+    @Body() input: CallbackInput,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const secret = authorization?.startsWith('Bearer ')
+      ? authorization.slice(7)
+      : '';
     return this.callbacks.accept(input, secret);
   }
 

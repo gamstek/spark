@@ -16,11 +16,15 @@ describe('durable PostgreSQL jobs', () => {
   afterAll(async () => database.close());
 
   it('rolls back an enqueued job with its caller transaction', async () => {
-    await expect(database.dataSource.transaction(async (manager) => {
-      await jobs.enqueue(manager, 'ROLLBACK', 'rollback-key', { value: 1 });
-      throw new Error('rollback');
-    })).rejects.toThrow('rollback');
-    const rows = await database.dataSource.query<{ count: string }[]>(`SELECT count(*) FROM background_job WHERE deduplication_key='rollback-key'`);
+    await expect(
+      database.dataSource.transaction(async (manager) => {
+        await jobs.enqueue(manager, 'ROLLBACK', 'rollback-key', { value: 1 });
+        throw new Error('rollback');
+      }),
+    ).rejects.toThrow('rollback');
+    const rows = await database.dataSource.query<{ count: string }[]>(
+      `SELECT count(*) FROM background_job WHERE deduplication_key='rollback-key'`,
+    );
     expect(Number(rows[0]?.count)).toBe(0);
   });
 
@@ -29,25 +33,39 @@ describe('durable PostgreSQL jobs', () => {
       await jobs.enqueue(manager, 'ONCE', 'same-key', { first: true });
       await jobs.enqueue(manager, 'ONCE', 'same-key', { first: false });
     });
-    const rows = await database.dataSource.query<{ count: string }[]>(`SELECT count(*) FROM background_job WHERE deduplication_key='same-key'`);
+    const rows = await database.dataSource.query<{ count: string }[]>(
+      `SELECT count(*) FROM background_job WHERE deduplication_key='same-key'`,
+    );
     expect(Number(rows[0]?.count)).toBe(1);
   });
 
   it('lets only one concurrent worker claim a job', async () => {
-    await database.dataSource.query(`UPDATE background_job SET status='SUCCEEDED' WHERE deduplication_key='same-key'`);
-    await database.dataSource.transaction((manager) => jobs.enqueue(manager, 'CONCURRENT', 'concurrent-key', {}));
+    await database.dataSource.query(
+      `UPDATE background_job SET status='SUCCEEDED' WHERE deduplication_key='same-key'`,
+    );
+    await database.dataSource.transaction((manager) =>
+      jobs.enqueue(manager, 'CONCURRENT', 'concurrent-key', {}),
+    );
     const workerA = new JobsWorker(database.dataSource, 'worker-a');
     const workerB = new JobsWorker(database.dataSource, 'worker-b');
-    const [a, b] = await Promise.all([workerA.claimDueJob(new Date()), workerB.claimDueJob(new Date())]);
+    const [a, b] = await Promise.all([
+      workerA.claimDueJob(new Date()),
+      workerB.claimDueJob(new Date()),
+    ]);
     expect([a, b].filter(Boolean)).toHaveLength(1);
   });
 
   it('recovers an expired lease and rejects completion by the old owner', async () => {
-    await database.dataSource.transaction((manager) => jobs.enqueue(manager, 'RECOVER', 'recover-key', {}));
+    await database.dataSource.transaction((manager) =>
+      jobs.enqueue(manager, 'RECOVER', 'recover-key', {}),
+    );
     const oldWorker = new JobsWorker(database.dataSource, 'old-worker');
     const claimed = await oldWorker.claimDueJob(new Date());
     expect(claimed).not.toBeNull();
-    await database.dataSource.query(`UPDATE background_job SET lease_until=now() - interval '1 second' WHERE id=$1`, [claimed?.id]);
+    await database.dataSource.query(
+      `UPDATE background_job SET lease_until=now() - interval '1 second' WHERE id=$1`,
+      [claimed?.id],
+    );
     const newWorker = new JobsWorker(database.dataSource, 'new-worker');
     const reclaimed = await newWorker.claimDueJob(new Date());
     expect(reclaimed?.id).toBe(claimed?.id);
@@ -56,9 +74,13 @@ describe('durable PostgreSQL jobs', () => {
   });
 
   it('retries with backoff, stops after five attempts, and can replay original payload', async () => {
-    await database.dataSource.transaction((manager) => jobs.enqueue(manager, 'FAIL', 'failure-key', { safe: 'original' }));
+    await database.dataSource.transaction((manager) =>
+      jobs.enqueue(manager, 'FAIL', 'failure-key', { safe: 'original' }),
+    );
     const worker = new JobsWorker(database.dataSource, 'failure-worker');
-    worker.register('FAIL', async () => { throw new Error('phone 13800138000 failed'); });
+    worker.register('FAIL', async () => {
+      throw new Error('phone 13800138000 failed');
+    });
     let now = new Date();
     for (let attempt = 0; attempt < 5; attempt += 1) {
       await worker.runDueJobs(now);
@@ -69,7 +91,12 @@ describe('durable PostgreSQL jobs', () => {
     expect(job).toMatchObject({ attempts: 5, status: 'FAILED' });
     expect(job?.lastError).not.toContain('13800138000');
     await jobs.retry(job!.id);
-    const replayed = await database.dataSource.query<{ payload: { safe: string }; attempts: number }[]>(`SELECT payload, attempts FROM background_job WHERE id=$1`, [job!.id]);
-    expect(replayed[0]).toMatchObject({ payload: { safe: 'original' }, attempts: 0 });
+    const replayed = await database.dataSource.query<
+      { payload: { safe: string }; attempts: number }[]
+    >(`SELECT payload, attempts FROM background_job WHERE id=$1`, [job!.id]);
+    expect(replayed[0]).toMatchObject({
+      payload: { safe: 'original' },
+      attempts: 0,
+    });
   });
 });

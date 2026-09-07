@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ApiErrorCodeSchema,
+  ActivityInputSchema,
   CallbackInputSchema,
   LotteryConfigSchema,
   SessionViewSchema,
@@ -33,17 +34,65 @@ describe('shared API contracts', () => {
   });
 
   it('uses the template package as the only lottery config schema', () => {
-    expect(LotteryConfigSchema.safeParse({ formUrl: 'javascript:alert(1)' }).success).toBe(false);
+    expect(
+      LotteryConfigSchema.safeParse({ formUrl: 'javascript:alert(1)' }).success,
+    ).toBe(false);
   });
 
-  it.each(['OUT_OF_STOCK', 'ACTIVITY_ENDED', 'NOT_QUALIFIED', 'UNAUTHORIZED', 'FORBIDDEN',
-    'RECORD_CONFLICT', 'REDEMPTION_EXPIRED', 'VERSION_CONFLICT', 'UNSUPPORTED_TEMPLATE'])(
-    'publishes required error code %s', (code) => {
+  it('accepts Shanghai-offset activity times and rejects a client code', () => {
+    const input = {
+      name: '展会活动',
+      templateId: 'exhibition-lottery',
+      templateVersion: 1,
+      startsAt: '2026-09-08T09:00:00+08:00',
+      drawEndsAt: '2026-09-09T09:00:00+08:00',
+      endsAt: '2026-09-10T09:00:00+08:00',
+      redeemEndsAt: '2026-09-11T09:00:00+08:00',
+      config: {
+        formId: 'form-id',
+        formUrl:
+          'https://alidocs.dingtalk.com/notable/share/form/test?participant=',
+        prefillField: 'participant',
+        fieldMapping: {
+          participationId: '参与编号',
+          name: '姓名',
+          phone: '手机号',
+        },
+        requireSubscribe: true,
+        heroAssetId: 'hero',
+        rulesText: '活动规则',
+      },
+    };
+    expect(ActivityInputSchema.safeParse(input).success).toBe(true);
+    expect(
+      ActivityInputSchema.safeParse({ ...input, code: 'manual' }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    'OUT_OF_STOCK',
+    'ACTIVITY_ENDED',
+    'NOT_QUALIFIED',
+    'UNAUTHORIZED',
+    'FORBIDDEN',
+    'RECORD_CONFLICT',
+    'REDEMPTION_EXPIRED',
+    'VERSION_CONFLICT',
+    'UNSUPPORTED_TEMPLATE',
+  ])('publishes required error code %s', (code) => {
     expect(ApiErrorCodeSchema.parse(code)).toBe(code);
   });
 
   it.each(['password', 'passwordHash', 'sessionHash', 'callbackSecret'])(
-    'rejects sensitive session response field %s', (field) => {
-    expect(SessionViewSchema.safeParse({ id: callback.participationId, role: 'ADMIN', [field]: 'secret' }).success).toBe(false);
-  });
+    'rejects sensitive session response field %s',
+    (field) => {
+      expect(
+        SessionViewSchema.safeParse({
+          id: callback.participationId,
+          role: 'ADMIN',
+          [field]: 'secret',
+        }).success,
+      ).toBe(false);
+    },
+  );
 });

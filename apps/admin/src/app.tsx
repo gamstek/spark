@@ -1,4 +1,5 @@
-import { Box, Flex, Heading, Theme } from '@radix-ui/themes';
+import { Box, Flex, Heading, Spinner, Theme } from '@radix-ui/themes';
+import { useEffect, useState } from 'react';
 import {
   BrowserRouter,
   NavLink,
@@ -16,7 +17,23 @@ import { StaffPage } from './features/staff/staff-page';
 import { ReportsOverviewPage } from './features/reports/overview-page';
 import { RedemptionsListPage } from './features/redemptions/list-page';
 import { ExportsPage } from './features/exports/exports-page';
+import { restoreAdminSession } from './api';
 function Shell() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    restoreAdminSession().then(() => setReady(true));
+  }, []);
+  if (!ready) {
+    return (
+      <Flex
+        align="center"
+        justify="center"
+        minHeight="100vh"
+      >
+        <Spinner size="3" />
+      </Flex>
+    );
+  }
   return (
     <Flex minHeight="100vh">
       <Box className="sidebar">

@@ -2,6 +2,8 @@
 
 ## 自动检查
 
+当前自动检查覆盖 API 生产任务装配、活动运行时状态计算、版本化奖项快照、兑奖过期、管理后台、报表与导出。activity、staff 页面及其 Playwright 流程按产品决定暂缓，不计入当前完成范围。
+
 - 从空 PostgreSQL 执行全部迁移，运行 `pnpm verify`。
 - 运行管理端 Playwright 测试；收到 activity、staff 设计稿并完成 T12/T13 后，再把对应端到端流程加入 CI。
 - 对部署地址运行 `tests/e2e/deployment.spec.ts`，确认三个入口可深链接刷新，未知

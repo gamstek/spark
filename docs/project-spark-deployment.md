@@ -23,10 +23,12 @@ Web 容器和 PostgreSQL。数据库、媒体和私有导出文件分别使用�
 docker compose --env-file deploy/.env -f deploy/compose.production.yaml up -d --build
 docker compose --env-file deploy/.env -f deploy/compose.production.yaml ps
 curl -fsS https://campaign.example.com/api/health/live
+curl -fsS https://campaign.example.com/api/health/ready
 ```
 
 API 启动前自动运行数据库迁移。上传限制为 7 MiB，业务图片仍执行 5
-MiB 校验。Nginx 对普通 API 和登录/OAuth 路由采用不同限流；Session
+MiB 校验；`/media/`
+从只读持久卷提供已校验图片。API 内置 PostgreSQL 任务轮询和定期过期数据维护。Nginx 对普通 API 和登录/OAuth 路由采用不同限流；Session
 Cookie 在生产环境使用 `Secure`、`HttpOnly` 和 `SameSite=Lax`。
 
 ## 备份与恢复

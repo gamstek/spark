@@ -12,6 +12,8 @@
 
 ## Global Constraints
 
+**执行状态（2026-09-07）：** T01–T11、T14–T15 已实现并进入回归验证；D01、D02、T12、T13 按产品决定暂缓，等待活动端和工作人员端设计稿；T16 的代码与部署配置部分已完成，微信、钉钉、移动端和恢复演练仍需真实环境验收。下方复选框保留为原始验收清单，只有取得对应证据后才逐项勾选。
+
 - 应用名：`apps/activity`、`apps/admin`、`apps/staff`、`apps/api`。
 - 共享包：`packages/contracts`、`packages/templates`；包名分别为 `@spark/contracts`、`@spark/templates`。
 - 前端应用包名为 `@spark/activity`、`@spark/admin`、`@spark/staff`，服务端为 `@spark/api`。

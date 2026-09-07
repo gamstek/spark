@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { RequireSession, SessionGuard } from '../auth/session.guard.js';
 import { PrizesService } from './prizes.service.js';
@@ -21,7 +30,12 @@ export class PrizesController {
     @Body() body: { quantity: number; operationId: string },
     @Req() request: { session: { subjectId: string } },
   ) {
-    await this.prizes.addStock(id, body.quantity, body.operationId, request.session.subjectId);
+    await this.prizes.addStock(
+      id,
+      body.quantity,
+      body.operationId,
+      request.session.subjectId,
+    );
     return { success: true };
   }
 }

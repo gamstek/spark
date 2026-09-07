@@ -6,6 +6,7 @@ export interface ActivityReport {
   uniqueVisitors: number;
   participants: number;
   leads: number;
+  subscribed: number;
   totalStock: number;
   awarded: number;
   available: number;
@@ -13,6 +14,7 @@ export interface ActivityReport {
   redeemed: number;
   expired: number;
   channels: { code: string; visitors: number }[];
+  prizes: { name: string; awarded: number; redeemed: number }[];
 }
 
 @Injectable()
@@ -41,22 +43,41 @@ export class ReportsService {
       `SELECT count(*)::int AS participants,count(*) FILTER (WHERE lead_completed)::int AS leads FROM activity_participation WHERE activity_id=$1`,
       [activityId],
     );
+    const [subscription] = await this.dataSource.query<
+      { subscribed: number }[]
+    >(
+      `SELECT count(DISTINCT p.user_id) FILTER (WHERE w.subscribed=true)::int AS subscribed
+       FROM activity_participation p LEFT JOIN wechat_identity w ON w.user_id=p.user_id
+       WHERE p.activity_id=$1`,
+      [activityId],
+    );
     const [inventory] = await this.dataSource.query<
       { total_stock: number; awarded: number }[]
     >(
-      `SELECT COALESCE(sum(total_stock),0)::int AS total_stock,COALESCE(sum(awarded_stock),0)::int AS awarded FROM activity_prize WHERE activity_id=$1`,
+      `SELECT COALESCE(sum(ap.total_stock),0)::int AS total_stock,COALESCE(sum(ap.awarded_stock),0)::int AS awarded
+       FROM activity_version_prize vp JOIN activity_prize ap ON ap.id=vp.activity_prize_id
+       WHERE vp.activity_version_id=(SELECT published_version_id FROM activity WHERE id=$1)`,
       [activityId],
     );
     const [redemptions] = await this.dataSource.query<
       { pending: number; redeemed: number; expired: number }[]
     >(
-      `SELECT count(*) FILTER (WHERE r.status='WAIT_REDEEM')::int AS pending,count(*) FILTER (WHERE r.status='REDEEMED')::int AS redeemed,count(*) FILTER (WHERE r.status='EXPIRED')::int AS expired FROM redemption r JOIN lottery_record l ON l.id=r.lottery_record_id WHERE l.activity_id=$1`,
+      `SELECT count(*) FILTER (WHERE r.status='WAIT_REDEEM' AND r.redeem_end_at>now())::int AS pending,count(*) FILTER (WHERE r.status='REDEEMED')::int AS redeemed,count(*) FILTER (WHERE r.status='EXPIRED' OR (r.status='WAIT_REDEEM' AND r.redeem_end_at<=now()))::int AS expired FROM redemption r JOIN lottery_record l ON l.id=r.lottery_record_id WHERE l.activity_id=$1`,
       [activityId],
     );
     const channels = await this.dataSource.query<
       { code: string; visitors: number }[]
     >(
       `WITH first_visit AS (SELECT DISTINCT ON (user_id) user_id,channel_code FROM channel_visit WHERE activity_id=$1 AND user_id IS NOT NULL ORDER BY user_id,visited_at,id) SELECT channel_code AS code,count(*)::int AS visitors FROM first_visit GROUP BY channel_code ORDER BY channel_code`,
+      [activityId],
+    );
+    const prizes = await this.dataSource.query<
+      { name: string; awarded: number; redeemed: number }[]
+    >(
+      `SELECT l.prize_name AS name,count(*)::int AS awarded,
+         count(*) FILTER (WHERE r.status='REDEEMED')::int AS redeemed
+       FROM lottery_record l LEFT JOIN redemption r ON r.lottery_record_id=l.id
+       WHERE l.activity_id=$1 GROUP BY l.prize_name ORDER BY awarded DESC,l.prize_name`,
       [activityId],
     );
     const totalStock = inventory?.total_stock ?? 0;
@@ -67,6 +88,7 @@ export class ReportsService {
       uniqueVisitors: traffic?.unique_visitors ?? 0,
       participants: participation?.participants ?? 0,
       leads: participation?.leads ?? 0,
+      subscribed: subscription?.subscribed ?? 0,
       totalStock,
       awarded,
       available: totalStock - awarded,
@@ -74,6 +96,7 @@ export class ReportsService {
       redeemed: redemptions?.redeemed ?? 0,
       expired: redemptions?.expired ?? 0,
       channels,
+      prizes,
     };
   }
 }

@@ -1,7 +1,12 @@
 import { Button, Heading, Table } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-type Job = { id: string; kind: string; attempts: number; lastError: string | null };
+type Job = {
+  id: string;
+  kind: string;
+  attempts: number;
+  lastError: string | null;
+};
 export function JobsPage() {
   const [rows, setRows] = useState<Job[]>([]);
   const load = () => api<Job[]>('admin/jobs/failed').then(setRows);

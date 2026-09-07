@@ -5,6 +5,7 @@ import {
   type NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module.js';
+import { ApiExceptionFilter } from './common/api-exception.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -27,6 +28,7 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api');
+  app.useGlobalFilters(new ApiExceptionFilter());
   app.enableShutdownHooks();
 
   await app.listen(

@@ -8,8 +8,27 @@ type Detail = {
   code: string;
   revision: number;
   starts_at?: string;
+  draw_ends_at?: string;
+  ends_at?: string;
+  redeem_ends_at?: string;
+  config?: Record<string, unknown>;
   published_version_id?: string | null;
 };
+const toShanghaiInput = (value?: string) =>
+  value
+    ? new Date(new Date(value).getTime() + 8 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 16)
+    : '';
+const fromShanghaiInput = (value: FormDataEntryValue | null) =>
+  `${String(value)}:00+08:00`;
+const readBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.readAsDataURL(file);
+  });
 export function ActivityEditPage() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -27,6 +46,18 @@ export function ActivityEditPage() {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
+    let heroAssetId = f.get('heroAssetId');
+    const heroFile = f.get('heroFile');
+    if (heroFile instanceof File && heroFile.size > 0) {
+      const uploaded = await api<{ id: string }>('admin/media', {
+        method: 'POST',
+        body: JSON.stringify({
+          fileName: heroFile.name,
+          contentBase64: await readBase64(heroFile),
+        }),
+      });
+      heroAssetId = uploaded.id;
+    }
     const config = {
       formId: f.get('formId'),
       formUrl: f.get('formUrl'),
@@ -37,7 +68,7 @@ export function ActivityEditPage() {
         phone: '手机号',
       },
       requireSubscribe: true,
-      heroAssetId: f.get('heroAssetId'),
+      heroAssetId,
       rulesText: f.get('rulesText'),
     };
     try {
@@ -45,27 +76,36 @@ export function ActivityEditPage() {
         const r = await api<{ id: string }>('admin/activities', {
           method: 'POST',
           body: JSON.stringify({
-            code: f.get('code'),
             name: f.get('name'),
             templateId: 'exhibition-lottery',
             templateVersion: 1,
             config,
-            startsAt: f.get('startsAt'),
-            drawEndsAt: f.get('drawEndsAt'),
-            endsAt: f.get('endsAt'),
-            redeemEndsAt: f.get('redeemEndsAt'),
+            startsAt: fromShanghaiInput(f.get('startsAt')),
+            drawEndsAt: fromShanghaiInput(f.get('drawEndsAt')),
+            endsAt: fromShanghaiInput(f.get('endsAt')),
+            redeemEndsAt: fromShanghaiInput(f.get('redeemEndsAt')),
           }),
         });
         nav(`/activities/${r.id}`);
       } else {
-        await api(`admin/activities/${id}/draft`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            expectedRevision: detail?.revision,
-            name: f.get('name'),
-            config,
-          }),
-        });
+        const saved = await api<{ revision: number }>(
+          `admin/activities/${id}/draft`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({
+              expectedRevision: detail?.revision,
+              name: f.get('name'),
+              config,
+              startsAt: fromShanghaiInput(f.get('startsAt')),
+              drawEndsAt: fromShanghaiInput(f.get('drawEndsAt')),
+              endsAt: fromShanghaiInput(f.get('endsAt')),
+              redeemEndsAt: fromShanghaiInput(f.get('redeemEndsAt')),
+            }),
+          },
+        );
+        setDetail(
+          (current) => current && { ...current, revision: saved.revision },
+        );
         setMessage('草稿已保存');
       }
     } catch (err) {
@@ -82,6 +122,7 @@ export function ActivityEditPage() {
         method: 'POST',
         body: JSON.stringify({ expectedRevision: detail?.revision }),
       });
+      setDetail(await api<Detail>(`admin/activities/${id}`));
       setMessage('发布成功');
     } catch {
       setMessage('发布失败，请检查时间、模板和奖项');
@@ -106,25 +147,36 @@ export function ActivityEditPage() {
               defaultValue={detail?.name}
               required
             />
-            <TextField.Root
-              name="code"
-              placeholder="活动路径代码"
-              defaultValue={detail?.code}
-              disabled={id !== 'new'}
-              required
+            {detail?.code && <p>活动地址：/activity/{detail.code}</p>}
+            <ConfigForm
+              locked={locked}
+              value={detail?.config}
             />
-            <ConfigForm locked={locked} />
             {locked && <p>活动已经开始，模板、规则、时间和奖项配置已锁定。</p>}
-            {['startsAt', 'drawEndsAt', 'endsAt', 'redeemEndsAt'].map((x) => (
+            {(
+              [
+                ['startsAt', detail?.starts_at],
+                ['drawEndsAt', detail?.draw_ends_at],
+                ['endsAt', detail?.ends_at],
+                ['redeemEndsAt', detail?.redeem_ends_at],
+              ] as const
+            ).map(([x, value]) => (
               <TextField.Root
                 key={x}
                 name={x}
                 type="datetime-local"
                 required={id === 'new'}
+                defaultValue={toShanghaiInput(value)}
+                disabled={locked}
               />
             ))}
             <Flex gap="3">
-              <Button type="submit">保存草稿</Button>
+              <Button
+                type="submit"
+                disabled={locked}
+              >
+                保存草稿
+              </Button>
               {id !== 'new' && (
                 <Button
                   type="button"

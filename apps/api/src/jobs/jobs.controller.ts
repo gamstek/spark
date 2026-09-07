@@ -1,4 +1,11 @@
-import { Controller, Get, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { RequireSession, SessionGuard } from '../auth/session.guard.js';
@@ -11,7 +18,9 @@ export class JobsController {
   constructor(@Inject(JobsService) private readonly jobs: JobsService) {}
 
   @Get('failed')
-  listFailed() { return this.jobs.listFailed(); }
+  listFailed() {
+    return this.jobs.listFailed();
+  }
 
   @Post(':id/retry')
   @UseGuards(CsrfGuard)

@@ -14,17 +14,27 @@ import { z } from 'zod';
 import { WinViewSchema } from './redemptions.js';
 
 export const RuntimeStepSchema = z.enum([
-  'NOT_STARTED', 'SUBSCRIBE', 'FORM', 'WAITING_FORM', 'LOTTERY', 'OUT_OF_STOCK',
-  'PRIZE', 'REDEEMED', 'EXPIRED', 'ENDED',
+  'NOT_STARTED',
+  'SUBSCRIBE',
+  'FORM',
+  'WAITING_FORM',
+  'LOTTERY',
+  'OUT_OF_STOCK',
+  'PRIZE',
+  'REDEEMED',
+  'EXPIRED',
+  'ENDED',
 ]);
 export type RuntimeStep = z.infer<typeof RuntimeStepSchema>;
 
-export const ActivityRuntimeSchema = z.object({
-  activityCode: z.string().min(1).max(64),
-  templateId: z.string().min(1).max(64),
-  templateVersion: z.int().positive(),
-  participationId: z.uuid(),
-  nextStep: RuntimeStepSchema,
-  win: WinViewSchema.nullable(),
-}).strict();
+export const ActivityRuntimeSchema = z
+  .object({
+    activityCode: z.string().min(1).max(64),
+    templateId: z.string().min(1).max(64),
+    templateVersion: z.int().positive(),
+    participationId: z.uuid(),
+    nextStep: RuntimeStepSchema,
+    win: WinViewSchema.nullable(),
+  })
+  .strict();
 export type ActivityRuntime = z.infer<typeof ActivityRuntimeSchema>;

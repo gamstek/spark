@@ -8,6 +8,7 @@ import { PublishingAndMedia1788739202000 } from '../../database/migrations/17887
 import { DingTalkSubmissions1788739203000 } from '../../database/migrations/1788739203000-DingTalkSubmissions.js';
 import { LotteryRedemptionCodes1788739204000 } from '../../database/migrations/1788739204000-LotteryRedemptionCodes.js';
 import { ExportMetadata1788739205000 } from '../../database/migrations/1788739205000-ExportMetadata.js';
+import { ActivityVersionPrizes1788739206000 } from '../../database/migrations/1788739206000-ActivityVersionPrizes.js';
 
 export interface TestDatabase {
   dataSource: DataSource;
@@ -41,6 +42,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       DingTalkSubmissions1788739203000,
       LotteryRedemptionCodes1788739204000,
       ExportMetadata1788739205000,
+      ActivityVersionPrizes1788739206000,
     ],
     entities: [],
     synchronize: false,
