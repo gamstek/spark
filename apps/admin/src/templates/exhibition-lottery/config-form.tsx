@@ -1,5 +1,39 @@
-import { Flex, Text, TextArea, TextField } from '@radix-ui/themes';
+import { Flex, Heading, Text, TextArea, TextField } from '@radix-ui/themes';
+
 type ConfigValue = Record<string, unknown>;
+
+function FieldLabel({
+  htmlFor,
+  title,
+  description,
+}: {
+  htmlFor: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <label
+      className="field-label"
+      htmlFor={htmlFor}
+    >
+      <Text
+        size="2"
+        weight="medium"
+      >
+        {title}
+      </Text>
+      {description && (
+        <Text
+          size="1"
+          color="gray"
+        >
+          {description}
+        </Text>
+      )}
+    </label>
+  );
+}
+
 export function ConfigForm({
   locked = false,
   value = {},
@@ -8,52 +42,159 @@ export function ConfigForm({
   value?: ConfigValue;
 }) {
   return (
-    <Flex
-      direction="column"
-      gap="3"
-    >
-      <Text weight="bold">展会抽奖模板</Text>
-      <TextField.Root
-        name="formId"
-        placeholder="钉钉表单 ID"
-        defaultValue={String(value.formId ?? '')}
-        required
-        disabled={locked}
-      />
-      <TextField.Root
-        name="formUrl"
-        placeholder="已验证的钉钉预填链接"
-        required
-        disabled={locked}
-        defaultValue={String(value.formUrl ?? '')}
-      />
-      <TextField.Root
-        name="prefillField"
-        placeholder="预填参数名"
-        defaultValue={String(value.prefillField ?? 'participant')}
-        required
-        disabled={locked}
-      />
-      <TextField.Root
-        name="heroAssetId"
-        placeholder="主图资源 ID"
-        defaultValue={String(value.heroAssetId ?? '')}
-        disabled={locked}
-      />
-      {!locked && (
-        <input
-          name="heroFile"
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-        />
-      )}
-      <TextArea
-        name="rulesText"
-        placeholder="活动规则"
-        defaultValue={String(value.rulesText ?? '')}
-        required
-        disabled={locked}
-      />
-    </Flex>
+    <>
+      <section className="form-section">
+        <div className="form-section-heading">
+          <Text
+            size="1"
+            color="iris"
+            weight="bold"
+          >
+            模板配置
+          </Text>
+          <Heading size="4">钉钉留资表单</Heading>
+          <Text
+            as="p"
+            size="2"
+            color="gray"
+          >
+            活动参与者跳转到该表单，提交后通过回调获得抽奖资格。
+          </Text>
+        </div>
+        <div className="form-grid">
+          <Flex
+            direction="column"
+            gap="2"
+          >
+            <FieldLabel
+              htmlFor="form-id"
+              title="钉钉表单 ID"
+            />
+            <TextField.Root
+              id="form-id"
+              name="formId"
+              placeholder="钉钉表单 ID"
+              defaultValue={String(value.formId ?? '')}
+              required
+              disabled={locked}
+            />
+          </Flex>
+          <Flex
+            direction="column"
+            gap="2"
+          >
+            <FieldLabel
+              htmlFor="prefill-field"
+              title="参与编号参数"
+              description="用于把 participationId 写入表单记录"
+            />
+            <TextField.Root
+              id="prefill-field"
+              name="prefillField"
+              placeholder="预填参数名"
+              defaultValue={String(value.prefillField ?? 'participant')}
+              required
+              disabled={locked}
+            />
+          </Flex>
+          <Flex
+            direction="column"
+            gap="2"
+            className="form-grid-wide"
+          >
+            <FieldLabel
+              htmlFor="form-url"
+              title="已验证的表单链接"
+              description="仅支持 alidocs.dingtalk.com 的 HTTPS 预填链接"
+            />
+            <TextField.Root
+              id="form-url"
+              name="formUrl"
+              placeholder="已验证的钉钉预填链接"
+              required
+              disabled={locked}
+              defaultValue={String(value.formUrl ?? '')}
+            />
+          </Flex>
+        </div>
+      </section>
+
+      <section className="form-section">
+        <div className="form-section-heading">
+          <Text
+            size="1"
+            color="iris"
+            weight="bold"
+          >
+            页面内容
+          </Text>
+          <Heading size="4">主视觉与活动规则</Heading>
+          <Text
+            as="p"
+            size="2"
+            color="gray"
+          >
+            上传活动主图，填写参与者在活动页面看到的规则说明。
+          </Text>
+        </div>
+        <div className="form-grid">
+          <Flex
+            direction="column"
+            gap="2"
+          >
+            <FieldLabel
+              htmlFor="hero-asset-id"
+              title="当前主图资源 ID"
+            />
+            <TextField.Root
+              id="hero-asset-id"
+              name="heroAssetId"
+              placeholder="主图资源 ID"
+              defaultValue={String(value.heroAssetId ?? '')}
+              disabled={locked}
+            />
+          </Flex>
+          {!locked && (
+            <Flex
+              direction="column"
+              gap="2"
+            >
+              <FieldLabel
+                htmlFor="hero-file"
+                title="上传新主图"
+                description="JPEG、PNG 或 WebP，最大 5 MB"
+              />
+              <input
+                id="hero-file"
+                className="file-input"
+                name="heroFile"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+              />
+            </Flex>
+          )}
+          <Flex
+            direction="column"
+            gap="2"
+            className="form-grid-wide"
+          >
+            <FieldLabel
+              htmlFor="rules-text"
+              title="活动规则"
+            />
+            <TextArea
+              id="rules-text"
+              name="rulesText"
+              placeholder="活动规则"
+              defaultValue={String(value.rulesText ?? '')}
+              required
+              disabled={locked}
+              resize="vertical"
+              rows={5}
+            />
+          </Flex>
+        </div>
+      </section>
+    </>
   );
 }

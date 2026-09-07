@@ -1,12 +1,7 @@
-import { Box, Flex, Heading, Spinner, Theme } from '@radix-ui/themes';
+import { Flex, Spinner, Theme } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
-import {
-  BrowserRouter,
-  NavLink,
-  Navigate,
-  Route,
-  Routes,
-} from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AppShell } from './components';
 import { LoginPage } from './features/auth/login-page';
 import { ActivitiesListPage } from './features/activities/list-page';
 import { ActivityEditPage } from './features/activities/edit-page';
@@ -35,84 +30,64 @@ function Shell() {
     );
   }
   return (
-    <Flex minHeight="100vh">
-      <Box className="sidebar">
-        <Heading size="5">Spark 运营台</Heading>
-        <nav>
-          {(
-            [
-              ['活动管理', 'activities'],
-              ['工作人员', 'staff'],
-              ['失败任务', 'jobs'],
-            ] as const
-          ).map(([label, path]) => (
-            <NavLink
-              key={path}
-              to={path}
-            >
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-      </Box>
-      <Box className="content">
-        <Routes>
-          <Route
-            index
-            element={
-              <Navigate
-                to="activities"
-                replace
-              />
-            }
-          />
-          <Route
-            path="activities"
-            element={<ActivitiesListPage />}
-          />
-          <Route
-            path="activities/:id"
-            element={<ActivityEditPage />}
-          />
-          <Route
-            path="activities/:id/prizes"
-            element={<PrizesPage />}
-          />
-          <Route
-            path="activities/:id/participants"
-            element={<ParticipantsPage />}
-          />
-          <Route
-            path="activities/:id/report"
-            element={<ReportsOverviewPage />}
-          />
-          <Route
-            path="activities/:id/redemptions"
-            element={<RedemptionsListPage />}
-          />
-          <Route
-            path="activities/:id/exports"
-            element={<ExportsPage />}
-          />
-          <Route
-            path="staff"
-            element={<StaffPage />}
-          />
-          <Route
-            path="jobs"
-            element={<JobsPage />}
-          />
-        </Routes>
-      </Box>
-    </Flex>
+    <AppShell>
+      <Routes>
+        <Route
+          index
+          element={
+            <Navigate
+              to="activities"
+              replace
+            />
+          }
+        />
+        <Route
+          path="activities"
+          element={<ActivitiesListPage />}
+        />
+        <Route
+          path="activities/:id"
+          element={<ActivityEditPage />}
+        />
+        <Route
+          path="activities/:id/prizes"
+          element={<PrizesPage />}
+        />
+        <Route
+          path="activities/:id/participants"
+          element={<ParticipantsPage />}
+        />
+        <Route
+          path="activities/:id/report"
+          element={<ReportsOverviewPage />}
+        />
+        <Route
+          path="activities/:id/redemptions"
+          element={<RedemptionsListPage />}
+        />
+        <Route
+          path="activities/:id/exports"
+          element={<ExportsPage />}
+        />
+        <Route
+          path="staff"
+          element={<StaffPage />}
+        />
+        <Route
+          path="jobs"
+          element={<JobsPage />}
+        />
+      </Routes>
+    </AppShell>
   );
 }
 export function App() {
   return (
     <Theme
       accentColor="indigo"
-      grayColor="slate"
+      grayColor="sage"
       radius="medium"
+      scaling="100%"
     >
       <BrowserRouter basename="/admin">
         <Routes>
