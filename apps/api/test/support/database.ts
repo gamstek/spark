@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { DataSource } from 'typeorm';
 
+import { databaseEntities } from '../../database/entities/index.js';
 import { InitialSchema1788739200000 } from '../../database/migrations/1788739200000-InitialSchema.js';
 import { WechatSubscriptionCache1788739201000 } from '../../database/migrations/1788739201000-WechatSubscriptionCache.js';
 import { PublishingAndMedia1788739202000 } from '../../database/migrations/1788739202000-PublishingAndMedia.js';
@@ -44,7 +45,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       ExportMetadata1788739205000,
       ActivityVersionPrizes1788739206000,
     ],
-    entities: [],
+    entities: databaseEntities,
     synchronize: false,
     extra: { options: `-c search_path=${schema}` },
   });

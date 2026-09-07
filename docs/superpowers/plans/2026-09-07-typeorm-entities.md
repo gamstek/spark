@@ -52,7 +52,7 @@ and PostgreSQL semantics.
 - Produces: `databaseEntities: EntityTarget<object>[]`
 - Produces: one exported entity class for each of the 24 migrated tables.
 
-- [ ] **Step 1: Add a failing metadata integration test**
+- [x] **Step 1: Add a failing metadata integration test**
 
 Create a migrated test data source and assert the registered table names
 exactly:
@@ -89,7 +89,7 @@ expect(dataSource.entityMetadatas.map((m) => m.tableName).sort()).toEqual(
 );
 ```
 
-- [ ] **Step 2: Run the test and observe the missing-metadata failure**
+- [x] **Step 2: Run the test and observe the missing-metadata failure**
 
 Run:
 
@@ -99,7 +99,7 @@ pnpm --filter @spark/api test:integration -- test/entities.integration.test.ts
 
 Expected: FAIL because `entityMetadatas` is empty.
 
-- [ ] **Step 3: Implement all entity classes**
+- [x] **Step 3: Implement all entity classes**
 
 Use decorators with explicit names and database-generated defaults. A
 representative entity must follow this shape:
@@ -126,7 +126,7 @@ Model nullable columns, composite keys, unique constraints, and important
 indexes exactly as the latest migrations define them. Export one registry
 containing every class.
 
-- [ ] **Step 4: Register entities in both data sources**
+- [x] **Step 4: Register entities in both data sources**
 
 Change `apps/api/database/data-source.ts` and
 `apps/api/test/support/database.ts` to use:
@@ -135,12 +135,12 @@ Change `apps/api/database/data-source.ts` and
 entities: databaseEntities,
 ```
 
-- [ ] **Step 5: Verify metadata and migration compatibility**
+- [x] **Step 5: Verify metadata and migration compatibility**
 
 Run the focused integration test, `pnpm --filter @spark/api typecheck`, and
 `pnpm --filter @spark/api lint`. Expected: all exit 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/database apps/api/test

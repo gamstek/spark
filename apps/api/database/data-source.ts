@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 
+import { databaseEntities } from './entities/index.js';
 import { InitialSchema1788739200000 } from './migrations/1788739200000-InitialSchema.js';
 import { WechatSubscriptionCache1788739201000 } from './migrations/1788739201000-WechatSubscriptionCache.js';
 import { PublishingAndMedia1788739202000 } from './migrations/1788739202000-PublishingAndMedia.js';
@@ -29,7 +30,7 @@ export function createDataSource(
       ExportMetadata1788739205000,
       ActivityVersionPrizes1788739206000,
     ],
-    entities: [],
+    entities: databaseEntities,
     synchronize: false,
     logging: false,
     extra: options.schema
