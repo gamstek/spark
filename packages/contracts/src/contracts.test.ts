@@ -21,9 +21,13 @@ describe('shared API contracts', () => {
 
   it.each([
     { ...callback, participationId: 'not-a-uuid' },
+    { ...callback, participationId: "' OR true --" },
     { ...callback, recordId: '' },
+    { ...callback, recordId: 'r'.repeat(257) },
     { ...callback, fields: { ...callback.fields, name: '' } },
+    { ...callback, fields: { ...callback.fields, phone: '1'.repeat(33) } },
     { ...callback, fields: 'invalid' },
+    { ...callback, callbackSecret: 'must-not-cross-the-boundary' },
   ])('rejects an invalid callback boundary', (input) => {
     expect(CallbackInputSchema.safeParse(input).success).toBe(false);
   });
