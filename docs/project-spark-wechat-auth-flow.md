@@ -1,5 +1,7 @@
 # Project Spark（火花）
 
+> **实施规则更新（2026-09-07）**：本文流程与代码是历史设计示例，当前实施以[架构设计](superpowers/specs/2026-09-07-project-spark-architecture-design.md)为准。`POST /api/activity/:id/form` 不再实现；改为当前微信会话生成含 `participationId` 预填的钉钉表单链接，由鉴权回调可靠落库并经 PostgreSQL 任务确认留资。抽奖使用活动奖池锁及事务，库存耗尽不消耗资格。运行状态补充未开始、等待回调、库存耗尽、抽奖结束和兑奖过期；已中奖结果恢复优先于关注与活动结束判断。具体路由、数据约束和重试规则以架构及 SDD 计划为准。
+
 > H5 营销抽奖系统 · 微信无感身份与活动状态流程设计\
 > Version: V1.0 MVP
 
