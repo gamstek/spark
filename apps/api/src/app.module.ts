@@ -9,15 +9,26 @@ import { HealthController } from './health/health.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
 import { createDataSource } from '../database/data-source.js';
+import { ParticipantsService } from './participants/participants.service.js';
+import { OAuthController } from './wechat/oauth.controller.js';
+import { OAuthStateService } from './wechat/oauth-state.service.js';
+import { SubscriptionService } from './wechat/subscription.service.js';
+import { WechatTokenService } from './wechat/token.service.js';
+import { WechatGateway } from './wechat/wechat.gateway.js';
+import { WechatIdentityService } from './wechat/wechat-identity.service.js';
 
 @Module({
-  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController],
+  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController, OAuthController],
   providers: [
     { provide: DataSource, useFactory: async () => {
       const dataSource = createDataSource();
       return dataSource.initialize();
     } },
-    AccountsService, SessionService, SessionGuard, CsrfGuard, StaffService,
+    { provide: WechatGateway, useFactory: () => new WechatGateway() },
+    { provide: OAuthStateService, inject: [DataSource], useFactory: (dataSource: DataSource) => new OAuthStateService(dataSource) },
+    { provide: WechatIdentityService, inject: [DataSource], useFactory: (dataSource: DataSource) => new WechatIdentityService(dataSource) },
+    AccountsService, SessionService, SessionGuard, CsrfGuard, StaffService, ParticipantsService,
+    WechatTokenService, SubscriptionService,
   ],
 })
 export class AppModule {}

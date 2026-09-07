@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 
 import { InitialSchema1788739200000 } from '../../database/migrations/1788739200000-InitialSchema.js';
+import { WechatSubscriptionCache1788739201000 } from '../../database/migrations/1788739201000-WechatSubscriptionCache.js';
 
 export interface TestDatabase {
   dataSource: DataSource;
@@ -24,10 +25,10 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
   const dataSource = new DataSource({
     type: 'postgres', url, schema, migrationsTableName: 'typeorm_migrations',
-    migrations: [InitialSchema1788739200000], entities: [], synchronize: false,
+    migrations: [InitialSchema1788739200000, WechatSubscriptionCache1788739201000], entities: [], synchronize: false,
+    extra: { options: `-c search_path=${schema}` },
   });
   await dataSource.initialize();
-  await dataSource.query(`SET search_path TO "${schema}"`);
   await dataSource.runMigrations({ transaction: 'all' });
 
   return {
