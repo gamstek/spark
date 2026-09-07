@@ -42,14 +42,14 @@ apps/
 ```text
 packages/
 ├─ contracts/
-└─ activity-templates/
+└─ templates/
 ```
 
 `contracts` 按 `auth`、`activities`、`participants`、`prizes`、`lottery`、`redemptions`、`staff` 和 `exports` 组织，保存 API 请求与响应类型、枚举、错误码和共享 Zod Schema。它不包含数据库实体、权限判断或业务处理逻辑。
 
-`activity-templates` 保存模板注册信息、配置结构、配置版本、默认值和校验规则。首版包含 `exhibition-lottery`。它不包含 React 页面、后台配置界面或服务端抽奖逻辑；这些实现分别位于使用它们的应用中。
+`templates` 保存模板注册信息、配置结构、配置版本、默认值和校验规则。首版包含 `exhibition-lottery`。它不包含 React 页面、后台配置界面或服务端抽奖逻辑；这些实现分别位于使用它们的应用中。
 
-`contracts` 可以引用 `activity-templates` 导出的配置类型；`activity-templates` 不依赖 `contracts`。四个应用可以同时依赖这两个包。
+`contracts` 可以引用 `templates` 导出的配置类型；`templates` 不依赖 `contracts`。四个应用可以同时依赖这两个包。
 
 Radix UI 由各前端直接使用。各应用在自己的 `components` 和 `styles` 中封装界面，不建立共享 UI 包。ESLint 和 TypeScript 公共配置保存在仓库根目录。数据库 Schema、迁移和种子数据位于 `apps/api/database`。
 
@@ -63,7 +63,7 @@ Radix UI 由各前端直接使用。各应用在自己的 `components` 和 `styl
 - 活动端实现、后台配置实现和服务端处理器；
 - 可输出的统计和导出字段。
 
-首版模板标识为 `exhibition-lottery`。共享定义位于 `packages/activity-templates/src/exhibition-lottery`；活动页面位于 `apps/activity/src/templates/exhibition-lottery`；运营配置界面位于 `apps/admin/src/templates/exhibition-lottery`；服务端流程适配位于 `apps/api/src/templates/exhibition-lottery`。
+首版模板标识为 `exhibition-lottery`。共享定义位于 `packages/templates/src/exhibition-lottery`；活动页面位于 `apps/activity/src/templates/exhibition-lottery`；运营配置界面位于 `apps/admin/src/templates/exhibition-lottery`；服务端流程适配位于 `apps/api/src/templates/exhibition-lottery`。
 
 每个活动绑定明确的模板版本。发布时生成不可变配置快照；后续修改模板或草稿不会改变正在运行或已经结束的活动。新建活动默认使用模板最新版。模板配置只描述允许运营修改的内容，库存扣减、参与限制、抽奖和核销规则始终由服务端执行。
 
