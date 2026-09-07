@@ -45,6 +45,7 @@ import { ReportsService } from './reports/reports.service.js';
 import { ExportsController } from './exports/exports.controller.js';
 import { ExportsService } from './exports/exports.service.js';
 import { ExportsHandler } from './exports/exports.handler.js';
+import { ExportsCleanupService } from './exports/exports-cleanup.service.js';
 
 @Module({
   controllers: [
@@ -111,6 +112,7 @@ import { ExportsHandler } from './exports/exports.handler.js';
     RedemptionsService,
     ReportsService,
     ExportsService,
+    ExportsCleanupService,
     ExportsHandler,
   ],
 })

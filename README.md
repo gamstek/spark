@@ -1,6 +1,7 @@
 # Project Spark
 
-Project Spark is a WeChat marketing activity system organized as a pnpm monorepo.
+Project Spark is a WeChat marketing activity system organized as a pnpm
+monorepo.
 
 ## Requirements
 
@@ -23,8 +24,14 @@ pnpm dev           Run all applications in development mode
 pnpm typecheck     Check TypeScript across the workspace
 pnpm lint          Run ESLint across the workspace
 pnpm test          Run automated tests
+pnpm test:integration  Run API tests against PostgreSQL
 pnpm build         Build every application and package
-pnpm verify        Run lint, typecheck, tests, and builds
+pnpm verify        Run lint, typecheck, unit tests, builds, and integration tests
 ```
 
-Copy `.env.example` to `.env` for local development. Secrets must not be committed.
+Copy `.env.example` to `.env` for local development. Secrets must not be
+committed.
+
+Production containers and operating instructions are documented in
+`docs/project-spark-deployment.md`. External-account and onsite acceptance items
+are tracked in `docs/project-spark-acceptance.md`.

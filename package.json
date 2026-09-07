@@ -11,7 +11,8 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "verify": "turbo run lint typecheck test build"
+    "test:integration": "pnpm --filter @spark/api test:integration",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:integration"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

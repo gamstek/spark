@@ -1,0 +1,11 @@
+.git
+.worktrees
+node_modules
+**/node_modules
+**/dist
+.turbo
+coverage
+playwright-report
+test-results
+.env
+deploy/certs

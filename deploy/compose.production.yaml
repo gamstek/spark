@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-spark}
+      POSTGRES_USER: ${POSTGRES_USER:-spark}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-spark} -d ${POSTGRES_DB:-spark}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    command: >-
+      sh -c "node apps/api/dist/database/migrate.js && pnpm --filter @spark/api
+      start"
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
+      TRUST_PROXY: 172.16.0.0/12
+      CSRF_SECRET: ${CSRF_SECRET:?CSRF_SECRET is required}
+      OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET:?OAUTH_STATE_SECRET is required}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:?WECHAT_APP_ID is required}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:?WECHAT_APP_SECRET is required}
+      WECHAT_TOKEN_ENCRYPTION_KEY:
+        ${WECHAT_TOKEN_ENCRYPTION_KEY:?WECHAT_TOKEN_ENCRYPTION_KEY is required}
+      MEDIA_ROOT: /var/lib/spark/media
+      PRIVATE_EXPORT_ROOT: /var/lib/spark/exports
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - media:/var/lib/spark/media
+      - exports:/var/lib/spark/exports
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+
+volumes:
+  database:
+  media:
+  exports:
