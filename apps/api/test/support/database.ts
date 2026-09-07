@@ -6,6 +6,7 @@ import { InitialSchema1788739200000 } from '../../database/migrations/1788739200
 import { WechatSubscriptionCache1788739201000 } from '../../database/migrations/1788739201000-WechatSubscriptionCache.js';
 import { PublishingAndMedia1788739202000 } from '../../database/migrations/1788739202000-PublishingAndMedia.js';
 import { DingTalkSubmissions1788739203000 } from '../../database/migrations/1788739203000-DingTalkSubmissions.js';
+import { LotteryRedemptionCodes1788739204000 } from '../../database/migrations/1788739204000-LotteryRedemptionCodes.js';
 
 export interface TestDatabase {
   dataSource: DataSource;
@@ -27,7 +28,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
   const dataSource = new DataSource({
     type: 'postgres', url, schema, migrationsTableName: 'typeorm_migrations',
-    migrations: [InitialSchema1788739200000, WechatSubscriptionCache1788739201000, PublishingAndMedia1788739202000, DingTalkSubmissions1788739203000], entities: [], synchronize: false,
+    migrations: [InitialSchema1788739200000, WechatSubscriptionCache1788739201000, PublishingAndMedia1788739202000, DingTalkSubmissions1788739203000, LotteryRedemptionCodes1788739204000], entities: [], synchronize: false,
     extra: { options: `-c search_path=${schema}` },
   });
   await dataSource.initialize();

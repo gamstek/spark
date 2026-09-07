@@ -30,9 +30,12 @@ import { DingTalkCallbackController } from './dingtalk/callback.controller.js';
 import { DingTalkCallbackService } from './dingtalk/callback.service.js';
 import { DingTalkPrefillService } from './dingtalk/prefill.service.js';
 import { DingTalkSubmissionHandler } from './dingtalk/submission.handler.js';
+import { LotteryController } from './lottery/lottery.controller.js';
+import { LotteryService } from './lottery/lottery.service.js';
+import { CodeService } from './redemptions/code.service.js';
 
 @Module({
-  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController, OAuthController, ActivitiesController, PrizesController, MediaController, JobsController, DingTalkCallbackController],
+  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController, OAuthController, ActivitiesController, PrizesController, MediaController, JobsController, DingTalkCallbackController, LotteryController],
   providers: [
     { provide: DataSource, useFactory: async () => {
       const dataSource = createDataSource();
@@ -45,7 +48,7 @@ import { DingTalkSubmissionHandler } from './dingtalk/submission.handler.js';
     WechatTokenService, SubscriptionService,
     { provide: ActivitiesService, inject: [DataSource], useFactory: (dataSource: DataSource) => new ActivitiesService(dataSource) },
     PublishService, PrizesService, MediaService,
-    JobsService, JobHandlers, DingTalkCallbackService, DingTalkPrefillService, DingTalkSubmissionHandler,
+    JobsService, JobHandlers, DingTalkCallbackService, DingTalkPrefillService, DingTalkSubmissionHandler, CodeService, LotteryService,
   ],
 })
 export class AppModule {}
