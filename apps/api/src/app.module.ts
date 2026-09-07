@@ -23,9 +23,12 @@ import { MediaController } from './media/media.controller.js';
 import { MediaService } from './media/media.service.js';
 import { PrizesController } from './prizes/prizes.controller.js';
 import { PrizesService } from './prizes/prizes.service.js';
+import { JobHandlers } from './jobs/jobs.handlers.js';
+import { JobsController } from './jobs/jobs.controller.js';
+import { JobsService } from './jobs/jobs.service.js';
 
 @Module({
-  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController, OAuthController, ActivitiesController, PrizesController, MediaController],
+  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController, OAuthController, ActivitiesController, PrizesController, MediaController, JobsController],
   providers: [
     { provide: DataSource, useFactory: async () => {
       const dataSource = createDataSource();
@@ -38,6 +41,7 @@ import { PrizesService } from './prizes/prizes.service.js';
     WechatTokenService, SubscriptionService,
     { provide: ActivitiesService, inject: [DataSource], useFactory: (dataSource: DataSource) => new ActivitiesService(dataSource) },
     PublishService, PrizesService, MediaService,
+    JobsService, JobHandlers,
   ],
 })
 export class AppModule {}
