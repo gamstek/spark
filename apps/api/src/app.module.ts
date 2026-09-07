@@ -16,9 +16,16 @@ import { SubscriptionService } from './wechat/subscription.service.js';
 import { WechatTokenService } from './wechat/token.service.js';
 import { WechatGateway } from './wechat/wechat.gateway.js';
 import { WechatIdentityService } from './wechat/wechat-identity.service.js';
+import { ActivitiesController } from './activities/activities.controller.js';
+import { ActivitiesService } from './activities/activities.service.js';
+import { PublishService } from './activities/publish.service.js';
+import { MediaController } from './media/media.controller.js';
+import { MediaService } from './media/media.service.js';
+import { PrizesController } from './prizes/prizes.controller.js';
+import { PrizesService } from './prizes/prizes.service.js';
 
 @Module({
-  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController, OAuthController],
+  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController, OAuthController, ActivitiesController, PrizesController, MediaController],
   providers: [
     { provide: DataSource, useFactory: async () => {
       const dataSource = createDataSource();
@@ -29,6 +36,8 @@ import { WechatIdentityService } from './wechat/wechat-identity.service.js';
     { provide: WechatIdentityService, inject: [DataSource], useFactory: (dataSource: DataSource) => new WechatIdentityService(dataSource) },
     AccountsService, SessionService, SessionGuard, CsrfGuard, StaffService, ParticipantsService,
     WechatTokenService, SubscriptionService,
+    { provide: ActivitiesService, inject: [DataSource], useFactory: (dataSource: DataSource) => new ActivitiesService(dataSource) },
+    PublishService, PrizesService, MediaService,
   ],
 })
 export class AppModule {}

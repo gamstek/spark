@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 
 import { InitialSchema1788739200000 } from '../../database/migrations/1788739200000-InitialSchema.js';
 import { WechatSubscriptionCache1788739201000 } from '../../database/migrations/1788739201000-WechatSubscriptionCache.js';
+import { PublishingAndMedia1788739202000 } from '../../database/migrations/1788739202000-PublishingAndMedia.js';
 
 export interface TestDatabase {
   dataSource: DataSource;
@@ -25,7 +26,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
   const dataSource = new DataSource({
     type: 'postgres', url, schema, migrationsTableName: 'typeorm_migrations',
-    migrations: [InitialSchema1788739200000, WechatSubscriptionCache1788739201000], entities: [], synchronize: false,
+    migrations: [InitialSchema1788739200000, WechatSubscriptionCache1788739201000, PublishingAndMedia1788739202000], entities: [], synchronize: false,
     extra: { options: `-c search_path=${schema}` },
   });
   await dataSource.initialize();

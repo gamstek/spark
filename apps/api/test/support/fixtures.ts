@@ -41,7 +41,7 @@ export async function createScenario(dataSource: DataSource, options: { now?: Da
     await manager.query(`INSERT INTO staff_activity_permission (staff_account_id, activity_id) VALUES ($1,$2)`, [staffId, activityId]);
     for (let i = 0; i < userIds.length; i += 1) await manager.query(`INSERT INTO activity_participation (id, activity_id, user_id, lead_completed, lead_completed_at) VALUES ($1,$2,$3,true,$4)`, [participationIds[i], activityId, userIds[i], now]);
     await manager.query(`INSERT INTO prize (id, name) VALUES ($1, '一等奖')`, [prizeId]);
-    await manager.query(`INSERT INTO activity_prize (id, activity_id, prize_id, total_stock, awarded_stock, weight) VALUES ($1,$2,$3,10,1,1)`, [activityPrizeId, activityId, prizeId]);
+    await manager.query(`INSERT INTO activity_prize (id, activity_id, prize_id, total_stock, awarded_stock, weight, prize_name) VALUES ($1,$2,$3,10,1,1,'一等奖')`, [activityPrizeId, activityId, prizeId]);
     await manager.query(`INSERT INTO lottery_record (id, activity_id, user_id, participation_id, activity_prize_id) VALUES ($1,$2,$3,$4,$5)`, [lotteryRecordId, activityId, userIds[0], participationIds[0], activityPrizeId]);
     await manager.query(`INSERT INTO redemption (id, lottery_record_id, redeem_code_hash, status, redeem_end_at) VALUES ($1,$2,$3,'WAIT_REDEEM',$4)`, [redemptionId, lotteryRecordId, redeemCodeHash, new Date(now.getTime() + 172_800_000)]);
   });
