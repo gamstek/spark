@@ -261,7 +261,7 @@ git commit -m "Use entities for account administration"
 
 - Modify only if verification exposes a mismatch.
 
-- [ ] **Step 1: Run API validation**
+- [x] **Step 1: Run API validation**
 
 ```bash
 pnpm --filter @spark/api lint
@@ -270,14 +270,14 @@ pnpm --filter @spark/api test
 pnpm --filter @spark/api test:integration
 ```
 
-- [ ] **Step 2: Run repository-wide validation**
+- [x] **Step 2: Run repository-wide validation**
 
 ```bash
 pnpm verify
 git diff --check
 ```
 
-- [ ] **Step 3: Update the SDD progress note and commit any verification-only
+- [x] **Step 3: Update the SDD progress note and commit any verification-only
       correction**
 
 Record the entity model as part of T04 without changing product scope. Commit
