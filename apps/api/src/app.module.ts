@@ -35,22 +35,69 @@ import { LotteryService } from './lottery/lottery.service.js';
 import { CodeService } from './redemptions/code.service.js';
 import { RedemptionsController } from './redemptions/redemptions.controller.js';
 import { RedemptionsService } from './redemptions/redemptions.service.js';
+import { StaffAdminController } from './staff/staff-admin.controller.js';
+import { ParticipantsAdminController } from './participants/participants-admin.controller.js';
 
 @Module({
-  controllers: [HealthController, AdminAuthController, StaffAuthController, StaffController, OAuthController, ActivitiesController, PrizesController, MediaController, JobsController, DingTalkCallbackController, LotteryController, RedemptionsController],
+  controllers: [
+    HealthController,
+    AdminAuthController,
+    StaffAuthController,
+    StaffController,
+    StaffAdminController,
+    ParticipantsAdminController,
+    OAuthController,
+    ActivitiesController,
+    PrizesController,
+    MediaController,
+    JobsController,
+    DingTalkCallbackController,
+    LotteryController,
+    RedemptionsController,
+  ],
   providers: [
-    { provide: DataSource, useFactory: async () => {
-      const dataSource = createDataSource();
-      return dataSource.initialize();
-    } },
+    {
+      provide: DataSource,
+      useFactory: async () => {
+        const dataSource = createDataSource();
+        return dataSource.initialize();
+      },
+    },
     { provide: WechatGateway, useFactory: () => new WechatGateway() },
-    { provide: OAuthStateService, inject: [DataSource], useFactory: (dataSource: DataSource) => new OAuthStateService(dataSource) },
-    { provide: WechatIdentityService, inject: [DataSource], useFactory: (dataSource: DataSource) => new WechatIdentityService(dataSource) },
-    AccountsService, SessionService, SessionGuard, CsrfGuard, StaffService, ParticipantsService,
-    WechatTokenService, SubscriptionService,
-    { provide: ActivitiesService, inject: [DataSource], useFactory: (dataSource: DataSource) => new ActivitiesService(dataSource) },
-    PublishService, PrizesService, MediaService,
-    JobsService, JobHandlers, DingTalkCallbackService, DingTalkPrefillService, DingTalkSubmissionHandler, CodeService, LotteryService, RedemptionsService,
+    {
+      provide: OAuthStateService,
+      inject: [DataSource],
+      useFactory: (dataSource: DataSource) => new OAuthStateService(dataSource),
+    },
+    {
+      provide: WechatIdentityService,
+      inject: [DataSource],
+      useFactory: (dataSource: DataSource) => new WechatIdentityService(dataSource),
+    },
+    AccountsService,
+    SessionService,
+    SessionGuard,
+    CsrfGuard,
+    StaffService,
+    ParticipantsService,
+    WechatTokenService,
+    SubscriptionService,
+    {
+      provide: ActivitiesService,
+      inject: [DataSource],
+      useFactory: (dataSource: DataSource) => new ActivitiesService(dataSource),
+    },
+    PublishService,
+    PrizesService,
+    MediaService,
+    JobsService,
+    JobHandlers,
+    DingTalkCallbackService,
+    DingTalkPrefillService,
+    DingTalkSubmissionHandler,
+    CodeService,
+    LotteryService,
+    RedemptionsService,
   ],
 })
 export class AppModule {}
