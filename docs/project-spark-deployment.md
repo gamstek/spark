@@ -9,10 +9,10 @@ Web 容器和 PostgreSQL。数据库、媒体和私有导出文件分别使用�
 
 ## 准备
 
-1. 在 `deploy/.env` 设置
+1. 在 `docker/.env` 设置
    `POSTGRES_PASSWORD`、`DATABASE_URL`、`PUBLIC_ORIGIN`、三个至少 32 字节的密钥及微信公众号凭据。容器内数据库地址使用
    `postgres`，密码中的特殊字符必须进行 URL 编码。
-2. 将证书保存为 `deploy/certs/fullchain.pem` 和 `deploy/certs/privkey.pem`。
+2. 将证书保存为 `docker/certs/fullchain.pem` 和 `docker/certs/privkey.pem`。
 3. `PUBLIC_ORIGIN` 必须是用户访问的 HTTPS 源，例如
    `https://campaign.example.com`，不能带路径或结尾斜杠。
 4. 将 `TRUST_PROXY` 限制为容器网络或实际反向代理网段。不要设置为任意来源。
@@ -20,8 +20,8 @@ Web 容器和 PostgreSQL。数据库、媒体和私有导出文件分别使用�
 启动并查看状态：
 
 ```bash
-docker compose --env-file deploy/.env -f deploy/compose.production.yaml up -d --build
-docker compose --env-file deploy/.env -f deploy/compose.production.yaml ps
+docker compose --env-file docker/.env -f docker/compose.production.yaml up -d --build
+docker compose --env-file docker/.env -f docker/compose.production.yaml ps
 curl -fsS https://campaign.example.com/api/health/live
 curl -fsS https://campaign.example.com/api/health/ready
 ```

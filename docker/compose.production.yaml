@@ -21,7 +21,7 @@ services:
   api:
     build:
       context: ..
-      dockerfile: deploy/Dockerfile.api
+      dockerfile: docker/api.Dockerfile
     restart: unless-stopped
     command: >-
       sh -c "node apps/api/dist/database/migrate.js && pnpm --filter @spark/api
@@ -52,7 +52,7 @@ services:
   web:
     build:
       context: ..
-      dockerfile: deploy/Dockerfile.web
+      dockerfile: docker/web.Dockerfile
     restart: unless-stopped
     depends_on:
       - api
