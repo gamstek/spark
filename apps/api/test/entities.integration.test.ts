@@ -3,11 +3,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ActivityVersion,
   ActivityVersionPrize,
+  AdminAccount,
   ChannelVisit,
   StaffActivityPermission,
   StockAdjustment,
   WebhookReceipt,
 } from '../database/entities/index.js';
+import { createAdminAccount } from '../database/seeds/admin-seed.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 const expectedTables = [
@@ -114,5 +116,31 @@ describe('TypeORM entity metadata', () => {
         }),
       ]),
     );
+  });
+
+  it('creates an administrator through its repository mapping', async () => {
+    const created = await createAdminAccount(database.dataSource, {
+      username: 'operator',
+      password: 'correct horse battery staple',
+    });
+
+    const repository = database.dataSource.getRepository(AdminAccount);
+    const reloaded = await repository.findOneByOrFail({ id: created.id });
+    expect(reloaded).toMatchObject({
+      username: 'operator',
+      displayName: 'operator',
+      disabledAt: null,
+    });
+    expect(reloaded.passwordHash).toMatch(/^scrypt\$/);
+
+    const [persisted] = await database.dataSource.query<
+      { display_name: string; password_hash: string }[]
+    >(`SELECT display_name, password_hash FROM admin_account WHERE id = $1`, [
+      created.id,
+    ]);
+    expect(persisted).toEqual({
+      display_name: 'operator',
+      password_hash: reloaded.passwordHash,
+    });
   });
 });

@@ -162,7 +162,7 @@ git commit -m "Define TypeORM entity model"
 - Produces: a seed path that persists an administrator with
   `Repository<AdminAccount>`.
 
-- [ ] **Step 1: Add a failing repository test**
+- [x] **Step 1: Add a failing repository test**
 
 Import the not-yet-created `createAdminAccount` function, create an
 administrator, then reload it with `dataSource.getRepository(AdminAccount)` and
@@ -179,19 +179,19 @@ expect((await repository.findOneByOrFail({ id: created.id })).displayName).toBe(
 );
 ```
 
-- [ ] **Step 2: Run the test and confirm it fails before seed conversion**
+- [x] **Step 2: Run the test and confirm it fails before seed conversion**
 
 Run the focused integration test. Expected: FAIL because `admin-seed.service.ts`
 and `createAdminAccount` do not exist.
 
-- [ ] **Step 3: Replace the seed's raw insert with the repository**
+- [x] **Step 3: Replace the seed's raw insert with the repository**
 
 Implement `createAdminAccount` with `dataSource.getRepository(AdminAccount)`.
 Keep password validation and hashing in that function. Make the CLI wrapper
 retain interactive prompting, random UUID generation through the service, and
 data-source cleanup.
 
-- [ ] **Step 4: Run the focused test and existing auth integration test**
+- [x] **Step 4: Run the focused test and existing auth integration test**
 
 ```bash
 pnpm --filter @spark/api test:integration -- test/entities.integration.test.ts test/auth.integration.test.ts
@@ -199,7 +199,7 @@ pnpm --filter @spark/api test:integration -- test/entities.integration.test.ts t
 
 Expected: both suites pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/database/seeds/create-admin.ts apps/api/test/entities.integration.test.ts
