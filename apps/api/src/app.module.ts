@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AccountsService } from './auth/accounts.service.js';
-import { AdminAuthController, StaffAuthController } from './auth/auth.controller.js';
+import {
+  AdminAuthController,
+  StaffAuthController,
+} from './auth/auth.controller.js';
 import { CsrfGuard } from './auth/csrf.guard.js';
 import { SessionGuard } from './auth/session.guard.js';
 import { SessionService } from './auth/session.service.js';
@@ -37,6 +40,11 @@ import { RedemptionsController } from './redemptions/redemptions.controller.js';
 import { RedemptionsService } from './redemptions/redemptions.service.js';
 import { StaffAdminController } from './staff/staff-admin.controller.js';
 import { ParticipantsAdminController } from './participants/participants-admin.controller.js';
+import { ReportsController } from './reports/reports.controller.js';
+import { ReportsService } from './reports/reports.service.js';
+import { ExportsController } from './exports/exports.controller.js';
+import { ExportsService } from './exports/exports.service.js';
+import { ExportsHandler } from './exports/exports.handler.js';
 
 @Module({
   controllers: [
@@ -54,6 +62,8 @@ import { ParticipantsAdminController } from './participants/participants-admin.c
     DingTalkCallbackController,
     LotteryController,
     RedemptionsController,
+    ReportsController,
+    ExportsController,
   ],
   providers: [
     {
@@ -72,7 +82,8 @@ import { ParticipantsAdminController } from './participants/participants-admin.c
     {
       provide: WechatIdentityService,
       inject: [DataSource],
-      useFactory: (dataSource: DataSource) => new WechatIdentityService(dataSource),
+      useFactory: (dataSource: DataSource) =>
+        new WechatIdentityService(dataSource),
     },
     AccountsService,
     SessionService,
@@ -98,6 +109,9 @@ import { ParticipantsAdminController } from './participants/participants-admin.c
     CodeService,
     LotteryService,
     RedemptionsService,
+    ReportsService,
+    ExportsService,
+    ExportsHandler,
   ],
 })
 export class AppModule {}

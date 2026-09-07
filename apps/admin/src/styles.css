@@ -56,3 +56,7 @@ body {
   color: #b42318;
   margin: 0;
 }
+.metric {
+  font-size: 30px;
+  margin-top: 8px;
+}

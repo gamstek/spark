@@ -16,10 +16,13 @@ export function ActivityEditPage() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [message, setMessage] = useState('');
   const locked = Boolean(
-    detail?.published_version_id && detail.starts_at && new Date(detail.starts_at) <= new Date(),
+    detail?.published_version_id &&
+    detail.starts_at &&
+    new Date(detail.starts_at) <= new Date(),
   );
   useEffect(() => {
-    if (id && id !== 'new') api<Detail>(`admin/activities/${id}`).then(setDetail);
+    if (id && id !== 'new')
+      api<Detail>(`admin/activities/${id}`).then(setDetail);
   }, [id]);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -28,7 +31,11 @@ export function ActivityEditPage() {
       formId: f.get('formId'),
       formUrl: f.get('formUrl'),
       prefillField: f.get('prefillField'),
-      fieldMapping: { participationId: '参与编号', name: '姓名', phone: '手机号' },
+      fieldMapping: {
+        participationId: '参与编号',
+        name: '姓名',
+        phone: '手机号',
+      },
       requireSubscribe: true,
       heroAssetId: f.get('heroAssetId'),
       rulesText: f.get('rulesText'),
@@ -53,7 +60,11 @@ export function ActivityEditPage() {
       } else {
         await api(`admin/activities/${id}/draft`, {
           method: 'PATCH',
-          body: JSON.stringify({ expectedRevision: detail?.revision, name: f.get('name'), config }),
+          body: JSON.stringify({
+            expectedRevision: detail?.revision,
+            name: f.get('name'),
+            config,
+          }),
         });
         setMessage('草稿已保存');
       }
@@ -85,7 +96,10 @@ export function ActivityEditPage() {
       <Heading>{id === 'new' ? '新建活动' : '编辑活动'}</Heading>
       <Card>
         <form onSubmit={submit}>
-          <Flex direction="column" gap="3">
+          <Flex
+            direction="column"
+            gap="3"
+          >
             <TextField.Root
               name="name"
               placeholder="活动名称"
@@ -102,27 +116,70 @@ export function ActivityEditPage() {
             <ConfigForm locked={locked} />
             {locked && <p>活动已经开始，模板、规则、时间和奖项配置已锁定。</p>}
             {['startsAt', 'drawEndsAt', 'endsAt', 'redeemEndsAt'].map((x) => (
-              <TextField.Root key={x} name={x} type="datetime-local" required={id === 'new'} />
+              <TextField.Root
+                key={x}
+                name={x}
+                type="datetime-local"
+                required={id === 'new'}
+              />
             ))}
             <Flex gap="3">
               <Button type="submit">保存草稿</Button>
               {id !== 'new' && (
-                <Button type="button" onClick={publish}>
+                <Button
+                  type="button"
+                  onClick={publish}
+                >
                   发布
                 </Button>
               )}
               {id !== 'new' && (
-                <Button type="button" color="red" variant="soft" onClick={endDraw}>
+                <Button
+                  type="button"
+                  color="red"
+                  variant="soft"
+                  onClick={endDraw}
+                >
                   提前结束抽奖
                 </Button>
               )}
               {id !== 'new' && (
-                <Button asChild variant="soft">
+                <Button
+                  asChild
+                  variant="soft"
+                >
                   <Link to="participants">参与者</Link>
                 </Button>
               )}
               {id !== 'new' && (
-                <Button asChild variant="soft">
+                <Button
+                  asChild
+                  variant="soft"
+                >
+                  <Link to="report">数据概览</Link>
+                </Button>
+              )}
+              {id !== 'new' && (
+                <Button
+                  asChild
+                  variant="soft"
+                >
+                  <Link to="redemptions">核销列表</Link>
+                </Button>
+              )}
+              {id !== 'new' && (
+                <Button
+                  asChild
+                  variant="soft"
+                >
+                  <Link to="exports">导出线索</Link>
+                </Button>
+              )}
+              {id !== 'new' && (
+                <Button
+                  asChild
+                  variant="soft"
+                >
                   <Link to="prizes">奖品与库存</Link>
                 </Button>
               )}

@@ -7,18 +7,21 @@ import { WechatSubscriptionCache1788739201000 } from '../../database/migrations/
 import { PublishingAndMedia1788739202000 } from '../../database/migrations/1788739202000-PublishingAndMedia.js';
 import { DingTalkSubmissions1788739203000 } from '../../database/migrations/1788739203000-DingTalkSubmissions.js';
 import { LotteryRedemptionCodes1788739204000 } from '../../database/migrations/1788739204000-LotteryRedemptionCodes.js';
+import { ExportMetadata1788739205000 } from '../../database/migrations/1788739205000-ExportMetadata.js';
 
 export interface TestDatabase {
   dataSource: DataSource;
   close(): Promise<void>;
 }
 
-const defaultTestUrl = 'postgresql://spark:spark_local@127.0.0.1:54329/spark_test';
+const defaultTestUrl =
+  'postgresql://spark:spark_local@127.0.0.1:54329/spark_test';
 
 export async function createTestDatabase(): Promise<TestDatabase> {
   const url = process.env.TEST_DATABASE_URL ?? defaultTestUrl;
   const databaseName = new URL(url).pathname.slice(1);
-  if (!databaseName.toLowerCase().includes('test')) throw new Error('REFUSING_NON_TEST_DATABASE');
+  if (!databaseName.toLowerCase().includes('test'))
+    throw new Error('REFUSING_NON_TEST_DATABASE');
 
   const schema = `spark_test_${randomUUID().replaceAll('-', '')}`;
   const admin = new DataSource({ type: 'postgres', url });
@@ -27,8 +30,20 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   await admin.destroy();
 
   const dataSource = new DataSource({
-    type: 'postgres', url, schema, migrationsTableName: 'typeorm_migrations',
-    migrations: [InitialSchema1788739200000, WechatSubscriptionCache1788739201000, PublishingAndMedia1788739202000, DingTalkSubmissions1788739203000, LotteryRedemptionCodes1788739204000], entities: [], synchronize: false,
+    type: 'postgres',
+    url,
+    schema,
+    migrationsTableName: 'typeorm_migrations',
+    migrations: [
+      InitialSchema1788739200000,
+      WechatSubscriptionCache1788739201000,
+      PublishingAndMedia1788739202000,
+      DingTalkSubmissions1788739203000,
+      LotteryRedemptionCodes1788739204000,
+      ExportMetadata1788739205000,
+    ],
+    entities: [],
+    synchronize: false,
     extra: { options: `-c search_path=${schema}` },
   });
   await dataSource.initialize();
@@ -38,7 +53,8 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     dataSource,
     async close() {
       if (dataSource.isInitialized) await dataSource.destroy();
-      if (!schema.startsWith('spark_test_')) throw new Error('REFUSING_UNSAFE_SCHEMA_DROP');
+      if (!schema.startsWith('spark_test_'))
+        throw new Error('REFUSING_UNSAFE_SCHEMA_DROP');
       const cleanup = new DataSource({ type: 'postgres', url });
       await cleanup.initialize();
       await cleanup.query(`DROP SCHEMA "${schema}" CASCADE`);

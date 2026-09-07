@@ -1,5 +1,11 @@
 import { Box, Flex, Heading, Theme } from '@radix-ui/themes';
-import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import {
+  BrowserRouter,
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom';
 import { LoginPage } from './features/auth/login-page';
 import { ActivitiesListPage } from './features/activities/list-page';
 import { ActivityEditPage } from './features/activities/edit-page';
@@ -7,6 +13,9 @@ import { JobsPage } from './features/jobs/jobs-page';
 import { ParticipantsPage } from './features/participants/participants-page';
 import { PrizesPage } from './features/prizes/prizes-page';
 import { StaffPage } from './features/staff/staff-page';
+import { ReportsOverviewPage } from './features/reports/overview-page';
+import { RedemptionsListPage } from './features/redemptions/list-page';
+import { ExportsPage } from './features/exports/exports-page';
 function Shell() {
   return (
     <Flex minHeight="100vh">
@@ -20,7 +29,10 @@ function Shell() {
               ['失败任务', 'jobs'],
             ] as const
           ).map(([label, path]) => (
-            <NavLink key={path} to={path}>
+            <NavLink
+              key={path}
+              to={path}
+            >
               {label}
             </NavLink>
           ))}
@@ -28,13 +40,51 @@ function Shell() {
       </Box>
       <Box className="content">
         <Routes>
-          <Route index element={<Navigate to="activities" replace />} />
-          <Route path="activities" element={<ActivitiesListPage />} />
-          <Route path="activities/:id" element={<ActivityEditPage />} />
-          <Route path="activities/:id/prizes" element={<PrizesPage />} />
-          <Route path="activities/:id/participants" element={<ParticipantsPage />} />
-          <Route path="staff" element={<StaffPage />} />
-          <Route path="jobs" element={<JobsPage />} />
+          <Route
+            index
+            element={
+              <Navigate
+                to="activities"
+                replace
+              />
+            }
+          />
+          <Route
+            path="activities"
+            element={<ActivitiesListPage />}
+          />
+          <Route
+            path="activities/:id"
+            element={<ActivityEditPage />}
+          />
+          <Route
+            path="activities/:id/prizes"
+            element={<PrizesPage />}
+          />
+          <Route
+            path="activities/:id/participants"
+            element={<ParticipantsPage />}
+          />
+          <Route
+            path="activities/:id/report"
+            element={<ReportsOverviewPage />}
+          />
+          <Route
+            path="activities/:id/redemptions"
+            element={<RedemptionsListPage />}
+          />
+          <Route
+            path="activities/:id/exports"
+            element={<ExportsPage />}
+          />
+          <Route
+            path="staff"
+            element={<StaffPage />}
+          />
+          <Route
+            path="jobs"
+            element={<JobsPage />}
+          />
         </Routes>
       </Box>
     </Flex>
@@ -42,11 +92,21 @@ function Shell() {
 }
 export function App() {
   return (
-    <Theme accentColor="indigo" grayColor="slate" radius="medium">
+    <Theme
+      accentColor="indigo"
+      grayColor="slate"
+      radius="medium"
+    >
       <BrowserRouter basename="/admin">
         <Routes>
-          <Route path="login" element={<LoginPage />} />
-          <Route path="*" element={<Shell />} />
+          <Route
+            path="login"
+            element={<LoginPage />}
+          />
+          <Route
+            path="*"
+            element={<Shell />}
+          />
         </Routes>
       </BrowserRouter>
     </Theme>
