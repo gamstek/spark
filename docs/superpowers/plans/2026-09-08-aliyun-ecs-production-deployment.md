@@ -50,7 +50,7 @@ NestJS/Fastify, PostgreSQL 18
 - Produces: HTTP Web endpoint at `127.0.0.1:18080` and a host site proxy for
   `spark.gamstek.com`
 
-- [ ] **Step 1: Run a failing topology assertion**
+- [x] **Step 1: Run a failing topology assertion**
 
 ```powershell
 $compose = Get-Content -Raw compose.production.yaml
@@ -62,7 +62,7 @@ if ($nginx -notmatch "location = /admin") { throw "Slashless admin redirect miss
 
 Expected: FAIL with `Web loopback binding missing`.
 
-- [ ] **Step 2: Convert the container Nginx to internal HTTP**
+- [x] **Step 2: Convert the container Nginx to internal HTTP**
 
 Use one `listen 8080` server without certificates or an HTTP-to-HTTPS redirect.
 Keep the existing API, media, SPA and rate-limit locations. Add exact 308
@@ -70,7 +70,7 @@ redirects for `/activity`, `/staff`, and `/admin`. Configure real-IP handling
 for the trusted Docker subnet and preserve the incoming `X-Forwarded-Proto`
 value when proxying to API.
 
-- [ ] **Step 3: Change the Web container exposure**
+- [x] **Step 3: Change the Web container exposure**
 
 Set `EXPOSE 8080` in `nginx/Dockerfile`. Replace Compose ports 80/443 with:
 
@@ -82,7 +82,7 @@ ports:
 Remove the obsolete container certificate mount. Keep the read-only media
 volume.
 
-- [ ] **Step 4: Add the host Nginx site**
+- [x] **Step 4: Add the host Nginx site**
 
 Create `nginx/sites-available/spark.gamstek.com.conf` with an HTTP server for
 `spark.gamstek.com`, `client_max_body_size 7m`, standard forwarded headers, and:
@@ -95,7 +95,7 @@ location / {
 
 Certbot will add the HTTPS server only after public DNS resolves.
 
-- [ ] **Step 5: Validate the topology**
+- [x] **Step 5: Validate the topology**
 
 Run the Step 1 assertion again and expect PASS, then run:
 
@@ -108,7 +108,7 @@ docker compose -f compose.production.yaml config --quiet
 Supply validation-only values for required Compose variables; never print the
 local `.env`.
 
-- [ ] **Step 6: Commit the topology**
+- [x] **Step 6: Commit the topology**
 
 ```bash
 git add nginx compose.production.yaml

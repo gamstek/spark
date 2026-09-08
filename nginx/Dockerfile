@@ -20,4 +20,4 @@ COPY nginx/proxy_params /etc/nginx/proxy_params
 COPY --from=build /app/apps/activity/dist /usr/share/nginx/html/activity
 COPY --from=build /app/apps/staff/dist /usr/share/nginx/html/staff
 COPY --from=build /app/apps/admin/dist /usr/share/nginx/html/admin
-EXPOSE 80 443
+EXPOSE 8080
