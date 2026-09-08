@@ -1,0 +1,369 @@
+name: Deploy Production
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Full Git commit SHA of the published images
+        required: true
+        type: string
+      version:
+        description: Validated release version
+        required: true
+        type: string
+      api_digest:
+        description: Immutable API image digest
+        required: true
+        type: string
+      web_digest:
+        description: Immutable Web image digest
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full lowercase Git commit SHA to deploy
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_PREFIX: ghcr.io/gamstek/spark
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      source_sha: ${{ steps.metadata.outputs.source_sha }}
+      version: ${{ steps.metadata.outputs.version }}
+      api_digest:
+        ${{ steps.metadata.outputs.api_digest ||
+        steps.digests.outputs.api_digest }}
+      web_digest:
+        ${{ steps.metadata.outputs.web_digest ||
+        steps.digests.outputs.web_digest }}
+      config_sha: ${{ steps.verify.outputs.config_sha }}
+    steps:
+      - name: Check out deployment source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate deployment metadata
+        id: metadata
+        env:
+          INPUTS_JSON: ${{ toJSON(inputs) }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          VERSION: ${{ inputs.version }}
+          API_DIGEST: ${{ inputs.api_digest }}
+          WEB_DIGEST: ${{ inputs.web_digest }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'source_sha must be a full lowercase Git commit SHA' >&2
+            exit 1
+          }
+
+          {
+            if jq -e 'has("version")' <<<"$INPUTS_JSON" >/dev/null; then
+              [[ "$VERSION" =~ ^[A-Za-z0-9._-]+$ ]] || {
+                echo 'version contains unsupported characters' >&2
+                exit 1
+              }
+              for digest in "$API_DIGEST" "$WEB_DIGEST"; do
+                [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+                  echo 'called deployments require valid sha256 image digests' >&2
+                  exit 1
+                }
+              done
+              echo 'mode=called'
+              echo "version=$VERSION"
+              echo "api_digest=$API_DIGEST"
+              echo "web_digest=$WEB_DIGEST"
+            else
+              echo 'mode=manual'
+              echo "version=manual-${SOURCE_SHA:0:12}"
+            fi
+            echo "source_sha=$SOURCE_SHA"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Verify source belongs to main
+        id: verify
+        env:
+          SOURCE_SHA: ${{ steps.metadata.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]] || {
+            echo 'checked-out commit does not match source_sha' >&2
+            exit 1
+          }
+          git rev-parse --verify origin/main >/dev/null
+          git merge-base --is-ancestor "$SOURCE_SHA" origin/main || {
+            echo 'source_sha must belong to origin/main' >&2
+            exit 1
+          }
+          echo "config_sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        if: steps.metadata.outputs.mode == 'manual'
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Log in to GHCR
+        if: steps.metadata.outputs.mode == 'manual'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve published image digests
+        if: steps.metadata.outputs.mode == 'manual'
+        id: digests
+        env:
+          SOURCE_SHA: ${{ steps.metadata.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          api_digest=$(docker buildx imagetools inspect \
+            --format '{{.Manifest.Digest}}' \
+            "${IMAGE_PREFIX}-api:sha-${SOURCE_SHA}")
+          web_digest=$(docker buildx imagetools inspect \
+            --format '{{.Manifest.Digest}}' \
+            "${IMAGE_PREFIX}-web:sha-${SOURCE_SHA}")
+          for digest in "$api_digest" "$web_digest"; do
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+              echo 'resolved image reference did not return a valid digest' >&2
+              exit 1
+            }
+          done
+          echo "api_digest=$api_digest" >>"$GITHUB_OUTPUT"
+          echo "web_digest=$web_digest" >>"$GITHUB_OUTPUT"
+
+  deploy:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://spark.gamstek.com
+    concurrency:
+      group: production-aliyun-ecs
+      cancel-in-progress: false
+    env:
+      SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      API_DIGEST: ${{ needs.resolve.outputs.api_digest }}
+      WEB_DIGEST: ${{ needs.resolve.outputs.web_digest }}
+      CONFIG_SHA: ${{ needs.resolve.outputs.config_sha }}
+    steps:
+      - name: Check out deployment configuration
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ needs.resolve.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Validate production connection settings
+        env:
+          ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
+          ECS_HEALTHCHECK_URL: ${{ secrets.ECS_HEALTHCHECK_URL }}
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PASSWORD: ${{ secrets.ECS_PASSWORD }}
+          ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
+          ECS_SSH_KNOWN_HOSTS: ${{ secrets.ECS_SSH_KNOWN_HOSTS }}
+          ECS_USER: ${{ secrets.ECS_USER }}
+        run: |
+          set -euo pipefail
+          if ! {
+            [[ "$ECS_DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] &&
+              [[ "$ECS_DEPLOY_PATH" != / ]] &&
+              [[ "$ECS_DEPLOY_PATH" != */ ]] &&
+              [[ "$ECS_DEPLOY_PATH" != *//* ]] &&
+              [[ "/$ECS_DEPLOY_PATH/" != */../* ]] &&
+              [[ "/$ECS_DEPLOY_PATH/" != */./* ]]
+          }; then
+            echo 'ECS_DEPLOY_PATH must be a safe absolute path' >&2
+            exit 1
+          fi
+          if ! {
+            [[ "$ECS_PORT" =~ ^[0-9]{1,5}$ ]] &&
+              ((10#$ECS_PORT >= 1 && 10#$ECS_PORT <= 65535))
+          }; then
+            echo 'ECS_PORT must be between 1 and 65535' >&2
+            exit 1
+          fi
+          [[ "$ECS_USER" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]] || {
+            echo 'ECS_USER contains unsupported characters' >&2
+            exit 1
+          }
+          [[ "$ECS_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || {
+            echo 'ECS_HOST contains unsupported characters' >&2
+            exit 1
+          }
+          [[ -z "$ECS_HEALTHCHECK_URL" || "$ECS_HEALTHCHECK_URL" == https://* ]] || {
+            echo 'ECS_HEALTHCHECK_URL must use HTTPS' >&2
+            exit 1
+          }
+          for name in ECS_HOST ECS_PASSWORD ECS_SSH_KNOWN_HOSTS ECS_USER; do
+            [[ -n "${!name}" ]] || {
+              echo "Required production secret $name is missing" >&2
+              exit 1
+            }
+          done
+
+      - name: Install password SSH client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends sshpass
+
+      - name: Configure SSH
+        env:
+          ECS_SSH_KNOWN_HOSTS: ${{ secrets.ECS_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ECS_SSH_KNOWN_HOSTS" >~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Prepare immutable release candidate
+        id: candidate
+        run: |
+          set -euo pipefail
+          release_id="${VERSION}-${SOURCE_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          candidate_dir="$RUNNER_TEMP/spark-release-$release_id"
+          install -m 700 -d "$candidate_dir"
+          install -m 600 compose.production.yaml \
+            "$candidate_dir/compose.production.yaml"
+          install -m 700 .github/scripts/deploy-production.sh \
+            "$candidate_dir/deploy-production.sh"
+          cat >"$candidate_dir/.env.release" <<EOF
+          SPARK_API_IMAGE=${IMAGE_PREFIX}-api@${API_DIGEST}
+          SPARK_WEB_IMAGE=${IMAGE_PREFIX}-web@${WEB_DIGEST}
+          EOF
+          chmod 600 "$candidate_dir/.env.release"
+          created_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          jq -n \
+            --arg version "$VERSION" \
+            --arg sourceSha "$SOURCE_SHA" \
+            --arg configSha "$CONFIG_SHA" \
+            --arg apiImage "${IMAGE_PREFIX}-api@${API_DIGEST}" \
+            --arg webImage "${IMAGE_PREFIX}-web@${WEB_DIGEST}" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg createdAt "$created_at" \
+            '{version: $version, sourceSha: $sourceSha, configSha: $configSha,
+              apiImage: $apiImage, webImage: $webImage, runId: $runId,
+              createdAt: $createdAt}' >"$candidate_dir/release.json"
+          chmod 600 "$candidate_dir/release.json"
+          echo "release_id=$release_id" >>"$GITHUB_OUTPUT"
+          echo "candidate_dir=$candidate_dir" >>"$GITHUB_OUTPUT"
+
+      - name: Upload release candidate
+        env:
+          CANDIDATE_DIR: ${{ steps.candidate.outputs.candidate_dir }}
+          ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
+          ECS_USER: ${{ secrets.ECS_USER }}
+          RELEASE_ID: ${{ steps.candidate.outputs.release_id }}
+          SSHPASS: ${{ secrets.ECS_PASSWORD }}
+        run: |
+          set -euo pipefail
+          remote_candidate="$ECS_DEPLOY_PATH/releases/.incoming-$RELEASE_ID"
+          sshpass -e ssh -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -p "$ECS_PORT" "$ECS_USER@$ECS_HOST" \
+            "set -eu; umask 077; mkdir -p -- '$ECS_DEPLOY_PATH/releases';
+            if [ -e '$remote_candidate' ] || [ -L '$remote_candidate' ]; then
+              echo 'Incoming release candidate already exists' >&2; exit 1;
+            fi; mkdir -- '$remote_candidate'"
+          sshpass -e scp -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -P "$ECS_PORT" \
+            "$CANDIDATE_DIR/compose.production.yaml" \
+            "$CANDIDATE_DIR/.env.release" \
+            "$CANDIDATE_DIR/release.json" \
+            "$CANDIDATE_DIR/deploy-production.sh" \
+            "$ECS_USER@$ECS_HOST:$remote_candidate/"
+
+      - name: Deploy release on ECS
+        id: remote
+        env:
+          ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
+          ECS_USER: ${{ secrets.ECS_USER }}
+          RELEASE_ID: ${{ steps.candidate.outputs.release_id }}
+          SSHPASS: ${{ secrets.ECS_PASSWORD }}
+        run: |
+          set -uo pipefail
+          remote_candidate="$ECS_DEPLOY_PATH/releases/.incoming-$RELEASE_ID"
+          deployment_log="$RUNNER_TEMP/deployment-$RELEASE_ID.log"
+          sshpass -e ssh -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -p "$ECS_PORT" "$ECS_USER@$ECS_HOST" \
+            "bash '$remote_candidate/deploy-production.sh' '$ECS_DEPLOY_PATH' '$RELEASE_ID'" \
+            2>&1 | tee "$deployment_log"
+          deployment_status=${PIPESTATUS[0]}
+          local_health=$(sed -n 's/^LOCAL_HEALTH_RESULT=//p' "$deployment_log" | tail -n 1)
+          rollback=$(sed -n 's/^ROLLBACK_RESULT=//p' "$deployment_log" | tail -n 1)
+          case "$local_health" in
+            success|failure) ;;
+            *) local_health=failure ;;
+          esac
+          case "$rollback" in
+            success|failure|not-needed|no-previous-release-candidate-stopped|no-previous-release-stop-failed) ;;
+            *) rollback=not-reported ;;
+          esac
+          echo "local_health=$local_health" >>"$GITHUB_OUTPUT"
+          echo "rollback=$rollback" >>"$GITHUB_OUTPUT"
+          exit "$deployment_status"
+
+      - name: Check public production readiness
+        id: public
+        env:
+          ECS_HEALTHCHECK_URL: ${{ secrets.ECS_HEALTHCHECK_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$ECS_HEALTHCHECK_URL" ]]; then
+            echo 'Public HTTPS readiness check is not configured'
+            echo 'result=not-configured' >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if curl --fail --show-error --silent \
+            --retry 10 --retry-delay 3 --retry-connrefused \
+            "$ECS_HEALTHCHECK_URL" >/dev/null; then
+            echo 'result=success' >>"$GITHUB_OUTPUT"
+          else
+            echo 'result=failure' >>"$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Write deployment summary
+        if: always()
+        env:
+          LOCAL_HEALTH: ${{ steps.remote.outputs.local_health || 'not-run' }}
+          PUBLIC_HEALTH: ${{ steps.public.outputs.result || 'not-run' }}
+          ROLLBACK_RESULT:
+            ${{ steps.remote.outputs.rollback || 'not-reported' }}
+        run: |
+          {
+            echo '## Production deployment'
+            echo
+            echo "- Version: \`$VERSION\`"
+            echo "- Source SHA: \`$SOURCE_SHA\`"
+            echo "- Config SHA: \`$CONFIG_SHA\`"
+            echo "- API digest: \`$API_DIGEST\`"
+            echo "- Web digest: \`$WEB_DIGEST\`"
+            echo "- Local health: \`$LOCAL_HEALTH\`"
+            echo "- Public health: \`$PUBLIC_HEALTH\`"
+            echo "- Rollback: \`$ROLLBACK_RESULT\`"
+          } >>"$GITHUB_STEP_SUMMARY"
