@@ -188,14 +188,14 @@ git commit -m "Deploy to ECS with password SSH"
 - Produces: exact bootstrap, DNS, TLS, GitHub secret and verification
   instructions
 
-- [ ] **Step 1: Update deployment documentation**
+- [x] **Step 1: Update deployment documentation**
 
 Document the host Nginx proxy, loopback port, password secret, optional external
 health URL, GHCR login, independent PostgreSQL container, and the absence of
 automated backups. List the exact order: HTTP site, containers, local health,
 DNS A record, Certbot, HTTPS health, WeChat settings, automatic deployment flag.
 
-- [ ] **Step 2: Format and validate all changed files**
+- [x] **Step 2: Format and validate all changed files**
 
 ```bash
 pnpm exec prettier --write .github/workflows/deploy-aliyun-ecs.yml compose.production.yaml nginx/nginx.conf nginx/proxy_params docs/project-spark-deployment.md docs/project-spark-configuration.md docs/superpowers/specs/2026-09-08-aliyun-ecs-production-deployment-design.md docs/superpowers/plans/2026-09-08-aliyun-ecs-production-deployment.md
@@ -206,7 +206,7 @@ git diff --check
 Expected: formatting, lint, type checking, unit tests, builds and PostgreSQL
 integration tests all pass.
 
-- [ ] **Step 3: Commit the documentation**
+- [x] **Step 3: Commit the documentation**
 
 ```bash
 git add docs
