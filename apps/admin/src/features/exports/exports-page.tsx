@@ -70,6 +70,7 @@ export function ExportsPage() {
         description="生成活动线索快照，用于后续整理和跟进。"
         actions={
           <Button
+            variant="solid"
             onClick={create}
             loading={busy && !view}
           >
@@ -92,7 +93,10 @@ export function ExportsPage() {
         />
       )}
 
-      <Card>
+      <Card
+        variant="classic"
+        size="3"
+      >
         <Flex
           direction="column"
           gap="4"
@@ -135,13 +139,17 @@ export function ExportsPage() {
               <Flex gap="2">
                 <Button
                   variant="soft"
+                  color="gray"
                   onClick={refresh}
                   loading={busy}
                 >
                   刷新状态
                 </Button>
                 {view.downloadUrl && (
-                  <Button asChild>
+                  <Button
+                    variant="solid"
+                    asChild
+                  >
                     <a href={view.downloadUrl}>下载文件</a>
                   </Button>
                 )}

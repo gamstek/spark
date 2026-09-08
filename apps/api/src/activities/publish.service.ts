@@ -4,9 +4,14 @@ import { getTemplate } from '@spark/templates';
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+type Clock = () => Date;
+
 @Injectable()
 export class PublishService {
-  constructor(@Inject(DataSource) private readonly dataSource: DataSource) {}
+  constructor(
+    @Inject(DataSource) private readonly dataSource: DataSource,
+    private readonly clock: Clock = () => new Date(),
+  ) {}
 
   async publish(
     activityId: string,
@@ -19,15 +24,21 @@ export class PublishService {
           revision: number;
           draft_version_id: string | null;
           published_version_id: string | null;
+          starts_at: Date | null;
         }[]
       >(
-        `SELECT revision, draft_version_id, published_version_id FROM activity WHERE id=$1 FOR UPDATE`,
+        `SELECT a.revision,a.draft_version_id,a.published_version_id,published.starts_at FROM activity a LEFT JOIN activity_version published ON published.id=a.published_version_id WHERE a.id=$1 FOR UPDATE OF a`,
         [activityId],
       );
       const activity = activities[0];
       if (!activity?.draft_version_id) throw new Error('DRAFT_NOT_FOUND');
       if (activity.revision !== expectedRevision)
         throw new Error('VERSION_CONFLICT');
+      if (
+        activity.starts_at &&
+        new Date(activity.starts_at).getTime() <= this.clock().getTime()
+      )
+        throw new Error('ACTIVITY_LOCKED');
       const versions = await manager.query<
         {
           version: number;

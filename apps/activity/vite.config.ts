@@ -1,9 +1,10 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { apiProxyTarget } from '../../vite-api-proxy.mjs';
 
-export default defineConfig({
+export default defineConfig(() => ({
   base: '/activity/',
   plugins: [react(), tailwindcss()],
-  server: { proxy: { '/api': 'http://127.0.0.1:3000' } },
-});
+  server: { proxy: { '/api': apiProxyTarget() } },
+}));

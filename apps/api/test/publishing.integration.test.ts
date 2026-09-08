@@ -100,11 +100,10 @@ describe('activity publishing and mutable inventory', () => {
         new Date(scenario.now.getTime() + 172_800_000),
       ],
     );
-    const published = await new PublishService(database.dataSource).publish(
-      scenario.activityId,
-      1,
-      scenario.adminId,
-    );
+    const published = await new PublishService(
+      database.dataSource,
+      () => scenario.now,
+    ).publish(scenario.activityId, 1, scenario.adminId);
     const snapshot = await database.dataSource.query<{ prize_name: string }[]>(
       `SELECT prize_name FROM activity_prize WHERE id=$1`,
       [scenario.activityPrizeId],

@@ -51,7 +51,7 @@ test('logs in and creates the only supported activity template', async ({
   });
   await page.goto('/admin/login');
   await page.getByLabel('管理员账号').fill('admin');
-  await page.getByLabel('密码').fill('password');
+  await page.getByLabel('密码', { exact: true }).fill('password');
   await page.getByRole('button', { name: '登录' }).click();
   await page.getByRole('link', { name: '新建活动' }).click();
   await page.getByPlaceholder('活动名称').fill('展会活动');
@@ -291,6 +291,10 @@ test('shows operational loading, empty, status, and export states', async ({
   await page.goto('/admin/activities/a1/report');
   await expect(page.getByText('正在汇总活动数据')).toBeVisible();
   await expect(page.getByText('页面访问')).toBeVisible();
+  await page.screenshot({
+    path: 'test-results/admin-report.png',
+    fullPage: true,
+  });
 
   await page.goto('/admin/activities/a1/exports');
   await page.getByRole('button', { name: '生成 XLSX' }).click();

@@ -8,12 +8,7 @@ type PageHeaderProps = {
   eyebrow?: string;
 };
 
-export function PageHeader({
-  title,
-  description,
-  actions,
-  eyebrow,
-}: PageHeaderProps) {
+export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
     <Flex
       className="page-header"
@@ -22,26 +17,16 @@ export function PageHeader({
       gap="5"
     >
       <Box className="page-header__copy">
-        {eyebrow && (
-          <Text
-            as="div"
-            size="2"
-            color="gray"
-            mb="2"
-          >
-            {eyebrow}
-          </Text>
-        )}
         <Heading
           as="h1"
-          size="7"
+          size="6"
         >
           {title}
         </Heading>
         {description && (
           <Text
             as="p"
-            size="3"
+            size="2"
             color="gray"
             mt="2"
           >

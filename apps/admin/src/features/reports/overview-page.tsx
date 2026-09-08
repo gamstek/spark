@@ -85,7 +85,12 @@ export function ReportsOverviewPage() {
             gap="3"
           >
             {metrics.map(([label, value]) => (
-              <Card key={label}>
+              <Card
+                variant="classic"
+                size="3"
+                key={label}
+                className="report-metric"
+              >
                 <Flex
                   direction="column"
                   gap="1"
@@ -97,6 +102,7 @@ export function ReportsOverviewPage() {
                     {label}
                   </Text>
                   <Text
+                    className="metric"
                     size="7"
                     weight="bold"
                     highContrast
@@ -112,7 +118,10 @@ export function ReportsOverviewPage() {
             columns={{ initial: '1', lg: '2' }}
             gap="4"
           >
-            <Card>
+            <Card
+              variant="classic"
+              size="3"
+            >
               <Flex
                 direction="column"
                 gap="3"
@@ -126,7 +135,7 @@ export function ReportsOverviewPage() {
                 {report.channels.length === 0 ? (
                   <Text color="gray">暂无渠道访问数据</Text>
                 ) : (
-                  <Table.Root>
+                  <Table.Root className="report-table">
                     <Table.Header>
                       <Table.Row>
                         <Table.ColumnHeaderCell>渠道</Table.ColumnHeaderCell>
@@ -152,7 +161,10 @@ export function ReportsOverviewPage() {
               </Flex>
             </Card>
 
-            <Card>
+            <Card
+              variant="classic"
+              size="3"
+            >
               <Flex
                 direction="column"
                 gap="3"
@@ -166,7 +178,7 @@ export function ReportsOverviewPage() {
                 {report.prizes.length === 0 ? (
                   <Text color="gray">暂无中奖数据</Text>
                 ) : (
-                  <Table.Root>
+                  <Table.Root className="report-table">
                     <Table.Header>
                       <Table.Row>
                         <Table.ColumnHeaderCell>奖品</Table.ColumnHeaderCell>

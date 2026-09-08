@@ -2,13 +2,20 @@ import {
   AlertDialog,
   Button,
   Card,
+  Dialog,
   Flex,
   Grid,
   Table,
   Text,
   TextField,
 } from '@radix-ui/themes';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import { api } from '../../api';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
@@ -36,6 +43,9 @@ export function StaffPage() {
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const createPending = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -53,8 +63,21 @@ export function StaffPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (createPending.current) return;
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const missing = ['username', 'displayName', 'password'].find(
+      (name) => !String(form.get(name) ?? '').trim(),
+    );
+    if (missing) {
+      setCreateError('请填写登录名、显示名称和初始密码。');
+      formElement
+        .querySelector<HTMLInputElement>(`[name="${missing}"]`)
+        ?.focus();
+      return;
+    }
+    createPending.current = true;
+    setCreateError('');
     setBusyId('create');
     setError('');
     setMessage('');
@@ -69,12 +92,14 @@ export function StaffPage() {
         }),
       });
       formElement.reset();
+      setCreateOpen(false);
       setMessage('工作人员已创建并完成活动授权。');
       await load();
     } catch {
-      setError('工作人员创建失败，请检查登录名、密码和活动 ID。');
+      setCreateError('工作人员创建失败，请检查登录名、密码和活动 ID。');
     } finally {
       setBusyId('');
+      createPending.current = false;
     }
   }
 
@@ -131,11 +156,29 @@ export function StaffPage() {
   }
 
   return (
-    <>
+    <Dialog.Root
+      open={createOpen}
+      onOpenChange={(value) => {
+        if (!createPending.current) {
+          setCreateOpen(value);
+          setCreateError('');
+        }
+      }}
+    >
       <PageHeader
         eyebrow="账号与权限"
         title="工作人员"
         description="创建核销账号，并限定每个账号可操作的活动。"
+        actions={
+          <Dialog.Trigger>
+            <Button
+              variant="solid"
+              size="3"
+            >
+              创建工作人员
+            </Button>
+          </Dialog.Trigger>
+        }
       />
 
       {error && (
@@ -151,8 +194,23 @@ export function StaffPage() {
         />
       )}
 
-      <Card>
-        <form onSubmit={submit}>
+      <Dialog.Content
+        maxWidth="560px"
+        className="staff-create-dialog"
+        onPointerDownOutside={(event) => event.preventDefault()}
+      >
+        <Dialog.Title>创建工作人员</Dialog.Title>
+        <Dialog.Description
+          size="2"
+          mb="5"
+        >
+          设置核销账号及其可操作的活动范围。
+        </Dialog.Description>
+        <form
+          onSubmit={submit}
+          noValidate
+          aria-busy={busyId === 'create'}
+        >
           <Flex
             direction="column"
             gap="4"
@@ -161,12 +219,6 @@ export function StaffPage() {
               direction="column"
               gap="1"
             >
-              <Text
-                size="4"
-                weight="bold"
-              >
-                创建工作人员
-              </Text>
               <Text
                 size="2"
                 color="gray"
@@ -185,6 +237,9 @@ export function StaffPage() {
               >
                 登录名
                 <TextField.Root
+                  size="2"
+                  variant="soft"
+                  color="gray"
                   mt="1"
                   name="username"
                   autoComplete="username"
@@ -199,6 +254,9 @@ export function StaffPage() {
               >
                 显示名称
                 <TextField.Root
+                  size="2"
+                  variant="soft"
+                  color="gray"
                   mt="1"
                   name="displayName"
                   placeholder="例如：上海展会核销组"
@@ -212,6 +270,9 @@ export function StaffPage() {
               >
                 初始密码
                 <TextField.Root
+                  size="2"
+                  variant="soft"
+                  color="gray"
                   mt="1"
                   name="password"
                   type="password"
@@ -226,14 +287,40 @@ export function StaffPage() {
               >
                 可操作活动 ID
                 <TextField.Root
+                  size="2"
+                  variant="soft"
+                  color="gray"
                   mt="1"
                   name="activityIds"
                   placeholder="ID-1, ID-2"
                 />
               </Text>
             </Grid>
-            <Flex justify="end">
+            {createError && (
+              <div role="alert">
+                <FeedbackCallout
+                  tone="error"
+                  message={createError}
+                />
+              </div>
+            )}
+            <Flex
+              justify="end"
+              gap="3"
+              className="dialog-actions"
+            >
+              <Dialog.Close>
+                <Button
+                  type="button"
+                  variant="soft"
+                  color="gray"
+                  disabled={busyId === 'create'}
+                >
+                  取消
+                </Button>
+              </Dialog.Close>
               <Button
+                variant="solid"
                 type="submit"
                 loading={busyId === 'create'}
               >
@@ -242,7 +329,7 @@ export function StaffPage() {
             </Flex>
           </Flex>
         </form>
-      </Card>
+      </Dialog.Content>
 
       {loading ? (
         <LoadingState label="正在加载工作人员" />
@@ -252,8 +339,11 @@ export function StaffPage() {
           description="创建账号后，工作人员即可登录移动核销平台。"
         />
       ) : (
-        <Card>
-          <Table.Root variant="surface">
+        <Card
+          variant="classic"
+          size="3"
+        >
+          <Table.Root variant="ghost">
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeaderCell>账号</Table.ColumnHeaderCell>
@@ -287,18 +377,27 @@ export function StaffPage() {
                           gap="2"
                         >
                           <TextField.Root
+                            size="2"
+                            variant="soft"
+                            color="gray"
                             name="displayName"
                             defaultValue={staff.display_name}
                             aria-label={`${staff.username} 的显示名称`}
                             required
                           />
                           <TextField.Root
+                            size="2"
+                            variant="soft"
+                            color="gray"
                             name="activityIds"
                             defaultValue={staff.activity_ids.join(', ')}
                             aria-label={`${staff.username} 的活动权限`}
                             placeholder="活动 ID，以逗号分隔"
                           />
                           <TextField.Root
+                            size="2"
+                            variant="soft"
+                            color="gray"
                             name="password"
                             type="password"
                             autoComplete="new-password"
@@ -313,7 +412,7 @@ export function StaffPage() {
                         >
                           <Button
                             type="submit"
-                            variant="soft"
+                            variant="solid"
                             loading={busyId === staff.id}
                           >
                             保存设置
@@ -321,7 +420,7 @@ export function StaffPage() {
                           {staff.disabled_at ? (
                             <Button
                               type="button"
-                              color="green"
+                              color="gray"
                               variant="soft"
                               onClick={() => toggle(staff)}
                             >
@@ -333,7 +432,7 @@ export function StaffPage() {
                                 <Button
                                   type="button"
                                   color="red"
-                                  variant="soft"
+                                  variant="outline"
                                 >
                                   停用账号
                                 </Button>
@@ -361,6 +460,7 @@ export function StaffPage() {
                                   </AlertDialog.Cancel>
                                   <AlertDialog.Action>
                                     <Button
+                                      variant="solid"
                                       color="red"
                                       onClick={() => toggle(staff)}
                                     >
@@ -381,6 +481,6 @@ export function StaffPage() {
           </Table.Root>
         </Card>
       )}
-    </>
+    </Dialog.Root>
   );
 }

@@ -64,8 +64,11 @@ export function ParticipantsPage() {
           description="活动产生参与记录后，参与者信息会显示在这里。"
         />
       ) : (
-        <Card>
-          <Table.Root variant="surface">
+        <Card
+          variant="classic"
+          size="3"
+        >
+          <Table.Root variant="ghost">
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeaderCell>参与者</Table.ColumnHeaderCell>

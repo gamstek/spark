@@ -11,7 +11,7 @@ import { SessionService } from './auth/session.service.js';
 import { HealthController } from './health/health.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
-import { createDataSource } from '../database/data-source.js';
+import { initializeApplicationDataSource } from '../database/data-source.js';
 import { ParticipantsService } from './participants/participants.service.js';
 import { OAuthController } from './wechat/oauth.controller.js';
 import { OAuthStateService } from './wechat/oauth-state.service.js';
@@ -78,10 +78,7 @@ import {
   providers: [
     {
       provide: DataSource,
-      useFactory: async () => {
-        const dataSource = createDataSource();
-        return dataSource.initialize();
-      },
+      useFactory: initializeApplicationDataSource,
     },
     { provide: WechatGateway, useFactory: () => new WechatGateway() },
     {
@@ -108,7 +105,11 @@ import {
       inject: [DataSource],
       useFactory: (dataSource: DataSource) => new ActivitiesService(dataSource),
     },
-    PublishService,
+    {
+      provide: PublishService,
+      inject: [DataSource],
+      useFactory: (dataSource: DataSource) => new PublishService(dataSource),
+    },
     PrizesService,
     MediaService,
     JobsService,
@@ -117,13 +118,41 @@ import {
     DingTalkPrefillService,
     DingTalkSubmissionHandler,
     CodeService,
-    LotteryService,
-    RedemptionsService,
+    {
+      provide: LotteryService,
+      inject: [DataSource, CodeService],
+      useFactory: (dataSource: DataSource, codes: CodeService) =>
+        new LotteryService(dataSource, codes),
+    },
+    {
+      provide: RedemptionsService,
+      inject: [DataSource, CodeService],
+      useFactory: (dataSource: DataSource, codes: CodeService) =>
+        new RedemptionsService(dataSource, codes),
+    },
     ReportsService,
-    ExportsService,
+    {
+      provide: ExportsService,
+      inject: [DataSource, JobsService],
+      useFactory: (dataSource: DataSource, jobs: JobsService) =>
+        new ExportsService(dataSource, jobs),
+    },
     ExportsCleanupService,
-    ExportsHandler,
-    RuntimeService,
+    {
+      provide: ExportsHandler,
+      inject: [DataSource, JobHandlers],
+      useFactory: (dataSource: DataSource, handlers: JobHandlers) =>
+        new ExportsHandler(dataSource, handlers),
+    },
+    {
+      provide: RuntimeService,
+      inject: [DataSource, ParticipantsService, SubscriptionService],
+      useFactory: (
+        dataSource: DataSource,
+        participants: ParticipantsService,
+        subscriptions: SubscriptionService,
+      ) => new RuntimeService(dataSource, participants, subscriptions),
+    },
     MaintenanceService,
     {
       provide: MAINTENANCE_INTERVAL_MS,

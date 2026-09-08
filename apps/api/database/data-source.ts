@@ -13,13 +13,17 @@ import { ActivityVersionPrizes1788739206000 } from './migrations/1788739206000-A
 export function createDataSource(
   options: { url?: string; schema?: string } = {},
 ): DataSource {
+  const schema = options.schema ?? process.env.DATABASE_SCHEMA ?? 'public';
+  if (!/^[a-z_][a-z0-9_]{0,62}$/.test(schema))
+    throw new Error('INVALID_DATABASE_SCHEMA');
+
   return new DataSource({
     type: 'postgres',
     url:
       options.url ??
       process.env.DATABASE_URL ??
       'postgresql://spark:spark_local@127.0.0.1:54329/spark_test',
-    schema: options.schema ?? process.env.DATABASE_SCHEMA ?? 'public',
+    schema,
     migrationsTableName: 'typeorm_migrations',
     migrations: [
       InitialSchema1788739200000,
@@ -33,10 +37,24 @@ export function createDataSource(
     entities: databaseEntities,
     synchronize: false,
     logging: false,
-    extra: options.schema
-      ? { options: `-c search_path=${options.schema}` }
-      : undefined,
+    extra: { options: `-c search_path=${schema}` },
   });
+}
+
+export async function initializeApplicationDataSource(
+  dataSource = createDataSource(),
+): Promise<DataSource> {
+  try {
+    await dataSource.initialize();
+    if (await dataSource.showMigrations())
+      throw new Error(
+        'DATABASE_MIGRATIONS_PENDING: run pnpm --filter @spark/api db:migrate before starting the API',
+      );
+    return dataSource;
+  } catch (error) {
+    if (dataSource.isInitialized) await dataSource.destroy();
+    throw error;
+  }
 }
 
 export default createDataSource();

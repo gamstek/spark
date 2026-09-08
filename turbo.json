@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["vite-api-proxy.mts"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -7,7 +8,29 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": [
+        "API_HOST",
+        "API_PORT",
+        "CSRF_SECRET",
+        "DATABASE_SCHEMA",
+        "DATABASE_URL",
+        "DINGTALK_CALLBACK_SECRET",
+        "JOB_POLL_INTERVAL_MS",
+        "MAINTENANCE_INTERVAL_MS",
+        "MEDIA_ROOT",
+        "NODE_ENV",
+        "OAUTH_STATE_SECRET",
+        "PRIVATE_EXPORT_ROOT",
+        "PUBLIC_ORIGIN",
+        "REDEEM_CODE_ACTIVE_KEY_ID",
+        "REDEEM_CODE_KEYS",
+        "TRUST_PROXY",
+        "API_PROXY_TARGET",
+        "WECHAT_APP_ID",
+        "WECHAT_APP_SECRET",
+        "WECHAT_TOKEN_ENCRYPTION_KEY"
+      ]
     },
     "lint": {
       "dependsOn": ["^build"]

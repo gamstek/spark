@@ -84,8 +84,11 @@ export function JobsPage() {
           description="后台任务运行正常，无需人工处理。"
         />
       ) : (
-        <Card>
-          <Table.Root variant="surface">
+        <Card
+          variant="classic"
+          size="3"
+        >
+          <Table.Root variant="ghost">
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeaderCell>任务</Table.ColumnHeaderCell>
@@ -131,6 +134,7 @@ export function JobsPage() {
                   <Table.Cell justify="end">
                     <Button
                       variant="soft"
+                      color="gray"
                       onClick={() => retry(job)}
                       loading={retryingId === job.id}
                     >

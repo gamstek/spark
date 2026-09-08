@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { TabNav } from '@radix-ui/themes';
+import { Link, useLocation } from 'react-router-dom';
 
 type ActivityNavProps = {
   activityId: string;
@@ -14,10 +15,11 @@ const activityNavigation = [
 ] as const;
 
 export function ActivityNav({ activityId }: ActivityNavProps) {
+  const { pathname } = useLocation();
   const basePath = `/activities/${activityId}`;
 
   return (
-    <nav
+    <TabNav.Root
       className="activity-navigation"
       aria-label="活动功能"
     >
@@ -25,18 +27,15 @@ export function ActivityNav({ activityId }: ActivityNavProps) {
         const path = suffix ? `${basePath}/${suffix}` : basePath;
 
         return (
-          <NavLink
+          <TabNav.Link
             key={path}
-            to={path}
-            end={!suffix}
-            className={({ isActive }) =>
-              `activity-navigation__link${isActive ? ' is-active' : ''}`
-            }
+            asChild
+            active={pathname === path}
           >
-            {label}
-          </NavLink>
+            <Link to={path}>{label}</Link>
+          </TabNav.Link>
         );
       })}
-    </nav>
+    </TabNav.Root>
   );
 }

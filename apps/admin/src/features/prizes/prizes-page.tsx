@@ -1,6 +1,7 @@
 import { PlusIcon } from '@radix-ui/react-icons';
 import {
   Button,
+  Card,
   Dialog,
   Flex,
   Heading,
@@ -8,7 +9,7 @@ import {
   Text,
   TextField,
 } from '@radix-ui/themes';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { api } from '../../api';
@@ -29,6 +30,11 @@ type Prize = {
   weight: string;
 };
 
+type StockAttempt = {
+  operationId: string;
+  quantity: number;
+};
+
 export function PrizesPage() {
   const { id = '' } = useParams();
   const [rows, setRows] = useState<Prize[]>([]);
@@ -37,6 +43,13 @@ export function PrizesPage() {
   const [error, setError] = useState('');
   const [started, setStarted] = useState(false);
   const [stockPrize, setStockPrize] = useState<Prize | null>(null);
+  const [stockAttempts, setStockAttempts] = useState<
+    Record<string, StockAttempt>
+  >({});
+  const [stockValidationErrorPrizeId, setStockValidationErrorPrizeId] =
+    useState('');
+  const [stockBusy, setStockBusy] = useState(false);
+  const stockBusyRef = useRef(false);
 
   const load = async () => {
     setRows(await api<Prize[]>(`admin/prizes/activities/${id}`));
@@ -85,24 +98,65 @@ export function PrizesPage() {
 
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!stockPrize) return;
+    if (!stockPrize || stockBusyRef.current) return;
+    stockBusyRef.current = true;
+    setStockBusy(true);
+    const prizeId = stockPrize.id;
     const form = new FormData(event.currentTarget);
+    const attempt =
+      stockAttempts[prizeId] ??
+      ({
+        quantity: Number(form.get('quantity')),
+        operationId: randomUUID(),
+      } satisfies StockAttempt);
+    setStockAttempts((current) => ({ ...current, [prizeId]: attempt }));
+    setStockValidationErrorPrizeId('');
     setError('');
+    setMessage('');
     try {
-      await api(`admin/prizes/activity-prizes/${stockPrize.id}/stock`, {
+      await api(`admin/prizes/activity-prizes/${prizeId}/stock`, {
         method: 'POST',
-        body: JSON.stringify({
-          quantity: Number(form.get('quantity')),
-          operationId: randomUUID(),
-        }),
+        body: JSON.stringify(attempt),
+      });
+      setStockAttempts((current) => {
+        const next = { ...current };
+        delete next[prizeId];
+        return next;
       });
       setStockPrize(null);
       setMessage('库存已添加');
-      await load();
-    } catch {
-      setError('库存添加失败，请确认数量后重试。');
+      try {
+        await load();
+      } catch {
+        setError('库存数据刷新失败，请刷新页面查看最新结果。');
+      }
+    } catch (caught) {
+      if (
+        caught instanceof Error &&
+        caught.message.includes('INVALID_STOCK_QUANTITY')
+      ) {
+        setStockAttempts((current) => {
+          const next = { ...current };
+          delete next[prizeId];
+          return next;
+        });
+        setStockValidationErrorPrizeId(prizeId);
+      }
+    } finally {
+      stockBusyRef.current = false;
+      setStockBusy(false);
     }
   }
+
+  const currentStockAttempt = stockPrize
+    ? stockAttempts[stockPrize.id]
+    : undefined;
+  const currentStockAttemptIsUncertain = stockPrize
+    ? Boolean(currentStockAttempt && !stockBusy)
+    : false;
+  const currentStockValidationFailed = stockPrize
+    ? stockValidationErrorPrizeId === stockPrize.id
+    : false;
 
   if (loading) return <LoadingState label="正在加载奖品与库存" />;
 
@@ -134,7 +188,11 @@ export function PrizesPage() {
           description="至少添加一个奖项后才能发布活动。"
         />
       ) : (
-        <div className="table-panel">
+        <Card
+          variant="classic"
+          size="3"
+          className="table-panel"
+        >
           <Table.Root>
             <Table.Header>
               <Table.Row>
@@ -168,6 +226,7 @@ export function PrizesPage() {
                   <Table.Cell justify="end">
                     <Button
                       variant="soft"
+                      color="gray"
                       onClick={() => setStockPrize(row)}
                     >
                       添加库存
@@ -177,11 +236,15 @@ export function PrizesPage() {
               ))}
             </Table.Body>
           </Table.Root>
-        </div>
+        </Card>
       )}
 
       {!started && (
-        <section className="form-section">
+        <Card
+          variant="classic"
+          size="4"
+          className="form-section"
+        >
           <div className="form-section-heading">
             <Text
               size="1"
@@ -217,6 +280,9 @@ export function PrizesPage() {
                   </Text>
                 </label>
                 <TextField.Root
+                  size="2"
+                  variant="soft"
+                  color="gray"
                   id="prize-name"
                   name="name"
                   placeholder="奖品名称"
@@ -239,6 +305,9 @@ export function PrizesPage() {
                   </Text>
                 </label>
                 <TextField.Root
+                  size="2"
+                  variant="soft"
+                  color="gray"
                   id="prize-stock"
                   name="stock"
                   type="number"
@@ -263,6 +332,9 @@ export function PrizesPage() {
                   </Text>
                 </label>
                 <TextField.Root
+                  size="2"
+                  variant="soft"
+                  color="gray"
                   id="prize-weight"
                   name="weight"
                   type="number"
@@ -273,19 +345,24 @@ export function PrizesPage() {
                 />
               </Flex>
               <Flex align="end">
-                <Button type="submit">
+                <Button
+                  variant="solid"
+                  type="submit"
+                >
                   <PlusIcon />
                   新增奖项
                 </Button>
               </Flex>
             </div>
           </form>
-        </section>
+        </Card>
       )}
 
       <Dialog.Root
         open={Boolean(stockPrize)}
-        onOpenChange={(open) => !open && setStockPrize(null)}
+        onOpenChange={(open) => {
+          if (!open && !stockBusyRef.current) setStockPrize(null);
+        }}
       >
         <Dialog.Content maxWidth="420px">
           <Dialog.Title>添加库存</Dialog.Title>
@@ -313,6 +390,9 @@ export function PrizesPage() {
                 </Text>
               </label>
               <TextField.Root
+                size="2"
+                variant="soft"
+                color="gray"
                 id="stock-quantity"
                 name="quantity"
                 type="number"
@@ -320,8 +400,26 @@ export function PrizesPage() {
                 placeholder="增加数量"
                 required
                 autoFocus
+                defaultValue={currentStockAttempt?.quantity}
+                disabled={Boolean(currentStockAttempt)}
               />
             </Flex>
+            {currentStockAttemptIsUncertain && (
+              <Flex mt="4">
+                <FeedbackCallout
+                  tone="warning"
+                  message="本次添加结果尚未确认，请按原数量重试。重试不会重复增加库存。"
+                />
+              </Flex>
+            )}
+            {currentStockValidationFailed && (
+              <Flex mt="4">
+                <FeedbackCallout
+                  tone="error"
+                  message="增加数量无效，请输入安全范围内的正整数。"
+                />
+              </Flex>
+            )}
             <Flex
               gap="3"
               mt="5"
@@ -332,11 +430,18 @@ export function PrizesPage() {
                   type="button"
                   variant="soft"
                   color="gray"
+                  disabled={stockBusy}
                 >
                   取消
                 </Button>
               </Dialog.Close>
-              <Button type="submit">确认添加</Button>
+              <Button
+                variant="solid"
+                type="submit"
+                loading={stockBusy}
+              >
+                {currentStockAttemptIsUncertain ? '重试添加' : '确认添加'}
+              </Button>
             </Flex>
           </form>
         </Dialog.Content>

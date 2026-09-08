@@ -1,12 +1,13 @@
 import {
   AlertDialog,
+  Card,
   Button,
   Flex,
   Heading,
   Text,
   TextField,
 } from '@radix-ui/themes';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { api } from '../../api';
@@ -57,6 +58,8 @@ export function ActivityEditPage() {
   const navigate = useNavigate();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(id !== 'new');
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [message, setMessage] = useState('');
   const [tone, setTone] = useState<'success' | 'error' | 'warning' | 'info'>(
     'info',
@@ -84,34 +87,42 @@ export function ActivityEditPage() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    let heroAssetId = form.get('heroAssetId');
-    const heroFile = form.get('heroFile');
-    if (heroFile instanceof File && heroFile.size > 0) {
-      const uploaded = await api<{ id: string }>('admin/media', {
-        method: 'POST',
-        body: JSON.stringify({
-          fileName: heroFile.name,
-          contentBase64: await readBase64(heroFile),
-        }),
-      });
-      heroAssetId = uploaded.id;
-    }
-    const config = {
-      formId: form.get('formId'),
-      formUrl: form.get('formUrl'),
-      prefillField: form.get('prefillField'),
-      fieldMapping: {
-        participationId: '参与编号',
-        name: '姓名',
-        phone: '手机号',
-      },
-      requireSubscribe: true,
-      heroAssetId,
-      rulesText: form.get('rulesText'),
-    };
+    if (locked || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setMessage('');
+    let uploadingHero = false;
 
     try {
+      const form = new FormData(event.currentTarget);
+      let heroAssetId = form.get('heroAssetId');
+      const heroFile = form.get('heroFile');
+      if (heroFile instanceof File && heroFile.size > 0) {
+        uploadingHero = true;
+        const uploaded = await api<{ id: string }>('admin/media', {
+          method: 'POST',
+          body: JSON.stringify({
+            fileName: heroFile.name,
+            contentBase64: await readBase64(heroFile),
+          }),
+        });
+        heroAssetId = uploaded.id;
+        uploadingHero = false;
+      }
+      const config = {
+        formId: form.get('formId'),
+        formUrl: form.get('formUrl'),
+        prefillField: form.get('prefillField'),
+        fieldMapping: {
+          participationId: '参与编号',
+          name: '姓名',
+          phone: '手机号',
+        },
+        requireSubscribe: true,
+        heroAssetId,
+        rulesText: form.get('rulesText'),
+      };
+
       if (id === 'new') {
         const created = await api<{ id: string }>('admin/activities', {
           method: 'POST',
@@ -153,10 +164,15 @@ export function ActivityEditPage() {
     } catch (error) {
       setTone('error');
       setMessage(
-        String(error).includes('VERSION_CONFLICT')
-          ? '版本已被其他人修改，请刷新后重试'
-          : '保存失败，请检查配置',
+        uploadingHero
+          ? '主图上传失败，请检查图片格式、大小和网络后重试。'
+          : String(error).includes('VERSION_CONFLICT')
+            ? '版本已被其他人修改，请刷新后重试'
+            : '保存失败，请检查配置',
       );
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }
 
@@ -214,7 +230,11 @@ export function ActivityEditPage() {
         className="editor-form"
         onSubmit={submit}
       >
-        <section className="form-section">
+        <Card
+          variant="classic"
+          size="4"
+          className="form-section"
+        >
           <div className="form-section-heading">
             <Text
               size="1"
@@ -223,7 +243,12 @@ export function ActivityEditPage() {
             >
               基本信息
             </Text>
-            <Heading size="4">活动名称</Heading>
+            <Heading
+              as="h2"
+              size="4"
+            >
+              活动名称
+            </Heading>
             <Text
               as="p"
               size="2"
@@ -248,23 +273,29 @@ export function ActivityEditPage() {
               </Text>
             </label>
             <TextField.Root
+              variant="soft"
+              color="gray"
               id="activity-name"
               name="name"
               placeholder="活动名称"
               defaultValue={detail?.name}
-              size="3"
+              size="2"
               required
               disabled={locked}
             />
           </Flex>
-        </section>
+        </Card>
 
         <ConfigForm
           locked={locked}
           value={detail?.config}
         />
 
-        <section className="form-section">
+        <Card
+          variant="classic"
+          size="4"
+          className="form-section"
+        >
           <div className="form-section-heading">
             <Text
               size="1"
@@ -273,7 +304,12 @@ export function ActivityEditPage() {
             >
               时间安排
             </Text>
-            <Heading size="4">活动与兑奖周期</Heading>
+            <Heading
+              as="h2"
+              size="4"
+            >
+              活动与兑奖周期
+            </Heading>
             <Text
               as="p"
               size="2"
@@ -314,6 +350,9 @@ export function ActivityEditPage() {
                     </Text>
                   </label>
                   <TextField.Root
+                    size="2"
+                    variant="soft"
+                    color="gray"
                     id={name}
                     name={name}
                     type="datetime-local"
@@ -325,17 +364,39 @@ export function ActivityEditPage() {
               );
             })}
           </div>
-        </section>
+        </Card>
 
         <div className="editor-action-bar">
-          <Text
-            size="2"
-            color="gray"
-          >
-            {locked
-              ? '运行中的活动只能补充库存或提前结束抽奖。'
-              : '保存后再发布，发布不会绕过配置校验。'}
-          </Text>
+          <div className="editor-action-summary">
+            <span
+              className={`editor-state-dot${locked ? ' is-live' : ''}`}
+              aria-hidden="true"
+            />
+            <div>
+              <Text
+                as="div"
+                size="2"
+                weight="medium"
+              >
+                {locked
+                  ? '活动已开始'
+                  : id === 'new'
+                    ? '准备保存活动'
+                    : '保存与发布'}
+              </Text>
+              <Text
+                as="p"
+                size="1"
+                color="gray"
+              >
+                {locked
+                  ? '活动配置已锁定，可前往奖品页补充库存。'
+                  : id === 'new'
+                    ? '先保存基本配置，再设置奖品并发布。'
+                    : '保存当前修改后，即可发布给参与者。'}
+              </Text>
+            </div>
+          </div>
           <Flex
             gap="3"
             wrap="wrap"
@@ -344,16 +405,20 @@ export function ActivityEditPage() {
             <Button
               type="submit"
               size="3"
-              disabled={locked}
+              variant={id === 'new' ? 'solid' : 'soft'}
+              color={id === 'new' ? undefined : 'gray'}
+              disabled={locked || saving}
+              loading={saving}
             >
               保存草稿
             </Button>
             {id !== 'new' && (
               <Button
+                variant="solid"
                 type="button"
                 size="3"
                 onClick={publish}
-                disabled={locked}
+                disabled={locked || saving}
               >
                 发布活动
               </Button>
@@ -363,9 +428,11 @@ export function ActivityEditPage() {
                 <AlertDialog.Trigger>
                   <Button
                     type="button"
-                    color="tomato"
-                    variant="soft"
+                    color="red"
+                    variant="outline"
+                    className="editor-danger-action"
                     size="3"
+                    disabled={saving}
                   >
                     提前结束抽奖
                   </Button>
@@ -390,7 +457,8 @@ export function ActivityEditPage() {
                     </AlertDialog.Cancel>
                     <AlertDialog.Action>
                       <Button
-                        color="tomato"
+                        variant="solid"
+                        color="red"
                         onClick={endDraw}
                       >
                         确认结束抽奖

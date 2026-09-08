@@ -84,8 +84,10 @@ function Shell() {
 export function App() {
   return (
     <Theme
-      accentColor="indigo"
-      grayColor="sage"
+      accentColor="violet"
+      appearance="light"
+      panelBackground="translucent"
+      grayColor="slate"
       radius="medium"
       scaling="100%"
     >

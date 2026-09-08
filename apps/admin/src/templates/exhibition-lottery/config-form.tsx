@@ -1,4 +1,11 @@
-import { Flex, Heading, Text, TextArea, TextField } from '@radix-ui/themes';
+import {
+  Card,
+  Flex,
+  Heading,
+  Text,
+  TextArea,
+  TextField,
+} from '@radix-ui/themes';
 
 type ConfigValue = Record<string, unknown>;
 
@@ -43,7 +50,11 @@ export function ConfigForm({
 }) {
   return (
     <>
-      <section className="form-section">
+      <Card
+        variant="classic"
+        size="4"
+        className="form-section"
+      >
         <div className="form-section-heading">
           <Text
             size="1"
@@ -52,7 +63,12 @@ export function ConfigForm({
           >
             模板配置
           </Text>
-          <Heading size="4">钉钉留资表单</Heading>
+          <Heading
+            as="h2"
+            size="4"
+          >
+            钉钉留资表单
+          </Heading>
           <Text
             as="p"
             size="2"
@@ -71,6 +87,9 @@ export function ConfigForm({
               title="钉钉表单 ID"
             />
             <TextField.Root
+              size="2"
+              variant="soft"
+              color="gray"
               id="form-id"
               name="formId"
               placeholder="钉钉表单 ID"
@@ -89,6 +108,9 @@ export function ConfigForm({
               description="用于把 participationId 写入表单记录"
             />
             <TextField.Root
+              size="2"
+              variant="soft"
+              color="gray"
               id="prefill-field"
               name="prefillField"
               placeholder="预填参数名"
@@ -108,6 +130,9 @@ export function ConfigForm({
               description="仅支持 alidocs.dingtalk.com 的 HTTPS 预填链接"
             />
             <TextField.Root
+              size="2"
+              variant="soft"
+              color="gray"
               id="form-url"
               name="formUrl"
               placeholder="已验证的钉钉预填链接"
@@ -117,9 +142,13 @@ export function ConfigForm({
             />
           </Flex>
         </div>
-      </section>
+      </Card>
 
-      <section className="form-section">
+      <Card
+        variant="classic"
+        size="4"
+        className="form-section"
+      >
         <div className="form-section-heading">
           <Text
             size="1"
@@ -128,7 +157,12 @@ export function ConfigForm({
           >
             页面内容
           </Text>
-          <Heading size="4">主视觉与活动规则</Heading>
+          <Heading
+            as="h2"
+            size="4"
+          >
+            主视觉与活动规则
+          </Heading>
           <Text
             as="p"
             size="2"
@@ -147,6 +181,9 @@ export function ConfigForm({
               title="当前主图资源 ID"
             />
             <TextField.Root
+              size="2"
+              variant="soft"
+              color="gray"
               id="hero-asset-id"
               name="heroAssetId"
               placeholder="主图资源 ID"
@@ -183,18 +220,21 @@ export function ConfigForm({
               title="活动规则"
             />
             <TextArea
+              size="2"
+              variant="soft"
+              color="gray"
               id="rules-text"
               name="rulesText"
               placeholder="活动规则"
               defaultValue={String(value.rulesText ?? '')}
               required
               disabled={locked}
-              resize="vertical"
+              resize="none"
               rows={5}
             />
           </Flex>
         </div>
-      </section>
+      </Card>
     </>
   );
 }

@@ -61,8 +61,11 @@ export function RedemptionsListPage() {
           description="参与者中奖后，相应凭证会显示在这里。"
         />
       ) : (
-        <Card>
-          <Table.Root variant="surface">
+        <Card
+          variant="classic"
+          size="3"
+        >
+          <Table.Root variant="ghost">
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeaderCell>奖品</Table.ColumnHeaderCell>

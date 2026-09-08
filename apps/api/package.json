@@ -4,7 +4,8 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "predev": "pnpm db:migrate",
+    "dev": "node --env-file-if-exists=../../.env --watch --import tsx src/main.ts",
     "start": "node dist/src/main.js",
     "prebuild": "pnpm --filter @spark/templates build && pnpm --filter @spark/contracts build",
     "build": "tsc -p tsconfig.json",
@@ -14,9 +15,9 @@
     "test": "vitest run --config vitest.unit.config.ts --passWithNoTests",
     "pretest:integration": "pnpm --filter @spark/templates build && pnpm --filter @spark/contracts build",
     "test:integration": "vitest run --config vitest.config.ts",
-    "db:migrate": "tsx database/migrate.ts",
-    "admin:create": "tsx database/seeds/create-admin.ts",
-    "templates:check": "tsx scripts/check-template-compatibility.ts"
+    "db:migrate": "node --env-file-if-exists=../../.env --import tsx database/migrate.ts",
+    "admin:create": "node --env-file-if-exists=../../.env --import tsx database/seeds/create-admin.ts",
+    "templates:check": "node --env-file-if-exists=../../.env --import tsx scripts/check-template-compatibility.ts"
   },
   "dependencies": {
     "@nestjs/common": "12.0.1",

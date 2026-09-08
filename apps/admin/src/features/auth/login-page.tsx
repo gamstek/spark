@@ -1,7 +1,19 @@
-import { Button, Card, Flex, Heading, Text, TextField } from '@radix-ui/themes';
-import { useState } from 'react';
+import {
+  ArrowRightIcon,
+  EyeOpenIcon,
+  EyeClosedIcon,
+  LockClosedIcon,
+} from '@radix-ui/react-icons';
+import {
+  Button,
+  Flex,
+  Heading,
+  IconButton,
+  Text,
+  TextField,
+} from '@radix-ui/themes';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
 import { api, setCsrf } from '../../api';
 import { FeedbackCallout } from '../../components/feedback';
 
@@ -9,10 +21,23 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
+  const [visible, setVisible] = useState(false);
+  const pending = useRef(false);
+  const username = useRef<HTMLInputElement>(null);
+  const password = useRef<HTMLInputElement>(null);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending.current) return;
     const data = new FormData(event.currentTarget);
+    if (!String(data.get('username')).trim() || !data.get('password')) {
+      setError('请输入管理员账号和密码');
+      (!String(data.get('username')).trim()
+        ? username
+        : password
+      ).current?.focus();
+      return;
+    }
+    pending.current = true;
     setError('');
     setSubmitting(true);
     try {
@@ -25,14 +50,21 @@ export function LoginPage() {
       });
       const me = await api<{ csrfToken: string }>('admin/auth/me');
       setCsrf(me.csrfToken);
-      navigate('/activities');
-    } catch {
-      setError('账号或密码错误，请重试');
+      navigate('/activities', { replace: true });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : '';
+      setError(
+        message.includes('ORIGIN_INVALID')
+          ? '当前访问地址未获授权，请联系管理员检查后台访问地址配置。'
+          : /INVALID_CREDENTIALS|UNAUTHORIZED|Unauthorized|401/.test(message)
+            ? '账号或密码错误，请重试'
+            : '登录暂时失败，请检查网络连接后重试。',
+      );
     } finally {
+      pending.current = false;
       setSubmitting(false);
     }
   }
-
   return (
     <main className="login-page">
       <section
@@ -44,115 +76,149 @@ export function LoginPage() {
             className="brand-spark"
             aria-hidden="true"
           />
-          Spark 运营台
+          Spark<span className="login-brand-caption">活动运营工作台</span>
         </div>
-        <div>
-          <Text className="login-kicker">展会活动控制台</Text>
+        <div className="login-brand-story">
+          <span className="login-story-label">让每一次参与，都更有价值</span>
           <Heading
-            size="8"
-            className="login-story-title"
+            as="h2"
+            className="login-story-heading"
           >
-            让每一场活动，
+            精彩活动，
             <br />
-            从发布到核销都有据可查。
+            从这里开启。
           </Heading>
           <Text
             as="p"
-            size="3"
-            className="login-story-copy"
+            className="login-story-description"
           >
-            在一个工作台管理活动配置、奖品库存、参与线索和现场核销。
+            从活动筹备到现场核销，
+            <br />
+            把每个环节，安排得井然有序。
           </Text>
+          <div className="login-story-flow">
+            <span>活动配置</span>
+            <span aria-hidden="true">／</span>
+            <span>奖品管理</span>
+            <span aria-hidden="true">／</span>
+            <span>现场核销</span>
+          </div>
         </div>
-        <Text
-          size="2"
-          className="login-story-footnote"
-        >
-          Project Spark · 单组织运营环境
-        </Text>
+        <div className="login-story-footer">
+          <span>Spark</span>
+          <span>连接品牌与每一次相遇</span>
+        </div>
       </section>
-
       <section className="login-form-area">
-        <Card
-          size="4"
-          className="login-card"
-        >
-          <Flex
-            direction="column"
-            gap="5"
+        <div className="login-card">
+          <span
+            className="login-emblem"
+            aria-hidden="true"
           >
-            <div>
-              <Heading size="6">登录管理后台</Heading>
-              <Text
-                as="p"
-                size="2"
-                color="gray"
-                mt="2"
-              >
-                使用管理员账号继续
-              </Text>
-            </div>
-            <form onSubmit={submit}>
-              <Flex
-                direction="column"
-                gap="4"
-              >
-                <label
-                  className="field-label"
-                  htmlFor="admin-username"
-                >
-                  <Text
-                    size="2"
-                    weight="medium"
-                  >
-                    管理员账号
-                  </Text>
-                </label>
+            S
+          </span>
+          <Heading
+            as="h1"
+            size="7"
+          >
+            登录 Spark
+          </Heading>
+          <Text
+            as="p"
+            size="2"
+            color="gray"
+            mt="3"
+            mb="6"
+          >
+            进入你的活动运营工作空间。
+          </Text>
+          <form
+            onSubmit={submit}
+            noValidate
+            aria-busy={submitting}
+          >
+            <Flex
+              direction="column"
+              gap="4"
+              className="login-fields"
+            >
+              <div className="login-field">
+                <label htmlFor="admin-username">管理员账号</label>
                 <TextField.Root
+                  variant="soft"
+                  color="gray"
+                  ref={username}
                   id="admin-username"
                   name="username"
-                  placeholder="管理员账号"
+                  placeholder="输入管理员账号"
                   size="3"
                   autoComplete="username"
                   required
+                  aria-describedby={error ? 'login-error' : undefined}
                 />
-                <label
-                  className="field-label"
-                  htmlFor="admin-password"
-                >
-                  <Text
-                    size="2"
-                    weight="medium"
-                  >
-                    密码
-                  </Text>
-                </label>
+              </div>
+              <div className="login-field">
+                <label htmlFor="admin-password">密码</label>
                 <TextField.Root
+                  variant="soft"
+                  color="gray"
+                  ref={password}
                   id="admin-password"
                   name="password"
-                  type="password"
-                  placeholder="密码"
+                  type={visible ? 'text' : 'password'}
+                  placeholder="输入密码"
                   size="3"
                   autoComplete="current-password"
                   required
-                />
-                {error && (
+                  aria-describedby={error ? 'login-error' : undefined}
+                >
+                  <TextField.Slot side="right">
+                    <IconButton
+                      type="button"
+                      variant="ghost"
+                      color="gray"
+                      aria-label={visible ? '隐藏密码' : '显示密码'}
+                      aria-pressed={visible}
+                      onClick={() => setVisible((value) => !value)}
+                    >
+                      {visible ? <EyeClosedIcon /> : <EyeOpenIcon />}
+                    </IconButton>
+                  </TextField.Slot>
+                </TextField.Root>
+              </div>
+              {error && (
+                <div
+                  id="login-error"
+                  role="alert"
+                >
                   <FeedbackCallout
                     message={error}
                     tone="error"
                   />
-                )}
-                <Button
-                  type="submit"
-                  size="3"
-                  loading={submitting}
-                >
-                  登录
-                </Button>
-              </Flex>
-            </form>
-          </Flex>
-        </Card>
+                </div>
+              )}
+              <Button
+                variant="solid"
+                type="submit"
+                size="3"
+                loading={submitting}
+              >
+                登录
+                <ArrowRightIcon />
+              </Button>
+            </Flex>
+          </form>
+          <div className="login-security">
+            <LockClosedIcon aria-hidden="true" />
+            <span>仅限授权管理员访问</span>
+          </div>
+        </div>
+        <Text
+          size="1"
+          className="login-help"
+        >
+          账号由管理员统一创建。如需帮助，请联系系统管理员。
+        </Text>
       </section>
     </main>
   );

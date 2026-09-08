@@ -31,6 +31,26 @@ MiB 校验；`/media/`
 从只读持久卷提供已校验图片。API 内置 PostgreSQL 任务轮询和定期过期数据维护。Nginx 对普通 API 和登录/OAuth 路由采用不同限流；Session
 Cookie 在生产环境使用 `Secure`、`HttpOnly` 和 `SameSite=Lax`。
 
+## CI 镜像
+
+PR 会验证 API 和 Web 两个 `linux/amd64`
+镜像可以构建，但不会登录仓库或推送镜像。主分支的 `CI`
+工作流成功后，`Container images` 工作流会检出同一个提交并发布：
+
+- `ghcr.io/gamstek/spark-api:sha-<完整提交 SHA>`
+- `ghcr.io/gamstek/spark-web:sha-<完整提交 SHA>`
+
+发布按完整提交 SHA 标记镜像，不维护 `latest` 等移动标签。手动运行
+`Container images` 只验证构建，不能绕过 `CI`
+发布。镜像包含源码仓库 OCI 标签，首次发布时会关联到本仓库；镜像可见性及部署服务器的拉取权限在 GitHub
+Packages 中管理。私有镜像需先登录再拉取：
+
+```bash
+echo "$GHCR_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
+docker pull ghcr.io/gamstek/spark-api:sha-<完整提交 SHA>
+docker pull ghcr.io/gamstek/spark-web:sha-<完整提交 SHA>
+```
+
 ## 备份与恢复
 
 每日备份 PostgreSQL、`media`
