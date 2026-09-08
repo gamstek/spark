@@ -25,12 +25,11 @@ it('prepares an older development database before starting the API', async () =>
     ).not.toContain('expires_at');
     expect(await database.dataSource.showMigrations()).toBe(true);
 
-    const url = new URL(
-      process.env.TEST_DATABASE_URL ??
-        'postgresql://spark:spark_local@127.0.0.1:54329/spark_test',
-    );
     if (database.dataSource.options.type !== 'postgres')
       throw new Error('Expected an isolated PostgreSQL test database');
+    const connectionUrl = database.dataSource.options.url;
+    if (!connectionUrl) throw new Error('Expected a PostgreSQL connection URL');
+    const url = new URL(connectionUrl);
     const schema = database.dataSource.options.schema!;
     const command = process.platform === 'win32' ? 'cmd.exe' : 'pnpm';
     const args =

@@ -9,8 +9,8 @@ Web 容器和 PostgreSQL。数据库、媒体和私有导出文件分别使用�
 
 ## 准备
 
-1. 在根目录 `.env.production` 设置
-   `POSTGRES_PASSWORD`、`DATABASE_URL`、`PUBLIC_ORIGIN`、三个至少 32 字节的密钥及微信公众号凭据。容器内数据库地址使用
+1. 复制 `.env.example` 为根目录
+   `.env.production`，按[配置说明](project-spark-configuration.md)设置数据库、正式域名、微信公众号凭据、钉钉回调密钥和兑奖码密钥。容器内数据库地址使用
    `postgres`，密码中的特殊字符必须进行 URL 编码。
 2. 将证书保存为 `nginx/certs/fullchain.pem` 和 `nginx/certs/privkey.pem`。
 3. `PUBLIC_ORIGIN` 必须是用户访问的 HTTPS 源，例如

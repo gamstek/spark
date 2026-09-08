@@ -32,6 +32,9 @@ pnpm verify        Run lint, typecheck, unit tests, builds, and integration test
 Copy `.env.example` to `.env` for local development. Secrets must not be
 committed.
 
+Every environment variable, its source, secrecy requirement, and rotation impact
+is documented in `docs/project-spark-configuration.md`.
+
 `pnpm dev`, the API development server, and database CLI commands load the root
 `.env` using Node's native environment-file support. Existing shell variables
 take precedence. Set `API_PORT` there once: all three Vite development servers
