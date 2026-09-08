@@ -1,0 +1,18 @@
+name: Setup workspace
+description: Install the pinned Node.js and pnpm workspace dependencies
+
+runs:
+  using: composite
+  steps:
+    - name: Set up pnpm
+      uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4.2.0
+      with:
+        version: 10.15.1
+    - name: Set up Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: 24.11.0
+        cache: pnpm
+    - name: Install workspace dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
