@@ -19,11 +19,18 @@ export interface TestDatabase {
 const defaultTestUrl =
   'postgresql://spark:spark_local@127.0.0.1:54329/spark_test';
 
-export async function createTestDatabase(): Promise<TestDatabase> {
-  const url = process.env.TEST_DATABASE_URL ?? defaultTestUrl;
+export function resolveTestDatabaseUrl(
+  environment: Record<string, string | undefined> = process.env,
+): string {
+  const url = environment.DATABASE_URL ?? defaultTestUrl;
   const databaseName = new URL(url).pathname.slice(1);
   if (!databaseName.toLowerCase().includes('test'))
     throw new Error('REFUSING_NON_TEST_DATABASE');
+  return url;
+}
+
+export async function createTestDatabase(): Promise<TestDatabase> {
+  const url = resolveTestDatabaseUrl();
 
   const schema = `spark_test_${randomUUID().replaceAll('-', '')}`;
   const admin = new DataSource({ type: 'postgres', url });

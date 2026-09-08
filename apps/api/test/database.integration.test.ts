@@ -2,8 +2,30 @@ import { randomUUID } from 'node:crypto';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createTestDatabase, type TestDatabase } from './support/database.js';
+import {
+  createTestDatabase,
+  resolveTestDatabaseUrl,
+  type TestDatabase,
+} from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
+
+describe('test database configuration', () => {
+  it('uses DATABASE_URL as the single PostgreSQL connection setting', () => {
+    expect(
+      resolveTestDatabaseUrl({
+        DATABASE_URL: 'postgresql://spark:secret@localhost:5432/spark_test',
+      }),
+    ).toBe('postgresql://spark:secret@localhost:5432/spark_test');
+  });
+
+  it('refuses DATABASE_URL values that do not name a test database', () => {
+    expect(() =>
+      resolveTestDatabaseUrl({
+        DATABASE_URL: 'postgresql://spark:secret@localhost:5432/spark',
+      }),
+    ).toThrow('REFUSING_NON_TEST_DATABASE');
+  });
+});
 
 describe('initial PostgreSQL schema', () => {
   let database: TestDatabase;

@@ -1,4 +1,4 @@
-name: CI
+name: Quality Gates
 
 on:
   pull_request:
@@ -24,7 +24,6 @@ jobs:
       CI: true
       NODE_ENV: test
       DATABASE_URL: postgresql://spark:spark_test@127.0.0.1:5432/spark_test
-      TEST_DATABASE_URL: postgresql://spark:spark_test@127.0.0.1:5432/spark_test
       PUBLIC_ORIGIN: http://127.0.0.1:4173
       CSRF_SECRET: ci-csrf-secret-with-at-least-32-bytes
       OAUTH_STATE_SECRET: ci-oauth-secret-with-at-least-32-bytes
