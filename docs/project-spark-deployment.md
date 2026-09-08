@@ -68,6 +68,9 @@ Environment `production` 需要配置：
 | `ECS_DEPLOY_PATH`     | 服务器部署目录，例如 `/opt/spark`                                      |
 | `ECS_HEALTHCHECK_URL` | 就绪检查完整地址，例如 `https://campaign.example.com/api/health/ready` |
 
+以上配置和 ECS 准备工作完成后，在仓库的 Actions Variables 中设置
+`ECS_AUTO_DEPLOY_ENABLED=true`，才会启用主分支自动部署。未设置时自动部署任务保持跳过，手动部署不受影响。
+
 首次部署前，在 ECS 安装 Docker Engine 和 Compose 插件，在 `ECS_DEPLOY_PATH` 放置
 `.env.production` 与
 `nginx/certs/fullchain.pem`、`nginx/certs/privkey.pem`。如果 GHCR 镜像是私有的，还需使用具有
