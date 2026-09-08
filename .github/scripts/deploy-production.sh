@@ -24,7 +24,8 @@ compose_release() {
 wait_for_readiness() {
   attempt=1
   while [ "$attempt" -le 20 ]; do
-    if curl --fail --silent --show-error --output /dev/null \
+    if curl --connect-timeout 2 --max-time 5 \
+      --fail --silent --show-error --output /dev/null \
       http://127.0.0.1:18080/api/health/ready; then
       return 0
     fi

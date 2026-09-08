@@ -306,6 +306,7 @@ jobs:
           set -uo pipefail
           remote_candidate="$ECS_DEPLOY_PATH/releases/.incoming-$RELEASE_ID"
           deployment_log="$RUNNER_TEMP/deployment-$RELEASE_ID.log"
+          set +e
           sshpass -e ssh -o PreferredAuthentications=password \
             -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
             -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
@@ -313,6 +314,7 @@ jobs:
             "bash '$remote_candidate/deploy-production.sh' '$ECS_DEPLOY_PATH' '$RELEASE_ID'" \
             2>&1 | tee "$deployment_log"
           deployment_status=${PIPESTATUS[0]}
+          set -e
           local_health=$(sed -n 's/^LOCAL_HEALTH_RESULT=//p' "$deployment_log" | tail -n 1)
           rollback=$(sed -n 's/^ROLLBACK_RESULT=//p' "$deployment_log" | tail -n 1)
           case "$local_health" in
@@ -338,7 +340,8 @@ jobs:
             echo 'result=not-configured' >>"$GITHUB_OUTPUT"
             exit 0
           fi
-          if curl --fail --show-error --silent \
+          if curl --connect-timeout 5 --max-time 10 \
+            --fail --show-error --silent \
             --retry 10 --retry-delay 3 --retry-connrefused \
             "$ECS_HEALTHCHECK_URL" >/dev/null; then
             echo 'result=success' >>"$GITHUB_OUTPUT"
