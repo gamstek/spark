@@ -65,10 +65,10 @@ Expected: FAIL with `Web loopback binding missing`.
 - [x] **Step 2: Convert the container Nginx to internal HTTP**
 
 Use one `listen 8080` server without certificates or an HTTP-to-HTTPS redirect.
-Keep the existing API, media, SPA and rate-limit locations. Add exact 308
-redirects for `/activity`, `/staff`, and `/admin`. Configure real-IP handling
-for the trusted Docker subnet and preserve the incoming `X-Forwarded-Proto`
-value when proxying to API.
+Keep the existing API, media and SPA locations. Add exact 308 redirects for
+`/activity`, `/staff`, and `/admin`. Configure real-IP handling for the trusted
+Docker subnet and preserve the incoming `X-Forwarded-Proto` value when proxying
+to API.
 
 - [x] **Step 3: Change the Web container exposure**
 
