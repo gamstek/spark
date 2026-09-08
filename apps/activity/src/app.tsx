@@ -1,22 +1,35 @@
 import { Theme } from '@radix-ui/themes';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes, useParams } from 'react-router-dom';
-
-const queryClient = new QueryClient();
+import { DemoRuntimeProvider } from './lib/runtime';
+import { RuntimeScene } from './pages/runtime-scene';
+import { DevStepToolbar } from './components/dev-step-toolbar';
 
 function ActivityEntry() {
   const { activityCode } = useParams();
-  return <main><h1>Project Spark</h1><p>活动：{activityCode}</p></main>;
+  return (
+    <DemoRuntimeProvider key={activityCode}>
+      <RuntimeScene />
+      {import.meta.env.DEV && <DevStepToolbar />}
+    </DemoRuntimeProvider>
+  );
 }
 
 export function App() {
   return (
-    <Theme>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter basename="/activity">
-          <Routes><Route path=":activityCode" element={<ActivityEntry />} /></Routes>
-        </BrowserRouter>
-      </QueryClientProvider>
+    <Theme
+      appearance="light"
+      grayColor="slate"
+      radius="medium"
+      scaling="100%"
+    >
+      <BrowserRouter basename="/activity">
+        <Routes>
+          <Route
+            path="*"
+            element={<ActivityEntry />}
+          />
+        </Routes>
+      </BrowserRouter>
     </Theme>
   );
 }

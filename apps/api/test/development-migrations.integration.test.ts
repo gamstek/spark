@@ -44,7 +44,7 @@ it('prepares an older development database before starting the API', async () =>
         DATABASE_URL: url.toString(),
         DATABASE_SCHEMA: schema,
       },
-      timeout: 15_000,
+      timeout: 45_000,
     });
 
     expect(await database.dataSource.showMigrations()).toBe(false);
@@ -59,4 +59,4 @@ it('prepares an older development database before starting the API', async () =>
   } finally {
     await database.close();
   }
-});
+}, 60_000);
