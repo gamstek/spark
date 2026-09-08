@@ -566,7 +566,7 @@ Expected: the first command finds no active old workflow references or mutable
 image tags; the second finds the protected deployment, fixed concurrency, digest
 handling, SBOM, and provenance settings.
 
-- [ ] **Step 5: Commit and push the documentation**
+- [x] **Step 5: Commit and push the documentation**
 
 ```bash
 git add docs
