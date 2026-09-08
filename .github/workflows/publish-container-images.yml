@@ -1,12 +1,9 @@
 name: Publish Container Images
 
 on:
-  pull_request:
   workflow_dispatch:
-  workflow_run:
-    workflows: [Quality Gates]
-    types: [completed]
-    branches: [main]
+  push:
+    tags: ['v*']
 
 permissions:
   contents: read
@@ -15,44 +12,11 @@ env:
   IMAGE_PREFIX: ghcr.io/gamstek/spark
 
 jobs:
-  build:
-    if:
-      github.event_name == 'pull_request' || github.event_name ==
-      'workflow_dispatch'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: api
-            dockerfile: apps/api/Dockerfile
-          - image: web
-            dockerfile: nginx/Dockerfile
-    steps:
-      - name: Check out source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-        with:
-          persist-credentials: false
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - name: Build ${{ matrix.image }} image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64
-          push: false
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+  quality:
+    uses: ./.github/workflows/quality-gates.yml
 
   publish:
-    if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch ==
-      github.event.repository.default_branch &&
-      github.event.workflow_run.head_repository.full_name == github.repository
+    needs: quality
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -66,10 +30,10 @@ jobs:
           - image: web
             dockerfile: nginx/Dockerfile
     steps:
-      - name: Check out verified source
+      - name: Check out release source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -85,10 +49,11 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
           tags: |
-            type=raw,value=sha-${{ github.event.workflow_run.head_sha }},priority=1000
+            type=raw,value=sha-${{ github.sha }},priority=1000
+            type=ref,event=tag
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+            org.opencontainers.image.revision=${{ github.sha }}
       - name: Build and publish ${{ matrix.image }} image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -100,3 +65,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    needs: publish
+    uses: ./.github/workflows/deploy-aliyun-ecs.yml
+    with:
+      image_sha: ${{ github.sha }}
+      config_ref: ${{ github.sha }}
+    secrets: inherit

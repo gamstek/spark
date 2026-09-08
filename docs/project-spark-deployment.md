@@ -57,16 +57,16 @@ curl -fsS https://spark.gamstek.com/api/health/ready
 
 ## 自动化验证与镜像发布
 
-PR 会验证 API 和 Web 两个 `linux/amd64`
-镜像可以构建，但不会登录仓库或推送镜像。主分支的 `Quality Gates`
-工作流成功后，`Publish Container Images` 工作流会检出同一个提交并发布：
+PR 和主分支提交只运行 `Quality Gates`，不会发布镜像或部署。手动运行
+`Publish Container Images`，或推送名称以 `v` 开头的 Git 标签（例如
+`v1.0.0`），会先重新运行质量检查，再构建并发布两个 `linux/amd64` 镜像：
 
 - `ghcr.io/gamstek/spark-api:sha-<完整提交 SHA>`
 - `ghcr.io/gamstek/spark-web:sha-<完整提交 SHA>`
 
-发布按完整提交 SHA 标记镜像，不维护 `latest` 等移动标签。手动运行
-`Publish Container Images` 只验证构建，不能绕过 `Quality Gates`
-发布。镜像包含源码仓库 OCI 标签，首次发布时会关联到本仓库；镜像可见性及部署服务器的拉取权限在 GitHub
+标签触发时还会生成对应版本标签，例如
+`spark-api:v1.0.0`；部署始终使用不可变的完整提交 SHA，不维护
+`latest`。镜像包含源码仓库 OCI 标签，首次发布时会关联到本仓库；镜像可见性及部署服务器的拉取权限在 GitHub
 Packages 中管理。私有镜像需先登录再拉取：
 
 ```bash
@@ -75,10 +75,11 @@ docker pull ghcr.io/gamstek/spark-api:sha-<完整提交 SHA>
 docker pull ghcr.io/gamstek/spark-web:sha-<完整提交 SHA>
 ```
 
-## 阿里云 ECS 自动部署
+## 阿里云 ECS 发布部署
 
-`Publish Container Images` 成功发布主分支镜像后，`Deploy to Aliyun ECS`
-会通过 SSH 将根目录 `compose.production.yaml` 和本次 `.env.release`
+`Publish Container Images` 成功发布镜像后，会调用
+`Deploy to Aliyun ECS`，通过 SSH 将根目录 `compose.production.yaml` 和本次
+`.env.release`
 传到 ECS，拉取对应 SHA 的 API、Web 镜像，然后运行迁移并更新容器。GitHub
 Environment `production` 需要配置：
 
@@ -92,9 +93,6 @@ Environment `production` 需要配置：
 | `ECS_DEPLOY_PATH`     | 服务器部署目录，例如 `/opt/spark`                                |
 | `ECS_HEALTHCHECK_URL` | 可选的公网检查地址：`https://spark.gamstek.com/api/health/ready` |
 
-以上配置和 ECS 准备工作完成后，在仓库的 Actions Variables 中设置
-`ECS_AUTO_DEPLOY_ENABLED=true`，才会启用主分支自动部署。未设置时自动部署任务保持跳过，手动部署不受影响。
-
 workflow 使用 `sshpass`，通过 `SSHPASS` 环境变量读取
 `ECS_PASSWORD`；密码不会写入 SSH 命令参数或上传文件。ECS 必须允许密码认证，部署账户必须有权操作
 `ECS_DEPLOY_PATH`
@@ -107,8 +105,8 @@ ssh-keyscan -p 22 -H ecs.example.com
 首次部署时 `ECS_HEALTHCHECK_URL` 可以不配置，workflow 会在 ECS 内检查
 `http://127.0.0.1:18080/api/health/ready`。HTTPS 启用后再设置公网地址。需要回滚时，在 GitHub
 Actions 手动运行
-`Deploy to Aliyun ECS`，输入已发布镜像对应的 40 位完整提交 SHA。工作流不会读取或覆盖 ECS 上的
-`.env.production` 和证书。
+`Deploy to Aliyun ECS`，输入已发布镜像对应的 40 位完整提交 SHA；也可指定包含部署配置的 Git
+ref。工作流不会读取或覆盖 ECS 上的 `.env.production` 和证书。
 
 ## 备份与恢复
 

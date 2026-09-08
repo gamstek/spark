@@ -36,8 +36,10 @@ PostgreSQL 使用独立容器和命名卷
 
 ## GitHub Actions 部署
 
-流水线保持
-`Quality Gates → Publish Container Images → Deploy to Aliyun ECS`。部署任务在 GitHub 托管的 Ubuntu
+PR 和主分支提交只运行 `Quality Gates`。手动运行镜像发布工作流，或推送 `v*`
+版本标签时，流水线按
+`Quality Gates → Publish Container Images → Deploy to Aliyun ECS`
+顺序执行。镜像同时使用完整提交 SHA 和版本标签标记，部署固定使用 SHA。部署任务在 GitHub 托管的 Ubuntu
 Runner 上安装 `sshpass`，通过环境变量 `SSHPASS`
 使用服务器账户密码；密码只来自 GitHub Environment `production` 的 `ECS_PASSWORD`
 secret，不写入命令参数、文件或日志。
@@ -59,8 +61,7 @@ workflow 上传 `compose.production.yaml` 和包含两个 SHA 镜像地址的
 `read:packages`
 权限的凭据登录 GHCR。部署依次拉取镜像、更新容器、检查 Compose 状态和本地就绪端点；配置外部健康检查地址后，再检查公网 HTTPS。
 
-`ECS_AUTO_DEPLOY_ENABLED`
-在首次手动部署和 HTTPS 验收完成前保持关闭。手动运行允许输入已发布镜像的完整 SHA，用于重新部署或应用版本回滚。
+部署工作流也可单独手动运行，输入已发布镜像的完整 SHA，用于重新部署或应用版本回滚。普通分支和无版本标签的提交不会发布或部署。
 
 ## 生产保护
 

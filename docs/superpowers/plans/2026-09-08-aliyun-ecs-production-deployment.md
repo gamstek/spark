@@ -150,8 +150,7 @@ Continue writing only `ECS_SSH_KNOWN_HOSTS` to `~/.ssh/known_hosts`.
 
 After `docker compose up`, poll `http://127.0.0.1:18080/api/health/ready` on
 ECS. Treat `ECS_HEALTHCHECK_URL` as optional; when non-empty, require HTTPS and
-run the external retrying check. Keep automatic deployment disabled unless
-`ECS_AUTO_DEPLOY_ENABLED=true`.
+run the external retrying check.
 
 - [x] **Step 4: Validate the workflow**
 
@@ -288,11 +287,11 @@ curl -fsS https://spark.gamstek.com/api/health/ready
 ```
 
 Verify `/activity/`, `/staff/`, `/admin/`, `/api/health/ready` and `/media/`
-behavior before setting `ECS_AUTO_DEPLOY_ENABLED=true`.
+behavior before creating the first `v*` release tag.
 
 - [ ] **Step 7: Configure GitHub and external platforms**
 
 Add the documented `production` Environment secrets, enable required reviewers,
 then configure the WeChat OAuth domain and IP allowlist plus the DingTalk
-callback URL. Keep automatic deployment disabled until a manual workflow run
-succeeds.
+callback URL. Complete one manual release and deployment before using a `v*`
+release tag.
