@@ -24,13 +24,17 @@
    安装到系统 Nginx，创建 `sites-enabled` 软链接；只有 `nginx -t`
    成功后才能 reload。
 
-启动并查看状态：
+首次和后续版本均通过 `Release` 或 `Deploy Production` 激活。不要在 `/opt/spark`
+使用平铺的 Compose 和 `.env.release` 文件手动执行
+`up`，否则会绕过候选版本健康检查、自动回滚和 `current`
+的原子切换。部署完成后检查当前版本和状态：
 
 ```bash
-docker compose --env-file .env.production --env-file .env.release \
-  -f compose.production.yaml up -d --no-build
-docker compose --env-file .env.production --env-file .env.release \
-  -f compose.production.yaml ps
+readlink /opt/spark/current
+cd /opt/spark/current
+docker compose -p spark --env-file /opt/spark/.env.production \
+  --env-file /opt/spark/current/.env.release \
+  -f /opt/spark/current/compose.production.yaml ps
 curl -fsS http://127.0.0.1:18080/api/health/ready
 ```
 

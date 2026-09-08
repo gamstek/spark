@@ -554,7 +554,7 @@ production images build, and Compose renders successfully.
 
 Confirm with repository-wide searches:
 
-```bash
+```powershell
 $legacy = @('quality' + '-gates', 'publish-container' + '-images',
   'deploy-aliyun' + '-ecs', 'workflow' + '_run',
   'ECS_AUTO_DEPLOY' + '_ENABLED', ':' + 'latest') -join '|'
@@ -566,14 +566,13 @@ Expected: the first command finds no active old workflow references or mutable
 image tags; the second finds the protected deployment, fixed concurrency, digest
 handling, SBOM, and provenance settings.
 
-- [x] **Step 5: Commit the documentation for handoff**
+- [ ] **Step 5: Commit and push the documentation**
 
 ```bash
 git add docs
 git commit -m "Document protected release operations"
+git push origin main
 ```
-
-The controller pushes `main` after final review.
 
 - [ ] **Step 6: Perform external GitHub configuration**
 
