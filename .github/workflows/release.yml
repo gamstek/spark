@@ -204,6 +204,7 @@ jobs:
     needs: [prepare, build_api, build_web]
     permissions:
       contents: read
+      packages: read
     uses: ./.github/workflows/deploy-production.yml
     with:
       source_sha: ${{ needs.prepare.outputs.source_sha }}
