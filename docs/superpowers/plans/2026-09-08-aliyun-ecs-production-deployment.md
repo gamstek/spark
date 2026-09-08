@@ -128,7 +128,7 @@ git commit -m "Run Spark behind host Nginx"
 - Produces: password-authenticated upload, SHA-pinned Compose update, local
   readiness result, optional public HTTPS readiness result
 
-- [ ] **Step 1: Run a failing workflow assertion**
+- [x] **Step 1: Run a failing workflow assertion**
 
 ```powershell
 $workflow = Get-Content -Raw .github/workflows/deploy-aliyun-ecs.yml
@@ -139,21 +139,21 @@ if ($workflow -match "ECS_SSH_PRIVATE_KEY") { throw "Private-key path remains" }
 
 Expected: FAIL with `Password secret missing`.
 
-- [ ] **Step 2: Replace private-key setup with sshpass**
+- [x] **Step 2: Replace private-key setup with sshpass**
 
 Install `sshpass` with apt. Map `secrets.ECS_PASSWORD` to `SSHPASS` only in
 SSH/SCP steps. Invoke SSH and SCP with `sshpass -e`, password authentication,
 strict host-key checking, batch failure and a 15-second connection timeout.
 Continue writing only `ECS_SSH_KNOWN_HOSTS` to `~/.ssh/known_hosts`.
 
-- [ ] **Step 3: Make health checks match staged DNS activation**
+- [x] **Step 3: Make health checks match staged DNS activation**
 
 After `docker compose up`, poll `http://127.0.0.1:18080/api/health/ready` on
 ECS. Treat `ECS_HEALTHCHECK_URL` as optional; when non-empty, require HTTPS and
 run the external retrying check. Keep automatic deployment disabled unless
 `ECS_AUTO_DEPLOY_ENABLED=true`.
 
-- [ ] **Step 4: Validate the workflow**
+- [x] **Step 4: Validate the workflow**
 
 Run the Step 1 assertion again and expect PASS, then run:
 
@@ -164,7 +164,7 @@ Get-Content -Raw .github/workflows/deploy-aliyun-ecs.yml |
 
 Expected: actionlint exits 0 with no findings.
 
-- [ ] **Step 5: Commit the workflow**
+- [x] **Step 5: Commit the workflow**
 
 ```bash
 git add .github/workflows/deploy-aliyun-ecs.yml

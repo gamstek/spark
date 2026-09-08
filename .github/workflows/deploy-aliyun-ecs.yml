@@ -52,9 +52,9 @@ jobs:
           ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
           ECS_HEALTHCHECK_URL: ${{ secrets.ECS_HEALTHCHECK_URL }}
           ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PASSWORD: ${{ secrets.ECS_PASSWORD }}
           ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
           ECS_SSH_KNOWN_HOSTS: ${{ secrets.ECS_SSH_KNOWN_HOSTS }}
-          ECS_SSH_PRIVATE_KEY: ${{ secrets.ECS_SSH_PRIVATE_KEY }}
           ECS_USER: ${{ secrets.ECS_USER }}
         run: |
           set -euo pipefail
@@ -70,27 +70,28 @@ jobs:
             echo "ECS_PORT must be a valid port number" >&2
             exit 1
           }
-          [[ "$ECS_HEALTHCHECK_URL" == https://* ]] || {
+          [[ -z "$ECS_HEALTHCHECK_URL" || "$ECS_HEALTHCHECK_URL" == https://* ]] || {
             echo "ECS_HEALTHCHECK_URL must use HTTPS" >&2
             exit 1
           }
-          for name in ECS_HEALTHCHECK_URL ECS_HOST ECS_SSH_KNOWN_HOSTS \
-            ECS_SSH_PRIVATE_KEY ECS_USER; do
+          for name in ECS_HOST ECS_PASSWORD ECS_SSH_KNOWN_HOSTS ECS_USER; do
             [[ -n "${!name}" ]] || {
               echo "Required production secret $name is missing" >&2
               exit 1
             }
           done
 
+      - name: Install password SSH client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends sshpass
+
       - name: Configure SSH
         env:
           ECS_SSH_KNOWN_HOSTS: ${{ secrets.ECS_SSH_KNOWN_HOSTS }}
-          ECS_SSH_PRIVATE_KEY: ${{ secrets.ECS_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$ECS_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$ECS_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
@@ -108,12 +109,17 @@ jobs:
           ECS_HOST: ${{ secrets.ECS_HOST }}
           ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
           ECS_USER: ${{ secrets.ECS_USER }}
+          SSHPASS: ${{ secrets.ECS_PASSWORD }}
         run: |
           set -euo pipefail
-          ssh -o BatchMode=yes -o ConnectTimeout=15 \
+          sshpass -e ssh -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
             -p "$ECS_PORT" "$ECS_USER@$ECS_HOST" \
             "mkdir -p -- '$ECS_DEPLOY_PATH'"
-          scp -o BatchMode=yes -o ConnectTimeout=15 \
+          sshpass -e scp -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
             -P "$ECS_PORT" compose.production.yaml .env.release \
             "$ECS_USER@$ECS_HOST:$ECS_DEPLOY_PATH/"
 
@@ -123,23 +129,43 @@ jobs:
           ECS_HOST: ${{ secrets.ECS_HOST }}
           ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
           ECS_USER: ${{ secrets.ECS_USER }}
+          SSHPASS: ${{ secrets.ECS_PASSWORD }}
         run: |
           set -euo pipefail
-          ssh -o BatchMode=yes -o ConnectTimeout=15 \
+          sshpass -e ssh -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
             -p "$ECS_PORT" "$ECS_USER@$ECS_HOST" \
-            "cd '$ECS_DEPLOY_PATH' && \
+            "sh -s -- '$ECS_DEPLOY_PATH'" <<'REMOTE'
+          set -eu
+          cd "$1"
+          compose() {
             docker compose --env-file .env.production \
-              --env-file .env.release -f compose.production.yaml pull api web && \
-            docker compose --env-file .env.production \
-              --env-file .env.release -f compose.production.yaml \
-              up -d --no-build --remove-orphans && \
-            docker compose --env-file .env.production \
-              --env-file .env.release -f compose.production.yaml ps"
+              --env-file .env.release -f compose.production.yaml "$@"
+          }
+          compose pull api web
+          compose up -d --no-build --remove-orphans
+          compose ps
+          attempt=0
+          until curl --fail --silent --show-error \
+            http://127.0.0.1:18080/api/health/ready; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 20 ]; then
+              echo "Local readiness check failed after 20 attempts" >&2
+              exit 1
+            fi
+            sleep 3
+          done
+          REMOTE
 
       - name: Check production readiness
         env:
           ECS_HEALTHCHECK_URL: ${{ secrets.ECS_HEALTHCHECK_URL }}
         run: |
+          if [[ -z "$ECS_HEALTHCHECK_URL" ]]; then
+            echo "External HTTPS readiness check is not configured yet"
+            exit 0
+          fi
           curl --fail --show-error --silent \
             --retry 10 --retry-delay 3 --retry-connrefused \
             "$ECS_HEALTHCHECK_URL"
