@@ -1,10 +1,10 @@
-name: Container images
+name: Publish Container Images
 
 on:
   pull_request:
   workflow_dispatch:
   workflow_run:
-    workflows: [CI]
+    workflows: [Quality Gates]
     types: [completed]
     branches: [main]
 

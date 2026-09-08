@@ -19,6 +19,7 @@ services:
       - database:/var/lib/postgresql/data
 
   api:
+    image: ${SPARK_API_IMAGE:-spark-api:local}
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -56,6 +57,7 @@ services:
       - exports:/var/lib/spark/exports
 
   web:
+    image: ${SPARK_WEB_IMAGE:-spark-web:local}
     build:
       context: .
       dockerfile: nginx/Dockerfile

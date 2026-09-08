@@ -1,0 +1,145 @@
+name: Deploy to Aliyun ECS
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: Full Git commit SHA of the published images to deploy
+        required: true
+        type: string
+  workflow_run:
+    workflows: [Publish Container Images]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-aliyun-ecs
+  cancel-in-progress: false
+
+env:
+  IMAGE_PREFIX: ghcr.io/gamstek/spark
+  DEPLOY_SHA: >-
+    ${{ github.event_name == 'workflow_dispatch' && inputs.image_sha ||
+    github.event.workflow_run.head_sha }}
+  CONFIG_REF: >-
+    ${{ github.event_name == 'workflow_dispatch' && github.sha ||
+    github.event.workflow_run.head_sha }}
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.head_branch ==
+      github.event.repository.default_branch &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Check out deployment configuration
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.CONFIG_REF }}
+          persist-credentials: false
+
+      - name: Validate deployment inputs
+        env:
+          ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
+          ECS_HEALTHCHECK_URL: ${{ secrets.ECS_HEALTHCHECK_URL }}
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
+          ECS_SSH_KNOWN_HOSTS: ${{ secrets.ECS_SSH_KNOWN_HOSTS }}
+          ECS_SSH_PRIVATE_KEY: ${{ secrets.ECS_SSH_PRIVATE_KEY }}
+          ECS_USER: ${{ secrets.ECS_USER }}
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "image_sha must be a full lowercase Git commit SHA" >&2
+            exit 1
+          }
+          [[ "$ECS_DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] || {
+            echo "ECS_DEPLOY_PATH must be a safe absolute path" >&2
+            exit 1
+          }
+          [[ "$ECS_PORT" =~ ^[0-9]{1,5}$ ]] || {
+            echo "ECS_PORT must be a valid port number" >&2
+            exit 1
+          }
+          [[ "$ECS_HEALTHCHECK_URL" == https://* ]] || {
+            echo "ECS_HEALTHCHECK_URL must use HTTPS" >&2
+            exit 1
+          }
+          for name in ECS_HEALTHCHECK_URL ECS_HOST ECS_SSH_KNOWN_HOSTS \
+            ECS_SSH_PRIVATE_KEY ECS_USER; do
+            [[ -n "${!name}" ]] || {
+              echo "Required production secret $name is missing" >&2
+              exit 1
+            }
+          done
+
+      - name: Configure SSH
+        env:
+          ECS_SSH_KNOWN_HOSTS: ${{ secrets.ECS_SSH_KNOWN_HOSTS }}
+          ECS_SSH_PRIVATE_KEY: ${{ secrets.ECS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ECS_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$ECS_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Prepare release configuration
+        run: |
+          set -euo pipefail
+          cat > .env.release <<EOF
+          SPARK_API_IMAGE=${IMAGE_PREFIX}-api:sha-${DEPLOY_SHA}
+          SPARK_WEB_IMAGE=${IMAGE_PREFIX}-web:sha-${DEPLOY_SHA}
+          EOF
+
+      - name: Upload deployment configuration
+        env:
+          ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
+          ECS_USER: ${{ secrets.ECS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=15 \
+            -p "$ECS_PORT" "$ECS_USER@$ECS_HOST" \
+            "mkdir -p -- '$ECS_DEPLOY_PATH'"
+          scp -o BatchMode=yes -o ConnectTimeout=15 \
+            -P "$ECS_PORT" compose.production.yaml .env.release \
+            "$ECS_USER@$ECS_HOST:$ECS_DEPLOY_PATH/"
+
+      - name: Deploy release
+        env:
+          ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
+          ECS_USER: ${{ secrets.ECS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=15 \
+            -p "$ECS_PORT" "$ECS_USER@$ECS_HOST" \
+            "cd '$ECS_DEPLOY_PATH' && \
+            docker compose --env-file .env.production \
+              --env-file .env.release -f compose.production.yaml pull api web && \
+            docker compose --env-file .env.production \
+              --env-file .env.release -f compose.production.yaml \
+              up -d --no-build --remove-orphans && \
+            docker compose --env-file .env.production \
+              --env-file .env.release -f compose.production.yaml ps"
+
+      - name: Check production readiness
+        env:
+          ECS_HEALTHCHECK_URL: ${{ secrets.ECS_HEALTHCHECK_URL }}
+        run: |
+          curl --fail --show-error --silent \
+            --retry 10 --retry-delay 3 --retry-connrefused \
+            "$ECS_HEALTHCHECK_URL"

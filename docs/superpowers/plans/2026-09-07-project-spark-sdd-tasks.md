@@ -495,7 +495,7 @@ expect(report.available).toBe(report.totalStock - report.awarded);
 ## T16：同域部署、外部联调与恢复验收
 
 **Files:** 新建
-`apps/api/Dockerfile`、`nginx/Dockerfile`、`nginx/nginx.conf`、`nginx/proxy_params`、`compose.production.yaml`、`.github/workflows/ci.yml`、`docs/project-spark-deployment.md`、`docs/project-spark-acceptance.md`、`tests/e2e/deployment.spec.ts`；更新 README 和 .env.example。
+`apps/api/Dockerfile`、`nginx/Dockerfile`、`nginx/nginx.conf`、`nginx/proxy_params`、`compose.production.yaml`、`.github/workflows/quality-gates.yml`、`docs/project-spark-deployment.md`、`docs/project-spark-acceptance.md`、`tests/e2e/deployment.spec.ts`；更新 README 和 .env.example。
 
 **Interfaces:** `pnpm verify`
 顺序执行 lint/typecheck/build/unit/integration；CI 提供 PostgreSQL 服务；生产明确单 API 副本、数据库卷、媒体卷和私有导出目录。
