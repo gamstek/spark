@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import { WechatIdentity } from '../../database/entities/accounts.entities.js';
+
 import { WechatGateway } from './wechat.gateway.js';
 import { WechatTokenService } from './token.service.js';
 
@@ -14,17 +16,14 @@ export class SubscriptionService {
 
   async isSubscribed(openid: string): Promise<boolean> {
     const appId = process.env.WECHAT_APP_ID ?? '';
-    const cached = await this.dataSource.query<
-      { subscribed: boolean | null; subscription_checked_at: Date | null }[]
-    >(
-      `SELECT subscribed, subscription_checked_at FROM wechat_identity WHERE app_id=$1 AND openid=$2`,
-      [appId, openid],
-    );
-    const identity = cached[0];
+    const identities = this.dataSource.getRepository(WechatIdentity);
+    const identity = await identities.findOne({
+      select: { subscribed: true, subscriptionCheckedAt: true },
+      where: { appId, openid },
+    });
     if (
-      identity?.subscription_checked_at &&
-      Date.now() - new Date(identity.subscription_checked_at).getTime() <=
-        60_000 &&
+      identity?.subscriptionCheckedAt &&
+      Date.now() - identity.subscriptionCheckedAt.getTime() <= 60_000 &&
       identity.subscribed !== null
     ) {
       return identity.subscribed;
@@ -33,9 +32,9 @@ export class SubscriptionService {
       openid,
       await this.tokens.getAccessToken(),
     );
-    await this.dataSource.query(
-      `UPDATE wechat_identity SET subscribed=$3, subscription_checked_at=now() WHERE app_id=$1 AND openid=$2`,
-      [appId, openid, subscribed],
+    await identities.update(
+      { appId, openid },
+      { subscribed, subscriptionCheckedAt: () => 'now()' },
     );
     return subscribed;
   }

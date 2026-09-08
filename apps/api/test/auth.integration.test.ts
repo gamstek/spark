@@ -58,6 +58,7 @@ describe('administrator and staff authentication', () => {
     const second = await sessions.create('STAFF', scenario.staffId);
     expect(second.token).not.toBe(first.token);
     await accounts.disable('STAFF', scenario.staffId, scenario.adminId);
+    await expect(sessions.resolve(first.token, 'STAFF')).resolves.toBeNull();
     await sessions.revokeAccount('STAFF', scenario.staffId);
     await expect(sessions.resolve(first.token, 'STAFF')).resolves.toBeNull();
     await expect(sessions.resolve(second.token, 'STAFF')).resolves.toBeNull();
@@ -70,6 +71,24 @@ describe('administrator and staff authentication', () => {
       [scenario.adminId],
     );
     await expect(sessions.resolve(session.token, 'ADMIN')).resolves.toBeNull();
+  });
+
+  it('revokes only the selected activity user sessions', async () => {
+    const first = await sessions.create('ACTIVITY', scenario.userIds[0]);
+    const other = await sessions.create('ACTIVITY', scenario.userIds[1]);
+    await expect(
+      sessions.resolve(first.token, 'ACTIVITY'),
+    ).resolves.toMatchObject({
+      subjectId: scenario.userIds[0],
+      role: 'ACTIVITY',
+    });
+    await sessions.revokeAccount('ACTIVITY', scenario.userIds[0]);
+    await expect(sessions.resolve(first.token, 'ACTIVITY')).resolves.toBeNull();
+    await expect(
+      sessions.resolve(other.token, 'ACTIVITY'),
+    ).resolves.toMatchObject({
+      subjectId: scenario.userIds[1],
+    });
   });
 
   it('rejects missing CSRF and forged origins', async () => {

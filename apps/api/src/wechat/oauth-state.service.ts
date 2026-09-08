@@ -9,6 +9,8 @@ import {
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import { OauthState } from '../../database/entities/accounts.entities.js';
+
 export const OAUTH_STATE_SECRET = Symbol('OAUTH_STATE_SECRET');
 type Clock = () => Date;
 
@@ -58,17 +60,14 @@ export class OAuthStateService {
     const state = `${unsigned}.${signature}`;
     const browserNonce = randomBytes(24).toString('base64url');
     const expiresAt = new Date(this.clock().getTime() + 10 * 60 * 1000);
-    await this.dataSource.query(
-      `INSERT INTO oauth_state (id, state_hash, browser_nonce_hash, return_path, expires_at, created_at) VALUES ($1,$2,$3,$4,$5,$6)`,
-      [
-        id,
-        sha256(state),
-        sha256(browserNonce),
-        returnPath,
-        expiresAt,
-        this.clock(),
-      ],
-    );
+    await this.dataSource.getRepository(OauthState).insert({
+      id,
+      stateHash: sha256(state),
+      browserNonceHash: sha256(browserNonce),
+      returnPath,
+      expiresAt,
+      createdAt: this.clock(),
+    });
     return { state, browserNonce, expiresAt };
   }
 

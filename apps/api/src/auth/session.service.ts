@@ -9,12 +9,18 @@ import {
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import {
+  AdminAccount,
+  AppSession,
+  StaffAccount,
+} from '../../database/entities/index.js';
+
 export type SessionRole = 'ACTIVITY' | 'STAFF' | 'ADMIN';
 export const CSRF_SECRET = Symbol('CSRF_SECRET');
-const subjectColumns = {
-  ACTIVITY: 'user_id',
-  STAFF: 'staff_account_id',
-  ADMIN: 'admin_account_id',
+const subjectProperties = {
+  ACTIVITY: 'userId',
+  STAFF: 'staffAccountId',
+  ADMIN: 'adminAccountId',
 } as const;
 
 function tokenHash(token: string): string {
@@ -48,17 +54,14 @@ export class SessionService {
     const expiresAt = new Date(
       Date.now() + (role === 'ACTIVITY' ? 7 * 24 : 8) * 60 * 60 * 1000,
     );
-    await this.dataSource.query(
-      `INSERT INTO app_session (id, session_hash, csrf_hash, role, ${subjectColumns[role]}, expires_at) VALUES ($1,$2,$3,$4,$5,$6)`,
-      [
-        randomUUID(),
-        tokenHash(token),
-        tokenHash(csrfToken),
-        role,
-        subjectId,
-        expiresAt,
-      ],
-    );
+    await this.dataSource.getRepository(AppSession).insert({
+      id: randomUUID(),
+      sessionHash: tokenHash(token),
+      csrfHash: tokenHash(csrfToken),
+      role,
+      [subjectProperties[role]]: subjectId,
+      expiresAt,
+    });
     return { token, csrfToken, expiresAt };
   }
 
@@ -70,22 +73,27 @@ export class SessionService {
     role: SessionRole;
     csrfToken: string;
   } | null> {
-    const accountJoin =
-      role === 'ADMIN'
-        ? 'JOIN admin_account account ON account.id=session.admin_account_id'
-        : role === 'STAFF'
-          ? 'JOIN staff_account account ON account.id=session.staff_account_id'
-          : '';
-    const activeAccount =
-      role === 'ACTIVITY' ? '' : 'AND account.disabled_at IS NULL';
-    const rows = await this.dataSource.query<
-      { subject_id: string; csrf_hash: string }[]
-    >(
-      `SELECT session.${subjectColumns[role]} AS subject_id, session.csrf_hash FROM app_session session ${accountJoin}
-       WHERE session.session_hash=$1 AND session.role=$2 AND session.expires_at > now() ${activeAccount}`,
-      [tokenHash(token), role],
-    );
-    const session = rows[0];
+    const query = this.dataSource
+      .getRepository(AppSession)
+      .createQueryBuilder('session')
+      .select(`session.${subjectProperties[role]}`, 'subject_id')
+      .addSelect('session.csrfHash', 'csrf_hash')
+      .where('session.sessionHash = :hash', { hash: tokenHash(token) })
+      .andWhere('session.role = :role', { role })
+      .andWhere('session.expiresAt > now()');
+    if (role !== 'ACTIVITY') {
+      query
+        .innerJoin(
+          role === 'ADMIN' ? AdminAccount : StaffAccount,
+          'account',
+          `account.id = session.${subjectProperties[role]}`,
+        )
+        .andWhere('account.disabledAt IS NULL');
+    }
+    const session = await query.getRawOne<{
+      subject_id: string;
+      csrf_hash: string;
+    }>();
     if (!session) return null;
     const csrfToken = csrfForSession(token, this.csrfSecret);
     const suppliedHash = Buffer.from(tokenHash(csrfToken));
@@ -99,16 +107,15 @@ export class SessionService {
   }
 
   async revoke(token: string): Promise<void> {
-    await this.dataSource.query(
-      `DELETE FROM app_session WHERE session_hash=$1`,
-      [tokenHash(token)],
-    );
+    await this.dataSource.getRepository(AppSession).delete({
+      sessionHash: tokenHash(token),
+    });
   }
 
   async revokeAccount(role: SessionRole, subjectId: string): Promise<void> {
-    await this.dataSource.query(
-      `DELETE FROM app_session WHERE role=$1 AND ${subjectColumns[role]}=$2`,
-      [role, subjectId],
-    );
+    await this.dataSource.getRepository(AppSession).delete({
+      role,
+      [subjectProperties[role]]: subjectId,
+    });
   }
 }

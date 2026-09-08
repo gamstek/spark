@@ -30,8 +30,13 @@ describe('durable PostgreSQL jobs', () => {
 
   it('deduplicates enqueue by key', async () => {
     await database.dataSource.transaction(async (manager) => {
-      await jobs.enqueue(manager, 'ONCE', 'same-key', { first: true });
-      await jobs.enqueue(manager, 'ONCE', 'same-key', { first: false });
+      const firstId = await jobs.enqueue(manager, 'ONCE', 'same-key', {
+        first: true,
+      });
+      const secondId = await jobs.enqueue(manager, 'ONCE', 'same-key', {
+        first: false,
+      });
+      expect(secondId).toBe(firstId);
     });
     const rows = await database.dataSource.query<{ count: string }[]>(
       `SELECT count(*) FROM background_job WHERE deduplication_key='same-key'`,
@@ -92,11 +97,39 @@ describe('durable PostgreSQL jobs', () => {
     expect(job?.lastError).not.toContain('13800138000');
     await jobs.retry(job!.id);
     const replayed = await database.dataSource.query<
-      { payload: { safe: string }; attempts: number }[]
-    >(`SELECT payload, attempts FROM background_job WHERE id=$1`, [job!.id]);
+      {
+        payload: { safe: string };
+        attempts: number;
+        status: string;
+        lease_owner: string | null;
+        lease_until: Date | null;
+        last_error: string | null;
+      }[]
+    >(`SELECT * FROM background_job WHERE id=$1`, [job!.id]);
     expect(replayed[0]).toMatchObject({
       payload: { safe: 'original' },
       attempts: 0,
+      status: 'PENDING',
+      lease_owner: null,
+      lease_until: null,
+      last_error: null,
     });
+  });
+
+  it('does not retry a job that is no longer failed', async () => {
+    const id = await database.dataSource.transaction((manager) =>
+      jobs.enqueue(manager, 'SUCCEEDED', 'do-not-retry-key', {}),
+    );
+    await database.dataSource.query(
+      `UPDATE background_job SET status='SUCCEEDED', attempts=2 WHERE id=$1`,
+      [id],
+    );
+
+    await jobs.retry(id);
+
+    const rows = await database.dataSource.query<
+      { status: string; attempts: number }[]
+    >(`SELECT status, attempts FROM background_job WHERE id=$1`, [id]);
+    expect(rows[0]).toEqual({ status: 'SUCCEEDED', attempts: 2 });
   });
 });

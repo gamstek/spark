@@ -113,6 +113,7 @@ describe('WeChat identity and participation recovery', () => {
       ).getOrCreateUser('openid-cache');
       let tokenCalls = 0;
       let subscriptionCalls = 0;
+      let remoteSubscribed = true;
       const gateway = {
         async fetchStableAccessToken() {
           tokenCalls += 1;
@@ -120,7 +121,7 @@ describe('WeChat identity and participation recovery', () => {
         },
         async isSubscribed() {
           subscriptionCalls += 1;
-          return true;
+          return remoteSubscribed;
         },
       } as unknown as WechatGateway;
       const tokens = new WechatTokenService(database.dataSource, gateway);
@@ -143,6 +144,45 @@ describe('WeChat identity and participation recovery', () => {
         `SELECT access_token_ciphertext FROM wechat_credential_cache WHERE app_id='wx-cache-app'`,
       );
       expect(stored[0]?.access_token_ciphertext).not.toContain('remote-token');
+
+      await database.dataSource.query(
+        `UPDATE wechat_identity SET subscription_checked_at=now() - interval '61 seconds' WHERE app_id=$1 AND openid=$2`,
+        ['wx-cache-app', 'openid-cache'],
+      );
+      remoteSubscribed = false;
+      await expect(subscriptions.isSubscribed('openid-cache')).resolves.toBe(
+        false,
+      );
+      await expect(subscriptions.isSubscribed('openid-cache')).resolves.toBe(
+        false,
+      );
+      expect(subscriptionCalls).toBe(2);
+      expect(tokenCalls).toBe(1);
+    } finally {
+      if (previousAppId === undefined) delete process.env.WECHAT_APP_ID;
+      else process.env.WECHAT_APP_ID = previousAppId;
+    }
+  });
+
+  it('releases a failed token refresh lease so another attempt can populate the cache', async () => {
+    const previousAppId = process.env.WECHAT_APP_ID;
+    process.env.WECHAT_APP_ID = 'wx-token-retry';
+    try {
+      let attempts = 0;
+      const gateway = {
+        async fetchStableAccessToken() {
+          attempts += 1;
+          if (attempts === 1) throw new Error('remote-timeout');
+          return { accessToken: 'retry-token', expiresIn: 7200 };
+        },
+      } as unknown as WechatGateway;
+      const tokens = new WechatTokenService(database.dataSource, gateway);
+      await expect(tokens.getAccessToken()).rejects.toThrow('remote-timeout');
+      await expect(tokens.getAccessToken()).resolves.toBe('retry-token');
+      await expect(
+        new WechatTokenService(database.dataSource, gateway).getAccessToken(),
+      ).resolves.toBe('retry-token');
+      expect(attempts).toBe(2);
     } finally {
       if (previousAppId === undefined) delete process.env.WECHAT_APP_ID;
       else process.env.WECHAT_APP_ID = previousAppId;

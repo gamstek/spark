@@ -3,6 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import {
+  UserAccount,
+  WechatIdentity,
+} from '../../database/entities/accounts.entities.js';
+
 @Injectable()
 export class WechatIdentityService {
   constructor(
@@ -16,19 +21,20 @@ export class WechatIdentityService {
         `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
         [`${this.appId}:${openid}`],
       );
-      const existing = await manager.query<{ user_id: string }[]>(
-        `SELECT user_id FROM wechat_identity WHERE app_id=$1 AND openid=$2`,
-        [this.appId, openid],
-      );
-      if (existing[0]) return { userId: existing[0].user_id };
+      const identities = manager.getRepository(WechatIdentity);
+      const existing = await identities.findOne({
+        select: { userId: true },
+        where: { appId: this.appId, openid },
+      });
+      if (existing) return { userId: existing.userId };
       const userId = randomUUID();
-      await manager.query(`INSERT INTO user_account (id) VALUES ($1)`, [
+      await manager.getRepository(UserAccount).insert({ id: userId });
+      await identities.insert({
+        id: randomUUID(),
         userId,
-      ]);
-      await manager.query(
-        `INSERT INTO wechat_identity (id, user_id, app_id, openid) VALUES ($1,$2,$3,$4)`,
-        [randomUUID(), userId, this.appId, openid],
-      );
+        appId: this.appId,
+        openid,
+      });
       return { userId };
     });
   }

@@ -3,6 +3,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ActivityRuntime, RuntimeStep, WinView } from '@spark/contracts';
 import { DataSource } from 'typeorm';
 
+import { ChannelVisit, WechatIdentity } from '../../database/entities/index.js';
+
 import { ParticipantsService } from '../participants/participants.service.js';
 import { SubscriptionService } from '../wechat/subscription.service.js';
 
@@ -49,10 +51,12 @@ export class RuntimeService {
       const safeChannel = /^[a-zA-Z0-9_-]{1,64}$/.test(channel)
         ? channel
         : 'direct';
-      await this.dataSource.query(
-        `INSERT INTO channel_visit (id,activity_id,user_id,channel_code) VALUES ($1,$2,$3,$4)`,
-        [randomUUID(), activity.id, userId, safeChannel],
-      );
+      await this.dataSource.getRepository(ChannelVisit).insert({
+        id: randomUUID(),
+        activityId: activity.id,
+        userId,
+        channelCode: safeChannel,
+      });
     }
 
     const now = this.clock();
@@ -109,11 +113,13 @@ export class RuntimeService {
   }
 
   private async isSubscribed(userId: string): Promise<boolean> {
-    const rows = await this.dataSource.query<{ openid: string }[]>(
-      `SELECT openid FROM wechat_identity WHERE user_id=$1 AND app_id=$2`,
-      [userId, process.env.WECHAT_APP_ID ?? ''],
-    );
-    return rows[0] ? this.subscriptions.isSubscribed(rows[0].openid) : false;
+    const identity = await this.dataSource
+      .getRepository(WechatIdentity)
+      .findOne({
+        select: { openid: true },
+        where: { userId, appId: process.env.WECHAT_APP_ID ?? '' },
+      });
+    return identity ? this.subscriptions.isSubscribed(identity.openid) : false;
   }
 
   private async getWin(

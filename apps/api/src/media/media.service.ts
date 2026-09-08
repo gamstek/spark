@@ -5,6 +5,8 @@ import { resolve } from 'node:path';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import { MediaAsset } from '../../database/entities/index.js';
+
 export const MEDIA_ROOT = Symbol('MEDIA_ROOT');
 
 function inspect(
@@ -56,10 +58,12 @@ export class MediaService {
     const absolutePath = resolve(this.root, storageKey);
     await mkdir(this.root, { recursive: true });
     await writeFile(absolutePath, input.bytes, { flag: 'wx' });
-    await this.dataSource.query(
-      `INSERT INTO media_asset (id, storage_key, mime_type, byte_size) VALUES ($1,$2,$3,$4)`,
-      [id, storageKey, detected.mimeType, input.bytes.length],
-    );
+    await this.dataSource.getRepository(MediaAsset).insert({
+      id,
+      storageKey,
+      mimeType: detected.mimeType,
+      byteSize: String(input.bytes.length),
+    });
     return { id, storageKey, absolutePath };
   }
 }

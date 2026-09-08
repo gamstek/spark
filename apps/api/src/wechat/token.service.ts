@@ -8,6 +8,8 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import { WechatCredentialCache } from '../../database/entities/accounts.entities.js';
+
 import { WechatGateway } from './wechat.gateway.js';
 
 @Injectable()
@@ -54,22 +56,24 @@ export class WechatTokenService {
 
   async getAccessToken(): Promise<string> {
     const appId = process.env.WECHAT_APP_ID ?? '';
-    const cached = await this.dataSource.query<
-      { access_token_ciphertext: string; expires_at: Date }[]
-    >(
-      `SELECT access_token_ciphertext, expires_at FROM wechat_credential_cache WHERE app_id=$1`,
-      [appId],
-    );
-    if (
-      cached[0] &&
-      new Date(cached[0].expires_at).getTime() > Date.now() + 60_000
-    )
-      return this.decrypt(cached[0].access_token_ciphertext);
+    const credentials = this.dataSource.getRepository(WechatCredentialCache);
+    const cached = await credentials.findOne({
+      select: { accessTokenCiphertext: true, expiresAt: true },
+      where: { appId },
+    });
+    if (cached && cached.expiresAt.getTime() > Date.now() + 60_000)
+      return this.decrypt(cached.accessTokenCiphertext);
 
-    await this.dataSource.query(
-      `INSERT INTO wechat_credential_cache (app_id, access_token_ciphertext, expires_at) VALUES ($1,'',to_timestamp(0)) ON CONFLICT DO NOTHING`,
-      [appId],
-    );
+    await credentials
+      .createQueryBuilder()
+      .insert()
+      .values({
+        appId,
+        accessTokenCiphertext: '',
+        expiresAt: new Date(0),
+      })
+      .orIgnore()
+      .execute();
     const leaseResult = await this.dataSource.query<
       [{ app_id: string }[], number]
     >(
@@ -84,16 +88,18 @@ export class WechatTokenService {
       const expiresAt = new Date(
         Date.now() + Math.max(60, fresh.expiresIn - 120) * 1000,
       );
-      await this.dataSource.query(
-        `UPDATE wechat_credential_cache SET access_token_ciphertext=$2, expires_at=$3, refresh_lease_until=NULL, updated_at=now() WHERE app_id=$1`,
-        [appId, this.encrypt(fresh.accessToken), expiresAt],
+      await credentials.update(
+        { appId },
+        {
+          accessTokenCiphertext: this.encrypt(fresh.accessToken),
+          expiresAt,
+          refreshLeaseUntil: null,
+          updatedAt: () => 'now()',
+        },
       );
       return fresh.accessToken;
     } catch (error) {
-      await this.dataSource.query(
-        `UPDATE wechat_credential_cache SET refresh_lease_until=NULL WHERE app_id=$1`,
-        [appId],
-      );
+      await credentials.update({ appId }, { refreshLeaseUntil: null });
       throw error;
     }
   }

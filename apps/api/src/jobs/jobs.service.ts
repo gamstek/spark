@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { DataSource, type EntityManager } from 'typeorm';
 
+import { BackgroundJob } from '../../database/entities/index.js';
+
 export interface FailedJobView {
   id: string;
   kind: string;
@@ -28,42 +30,50 @@ export class JobsService {
        ON CONFLICT (deduplication_key) DO NOTHING`,
       [id, kind, key, payload],
     );
-    const rows = await manager.query<{ id: string }[]>(
-      `SELECT id FROM background_job WHERE deduplication_key=$1`,
-      [key],
-    );
-    if (!rows[0]) throw new Error('JOB_ENQUEUE_FAILED');
-    return rows[0].id;
+    const job = await manager.getRepository(BackgroundJob).findOne({
+      select: { id: true },
+      where: { deduplicationKey: key },
+    });
+    if (!job) throw new Error('JOB_ENQUEUE_FAILED');
+    return job.id;
   }
 
   async listFailed(): Promise<FailedJobView[]> {
-    const rows = await this.dataSource.query<
-      {
-        id: string;
-        kind: string;
-        attempts: number;
-        status: 'FAILED';
-        last_error: string | null;
-        created_at: Date;
-      }[]
-    >(
-      `SELECT id, kind, attempts, status, last_error, created_at FROM background_job WHERE status='FAILED' ORDER BY created_at DESC LIMIT 100`,
-    );
+    const rows = await this.dataSource.getRepository(BackgroundJob).find({
+      select: {
+        id: true,
+        kind: true,
+        attempts: true,
+        status: true,
+        lastError: true,
+        createdAt: true,
+      },
+      where: { status: 'FAILED' },
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
     return rows.map((row) => ({
       id: row.id,
       kind: row.kind,
       attempts: row.attempts,
-      status: row.status,
-      lastError: row.last_error,
-      createdAt: row.created_at,
+      status: 'FAILED',
+      lastError: row.lastError,
+      createdAt: row.createdAt,
     }));
   }
 
   async retry(id: string): Promise<void> {
-    await this.dataSource.query(
-      `UPDATE background_job SET status='PENDING', attempts=0, available_at=now(), lease_owner=NULL, lease_until=NULL, last_error=NULL, updated_at=now()
-       WHERE id=$1 AND status='FAILED'`,
-      [id],
+    await this.dataSource.getRepository(BackgroundJob).update(
+      { id, status: 'FAILED' },
+      {
+        status: 'PENDING',
+        attempts: 0,
+        availableAt: () => 'now()',
+        leaseOwner: null,
+        leaseUntil: null,
+        lastError: null,
+        updatedAt: () => 'now()',
+      },
     );
   }
 }
