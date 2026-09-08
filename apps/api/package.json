@@ -17,6 +17,7 @@
     "test:integration": "vitest run --config vitest.config.ts",
     "db:migrate": "node --env-file-if-exists=../../.env --import tsx database/migrate.ts",
     "admin:create": "node --env-file-if-exists=../../.env --import tsx database/seeds/create-admin.ts",
+    "pretemplates:check": "pnpm --filter @spark/templates build",
     "templates:check": "node --env-file-if-exists=../../.env --import tsx scripts/check-template-compatibility.ts"
   },
   "dependencies": {
