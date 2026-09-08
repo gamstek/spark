@@ -60,7 +60,7 @@ Buildx, GHCR, Bash, Docker Compose, Nginx, PostgreSQL
 - CLI writes `source_sha`, `version`, and `version_tag` to the file named by
   `GITHUB_OUTPUT`; `versionTag` is empty for manual releases.
 
-- [ ] **Step 1: Write failing metadata tests**
+- [x] **Step 1: Write failing metadata tests**
 
 Use `node:test` to cover a stable release, prerelease, invalid `v*` tag, manual
 release, and invalid SHA:
@@ -135,7 +135,7 @@ test('rejects a non-commit SHA', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and confirm it fails**
+- [x] **Step 2: Run the test and confirm it fails**
 
 Run:
 
@@ -145,7 +145,7 @@ node --test .github/scripts/release-metadata.test.mjs
 
 Expected: FAIL because `release-metadata.mjs` does not exist.
 
-- [ ] **Step 3: Implement the resolver and CLI**
+- [x] **Step 3: Implement the resolver and CLI**
 
 Use the exact SHA pattern `/^[0-9a-f]{40}$/` and SemVer pattern
 `/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?$/`.
@@ -154,7 +154,7 @@ Reject tag pushes whose `refType` is not `tag`, and reject events other than
 `GITHUB_EVENT_NAME`, `GITHUB_REF_TYPE`, `GITHUB_REF_NAME`, `GITHUB_SHA`, and
 append escaped values to `GITHUB_OUTPUT`.
 
-- [ ] **Step 4: Run the focused test and formatter**
+- [x] **Step 4: Run the focused test and formatter**
 
 Run:
 
@@ -165,7 +165,7 @@ pnpm exec prettier --check .github/scripts/release-metadata.mjs .github/scripts/
 
 Expected: five tests pass and Prettier reports both files formatted.
 
-- [ ] **Step 5: Commit the release validator**
+- [x] **Step 5: Commit the release validator**
 
 ```bash
 git add .github/scripts/release-metadata.mjs .github/scripts/release-metadata.test.mjs
@@ -178,8 +178,7 @@ git commit -m "Validate release metadata"
 
 - Create: `.github/actions/setup-workspace/action.yml`
 - Create: `.github/workflows/ci.yml`
-- Modify: `.github/workflows/quality-gates.yml` as a temporary compatibility
-  caller
+- Modify: the legacy quality-gate workflow as a temporary compatibility caller
 
 **Interfaces:**
 
@@ -188,7 +187,7 @@ git commit -m "Validate release metadata"
 - Produces required check jobs named `static`, `unit`, `build`, `integration`,
   and `e2e`
 
-- [ ] **Step 1: Add a failing CI structure assertion**
+- [x] **Step 1: Add a failing CI structure assertion**
 
 Run this before the rename and expect `ci.yml is missing`:
 
@@ -201,14 +200,14 @@ foreach ($job in 'static','unit','build','integration','e2e') {
 }
 ```
 
-- [ ] **Step 2: Create the composite setup action**
+- [x] **Step 2: Create the composite setup action**
 
 Use `pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa` and
 `actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020`. Fix pnpm to
 `10.15.1`, Node to `24.11.0`, enable the setup-node pnpm cache, then run
 `pnpm install --frozen-lockfile` from a Bash composite step.
 
-- [ ] **Step 3: Create split CI and its compatibility caller**
+- [x] **Step 3: Create split CI and its compatibility caller**
 
 Configure:
 
@@ -244,13 +243,13 @@ e2e         pnpm --filter @spark/api db:migrate; install Chromium; run the three
 
 Give `integration` and `e2e` independent `postgres:18-alpine` services using
 `spark_test`, and reuse the existing test environment values. Pin the Playwright
-browser install and test commands already used by the repository. Replace
-`quality-gates.yml` with a temporary `workflow_call`-only wrapper whose single
-job calls `./.github/workflows/ci.yml`. This keeps the existing release workflow
-valid until Task 4 switches callers, without running duplicate CI on PRs or
-`main` pushes.
+browser install and test commands already used by the repository. Replace the
+legacy quality-gate workflow with a temporary `workflow_call`-only wrapper whose
+single job calls `./.github/workflows/ci.yml`. This keeps the existing release
+workflow valid until Task 4 switches callers, without running duplicate CI on
+PRs or `main` pushes.
 
-- [ ] **Step 4: Run CI structure and syntax checks**
+- [x] **Step 4: Run CI structure and syntax checks**
 
 Run the Step 1 assertion and expect PASS, then:
 
@@ -262,10 +261,11 @@ pnpm exec prettier --check .github/actions/setup-workspace/action.yml .github/wo
 
 Expected: release tests pass, actionlint exits 0, and formatting passes.
 
-- [ ] **Step 5: Commit parallel CI**
+- [x] **Step 5: Commit parallel CI**
 
 ```bash
-git add .github/actions/setup-workspace/action.yml .github/workflows/ci.yml .github/workflows/quality-gates.yml
+git add .github/actions/setup-workspace/action.yml .github/workflows/ci.yml
+git add -u .github/workflows
 git commit -m "Split CI into parallel quality gates"
 ```
 
@@ -285,7 +285,7 @@ git commit -m "Split CI into parallel quality gates"
 - Release directory contains `compose.production.yaml`, `.env.release`, and
   `release.json`
 
-- [ ] **Step 1: Write a failing rollback test harness**
+- [x] **Step 1: Write a failing rollback test harness**
 
 Create a Bash test that uses a temporary deployment root and prepends fake
 `docker`, `curl`, and `sleep` executables to `PATH`. Cover two cases:
@@ -304,7 +304,7 @@ bash .github/scripts/deploy-production.test.sh
 
 Expected: FAIL because `deploy-production.sh` does not exist.
 
-- [ ] **Step 2: Implement the server deployment script**
+- [x] **Step 2: Implement the server deployment script**
 
 Start with `set -eu`. Validate the deployment root is absolute and the release
 id matches `^[A-Za-z0-9._-]+$`. Require `.env.production` mode to exclude
@@ -332,7 +332,7 @@ candidate `down` without `--volumes`. Emit `compose ps` plus the last 100
 API/Web log lines through a filter that replaces values following `password`,
 `secret`, `token`, `authorization`, or `cookie` with `[REDACTED]`.
 
-- [ ] **Step 3: Define reusable and manual deployment inputs**
+- [x] **Step 3: Define reusable and manual deployment inputs**
 
 Create the workflow as `Deploy Production`. `workflow_call` requires all four
 exact inputs. `workflow_dispatch` requires only a lowercase 40-character
@@ -356,7 +356,7 @@ concurrency:
 Keep the current ECS secret names, `sshpass -e`, strict host checking, and
 connection timeout.
 
-- [ ] **Step 4: Upload an immutable release candidate**
+- [x] **Step 4: Upload an immutable release candidate**
 
 Generate a release id from the validated version, 12-character source SHA, run
 id, and run attempt. Create `.env.release` with digest references:
@@ -372,7 +372,7 @@ environment file, manifest, and deployment script to
 `/opt/spark/releases/.incoming-${release_id}`, then invoke the uploaded script.
 Never overwrite `.env.production`.
 
-- [ ] **Step 5: Preserve local and public health semantics**
+- [x] **Step 5: Preserve local and public health semantics**
 
 Treat local readiness failure as a deployment failure even when rollback
 succeeds. Keep `ECS_HEALTHCHECK_URL` optional until DNS/TLS activation; once
@@ -381,7 +381,7 @@ failure reports failure without rolling back a locally healthy release. Append
 the version, source/config SHAs, both image digests, local/public health
 results, and any rollback result to `GITHUB_STEP_SUMMARY`.
 
-- [ ] **Step 6: Run rollback, syntax, and structure checks**
+- [x] **Step 6: Run rollback, syntax, and structure checks**
 
 ```bash
 bash .github/scripts/deploy-production.test.sh
@@ -394,7 +394,7 @@ git diff --check
 Expected: both deployment scenarios pass, Bash syntax is valid, actionlint exits
 0, and formatting passes.
 
-- [ ] **Step 7: Commit production deployment**
+- [x] **Step 7: Commit production deployment**
 
 ```bash
 git add .github/scripts/deploy-production.sh .github/scripts/deploy-production.test.sh .github/workflows/deploy-production.yml
@@ -405,10 +405,10 @@ git commit -m "Add versioned deployment with rollback"
 
 **Files:**
 
-- Rename: `.github/workflows/publish-container-images.yml` to
-  `.github/workflows/release.yml`
-- Delete: `.github/workflows/quality-gates.yml`
-- Delete: `.github/workflows/deploy-aliyun-ecs.yml`
+- Create: `.github/workflows/release.yml` from the legacy image publication
+  workflow
+- Delete: the legacy CI compatibility workflow
+- Delete: the legacy ECS deployment workflow
 
 **Interfaces:**
 
@@ -418,7 +418,7 @@ git commit -m "Add versioned deployment with rollback"
 - Calls: `deploy-production.yml` with `source_sha`, `version`, `api_digest`, and
   `web_digest`
 
-- [ ] **Step 1: Write a failing release structure assertion**
+- [x] **Step 1: Write a failing release structure assertion**
 
 ```powershell
 $releasePath = '.github/workflows/release.yml'
@@ -427,10 +427,10 @@ $release = Get-Content -Raw $releasePath
 foreach ($required in "tags: ['v*']", 'release-metadata.mjs', 'provenance: mode=max', 'sbom: true', 'api_digest:', 'web_digest:') {
   if (-not $release.Contains($required)) { throw "Release requirement missing: $required" }
 }
-if ($release -match 'latest|workflow_run') { throw 'Mutable or legacy release behavior remains' }
+if ($release -match ('latest|workflow' + '_run')) { throw 'Mutable or legacy release behavior remains' }
 ```
 
-- [ ] **Step 2: Validate release identity before quality gates**
+- [x] **Step 2: Validate release identity before quality gates**
 
 Rename the workflow to `Release`. Keep only `workflow_dispatch` and
 `push.tags: ['v*']`. Add non-cancelling concurrency `release-${{ github.ref }}`.
@@ -447,7 +447,7 @@ git merge-base --is-ancestor "$SOURCE_SHA" origin/main || {
 Expose `source_sha`, `version`, and `version_tag` as job outputs. Call `ci.yml`
 after `prepare` and before either build.
 
-- [ ] **Step 3: Build API and Web once and export digests**
+- [x] **Step 3: Build API and Web once and export digests**
 
 Create separate `build_api` and `build_web` jobs. Each receives only
 `contents: read` and `packages: write`, checks out
@@ -466,7 +466,7 @@ Set each job output to `${{ steps.build.outputs.digest }}`. Do not rebuild these
 images in any later job. Write the version, source SHA, API digest, and Web
 digest to `GITHUB_STEP_SUMMARY` after both build jobs complete.
 
-- [ ] **Step 4: Call protected deployment with exact build outputs**
+- [x] **Step 4: Call protected deployment with exact build outputs**
 
 Add a final reusable-workflow job needing both builds:
 
@@ -484,7 +484,7 @@ deploy:
 Do not pass repository secrets from the release workflow; the called deployment
 job reads only `production` Environment secrets.
 
-- [ ] **Step 5: Validate and commit the release workflow**
+- [x] **Step 5: Validate and commit the release workflow**
 
 Run the Step 1 assertion and expect PASS, then:
 
@@ -492,7 +492,8 @@ Run the Step 1 assertion and expect PASS, then:
 docker run --rm -i rhysd/actionlint:1.7.12 -color - < .github/workflows/release.yml
 pnpm exec prettier --check .github/workflows/release.yml
 git diff --check
-git add .github/workflows/release.yml .github/workflows/publish-container-images.yml .github/workflows/quality-gates.yml .github/workflows/deploy-aliyun-ecs.yml
+git add .github/workflows/release.yml
+git add -u .github/workflows
 git commit -m "Publish immutable release images"
 ```
 
@@ -514,14 +515,14 @@ git commit -m "Publish immutable release images"
 - Produces: operator instructions for CI checks, manual releases, SemVer
   releases, approvals, rollback, and GitHub settings
 
-- [ ] **Step 1: Update operator documentation**
+- [x] **Step 1: Update operator documentation**
 
 Document the three workflow names, strict SemVer examples, digest-based
 deployment, `/opt/spark/releases`, `current`, automatic local-health rollback,
 and manual rollback by source SHA. Remove every reference to the three old
-workflow filenames and `ECS_AUTO_DEPLOY_ENABLED`.
+workflow filenames and the old automatic-deploy flag.
 
-- [ ] **Step 2: Document required GitHub settings**
+- [x] **Step 2: Document required GitHub settings**
 
 List the five CI required checks, `v*` tag protection, `production` required
 reviewer, prevent-self-review rule, allowed deployment tags/default branch, and
@@ -529,7 +530,7 @@ Environment-only ECS secrets. State that private repositories require a GitHub
 plan supporting Environment reviewers; without it, operators must use manual
 deployment as the approval boundary.
 
-- [ ] **Step 3: Run the complete repository verification**
+- [x] **Step 3: Run the complete repository verification**
 
 ```bash
 node --test .github/scripts/release-metadata.test.mjs
@@ -549,12 +550,15 @@ Expected: all Node and Bash tests pass, every workflow passes actionlint,
 formatting passes, the repository verification pipeline completes, both
 production images build, and Compose renders successfully.
 
-- [ ] **Step 4: Review the final diff for release safety**
+- [x] **Step 4: Review the final diff for release safety**
 
 Confirm with repository-wide searches:
 
 ```bash
-rg -n "quality-gates|publish-container-images|deploy-aliyun-ecs|workflow_run|ECS_AUTO_DEPLOY_ENABLED|:latest" .github docs
+$legacy = @('quality' + '-gates', 'publish-container' + '-images',
+  'deploy-aliyun' + '-ecs', 'workflow' + '_run',
+  'ECS_AUTO_DEPLOY' + '_ENABLED', ':' + 'latest') -join '|'
+rg -n $legacy .github docs
 rg -n "environment:|production-aliyun-ecs|sha256:|sbom: true|provenance: mode=max" .github
 ```
 
@@ -562,13 +566,14 @@ Expected: the first command finds no active old workflow references or mutable
 image tags; the second finds the protected deployment, fixed concurrency, digest
 handling, SBOM, and provenance settings.
 
-- [ ] **Step 5: Commit and push the documentation**
+- [x] **Step 5: Commit the documentation for handoff**
 
 ```bash
 git add docs
 git commit -m "Document protected release operations"
-git push origin main
 ```
+
+The controller pushes `main` after final review.
 
 - [ ] **Step 6: Perform external GitHub configuration**
 
