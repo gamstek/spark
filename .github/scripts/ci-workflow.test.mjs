@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const workflow = await readFile(
+  new URL('../workflows/ci.yml', import.meta.url),
+  'utf8',
+);
+
+function job(name) {
+  const match = workflow.match(
+    new RegExp(
+      `^  ${name}:\\r?\\n([\\s\\S]*?)(?=^  [a-z0-9_]+:\\r?$|(?![\\s\\S]))`,
+      'm',
+    ),
+  );
+  assert.ok(match, `CI job not found: ${name}`);
+  return match[1];
+}
+
+test('runs database-backed template compatibility after migrations', () => {
+  const staticJob = job('static');
+  const integrationJob = job('integration');
+
+  assert.doesNotMatch(staticJob, /templates:check/);
+  assert.match(
+    integrationJob,
+    /db:migrate[^\n]*\n?[^\n]*templates:check[^\n]*\n?[^\n]*test:integration/,
+  );
+});

@@ -23,7 +23,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-workspace
-      - run: pnpm --filter @spark/api templates:check; pnpm lint; pnpm typecheck
+      - name: Test workflow scripts
+        run: >-
+          node --test .github/scripts/ci-workflow.test.mjs
+          .github/scripts/release-metadata.test.mjs
+      - run: pnpm lint; pnpm typecheck
 
   unit:
     runs-on: ubuntu-24.04
@@ -73,7 +77,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-workspace
-      - run: pnpm --filter @spark/api db:migrate; pnpm test:integration
+      - run: pnpm --filter @spark/api db:migrate
+      - run: pnpm --filter @spark/api templates:check
+      - run: pnpm test:integration
 
   e2e:
     runs-on: ubuntu-24.04

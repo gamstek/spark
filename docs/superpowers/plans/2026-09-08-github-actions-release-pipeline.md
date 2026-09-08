@@ -234,10 +234,10 @@ Every job uses `ubuntu-24.04`, a 20-minute timeout, pinned checkout
 the local setup action. Map commands exactly:
 
 ```text
-static      pnpm --filter @spark/api templates:check; pnpm lint; pnpm typecheck
+static      node --test .github/scripts/ci-workflow.test.mjs .github/scripts/release-metadata.test.mjs; pnpm lint; pnpm typecheck
 unit        pnpm test
 build       pnpm build
-integration pnpm --filter @spark/api db:migrate; pnpm test:integration
+integration pnpm --filter @spark/api db:migrate; pnpm --filter @spark/api templates:check; pnpm test:integration
 e2e         pnpm --filter @spark/api db:migrate; install Chromium; run the three existing E2E specs
 ```
 

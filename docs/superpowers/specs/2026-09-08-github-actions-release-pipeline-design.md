@@ -31,10 +31,10 @@ Compose、宿主机 Nginx 和密码 SSH。PostgreSQL 仍是 ECS 上的独立容�
 
 质量门拆为可独立定位失败的任务：
 
-1. `static`：模板兼容检查、ESLint 和 TypeScript 类型检查。
+1. `static`：工作流脚本测试、ESLint 和 TypeScript 类型检查。
 2. `unit`：Vitest 单元测试。
 3. `build`：Turborepo 生产构建。
-4. `integration`：启动 PostgreSQL，执行迁移和 API 集成测试。
+4. `integration`：启动 PostgreSQL，执行迁移、模板兼容检查和 API 集成测试。
 5. `e2e`：启动 PostgreSQL，安装 Chromium 并运行现有 Playwright 场景。
 
 每个任务设置超时，使用锁文件缓存 pnpm store。数据库任务继续使用名称包含 `test`
