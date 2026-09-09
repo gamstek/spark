@@ -10,6 +10,14 @@ const releaseWorkflow = await readFile(
   new URL('../workflows/release.yml', import.meta.url),
   'utf8',
 );
+const productionCompose = await readFile(
+  new URL('../../compose.production.yaml', import.meta.url),
+  'utf8',
+);
+const deploymentScript = await readFile(
+  new URL('./deploy-production.sh', import.meta.url),
+  'utf8',
+);
 
 function job(name) {
   const match = workflow.match(
@@ -48,4 +56,13 @@ test('passes production secrets to the reusable deployment workflow', () => {
     releaseWorkflow,
     /  deploy:\r?\n[\s\S]*?uses: \.\/\.github\/workflows\/deploy-production\.yml[\s\S]*?secrets: inherit/,
   );
+});
+
+test('uses the PostgreSQL 18 volume layout and includes database failure logs', () => {
+  assert.match(productionCompose, /database:\/var\/lib\/postgresql(?:\r?\n|$)/);
+  assert.doesNotMatch(
+    productionCompose,
+    /database:\/var\/lib\/postgresql\/data/,
+  );
+  assert.match(deploymentScript, /logs --tail 100 postgres api web/);
 });

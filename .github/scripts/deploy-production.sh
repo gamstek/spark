@@ -41,7 +41,7 @@ diagnose_release() {
   release_dir=$1
   {
     compose_release "$release_dir" ps
-    compose_release "$release_dir" logs --tail 100 api web
+    compose_release "$release_dir" logs --tail 100 postgres api web
   } 2>&1 | redact_output
 }
 

@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 20
     volumes:
-      - database:/var/lib/postgresql/data
+      - database:/var/lib/postgresql
 
   api:
     image: ${SPARK_API_IMAGE:-spark-api:local}
