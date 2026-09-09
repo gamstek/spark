@@ -1,14 +1,15 @@
-import { useDemoRuntime } from '../lib/runtime';
+import { useRuntime } from '../lib/runtime';
 import { SLICES } from '../lib/assets';
 import { PageShell } from '../components/page-shell';
 import { ActionButton } from '../components/action-button';
 
 /**
  * 提交成功（表单提交后的等待/确认屏）。
- * 背景：submit-success/bg.png 铺满整页；成功图标居中；下方「去抽奖」按钮。
+ * 背景：submit-success/bg.png 铺满整页；图标 + 「提交成功」蓝紫主标题
+ *   + 深灰副文两行；下方「去抽奖」按钮（刷新运行时，由服务端判定可抽性）。
  */
 export function SubmitSuccessPage() {
-  const { activity, go } = useDemoRuntime();
+  const { activity, participate } = useRuntime();
 
   return (
     <PageShell className="bg-canvas">
@@ -24,16 +25,28 @@ export function SubmitSuccessPage() {
         {activity.slug}
       </header>
 
-      {/* 成功图标 118×118 居中 */}
+      {/* 成功图标 133.5×118.5 (120.5,242.5) */}
       <img
         src={SLICES.submitSuccessIcon}
         alt="提交成功"
-        className="absolute left-[128px] top-[280px] h-[118px] w-[118px] object-contain"
+        className="absolute left-[120px] top-[242px] h-[118px] w-[134px] object-contain"
       />
+
+      {/* 主标题「提交成功」36px 蓝紫 (114.5,379.5) */}
+      <h1 className="absolute left-[114px] top-[379px] w-[147px] text-center text-[36px] text-win2">
+        提交成功
+      </h1>
+
+      {/* 副文「恭喜你 已获得本次抽奖机会」18px 深灰 两行 (102,447.5) */}
+      <p className="absolute left-[102px] top-[447px] w-[173px] text-center text-[18px] text-[#3A3A3A]">
+        恭喜你
+        <br />
+        已获得本次抽奖机会
+      </p>
 
       {/* 按钮：去抽奖 (43,658) 293×58 */}
       <div className="absolute left-[43px] top-[658px] w-[293px]">
-        <ActionButton onClick={() => go('LOTTERY')}>去抽奖</ActionButton>
+        <ActionButton onClick={() => void participate()}>去抽奖</ActionButton>
       </div>
     </PageShell>
   );

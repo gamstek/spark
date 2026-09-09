@@ -5,6 +5,7 @@ export const RedemptionStatusSchema = z.enum([
   'REDEEMED',
   'EXPIRED',
 ]);
+export type RedemptionStatus = z.infer<typeof RedemptionStatusSchema>;
 export const WinViewSchema = z
   .object({
     id: z.uuid(),

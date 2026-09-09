@@ -50,4 +50,33 @@ describe('activity runtime', () => {
     expect(result.nextStep).toBe('PRIZE');
     expect(result.win?.id).toBe(scenario.lotteryRecordId);
   });
+
+  it('returns display info with the configured rules and prize wall', async () => {
+    await database.dataSource.query(
+      `UPDATE activity_version SET config=$1 WHERE id=(SELECT published_version_id FROM activity WHERE code='expo-2026')`,
+      [
+        JSON.stringify({
+          rulesText: '每人一次抽奖机会',
+          requireSubscribe: false,
+        }),
+      ],
+    );
+    const runtime = new RuntimeService(
+      database.dataSource,
+      new ParticipantsService(database.dataSource),
+      { isSubscribed: async () => true } as never,
+    );
+    const info = await runtime.getInfo('expo-2026');
+    expect(info).toMatchObject({
+      code: 'expo-2026',
+      name: '展会抽奖',
+      rulesText: '每人一次抽奖机会',
+    });
+    expect(info.prizes).toHaveLength(1);
+    expect(info.prizes[0]?.name).toBe('一等奖');
+    expect(info.startsAt).toBe(new Date(scenario.now.getTime()).toISOString());
+    await expect(runtime.getInfo('missing')).rejects.toThrow(
+      'ACTIVITY_NOT_FOUND',
+    );
+  });
 });

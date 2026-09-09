@@ -1,4 +1,5 @@
 export * from './activities.js';
+export * from './activity-info.js';
 export * from './auth.js';
 export * from './dingtalk.js';
 export * from './errors.js';
@@ -35,6 +36,8 @@ export const ActivityRuntimeSchema = z
     participationId: z.uuid(),
     nextStep: RuntimeStepSchema,
     win: WinViewSchema.nullable(),
+    /** CSRF token for ACTIVITY-session write requests (lottery draw). */
+    csrfToken: z.string().min(10).optional(),
   })
   .strict();
 export type ActivityRuntime = z.infer<typeof ActivityRuntimeSchema>;

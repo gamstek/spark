@@ -112,6 +112,44 @@ describe('redemption recovery and atomic confirmation', () => {
     expect(retry).toEqual(first);
   });
 
+  it('lists records for permitted activities with masked participant data', async () => {
+    const submissionId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO dingtalk_form_submission (id,form_id,record_id,participation_id,fields,submitted_at)
+       VALUES ($1,'form-1','record-1',$2,$3,$4)`,
+      [
+        submissionId,
+        scenario.participationIds[0],
+        JSON.stringify({ name: '陈小明', phone: '13812342210' }),
+        scenario.now,
+      ],
+    );
+    await database.dataSource.query(
+      `UPDATE activity_participation SET adopted_submission_id=$1 WHERE id=$2`,
+      [submissionId, scenario.participationIds[0]],
+    );
+    const records = await service().listRecords(scenario.staffId, null);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      activityCode: 'expo-2026',
+      activityName: '展会抽奖',
+      name: '陈*明',
+      phone: '138****2210',
+      prizeName: '一等奖',
+      status: 'WAIT_REDEEM',
+    });
+    expect(records[0]?.redeemedAt).toBeNull();
+    const scoped = await service().listRecords(
+      scenario.staffId,
+      scenario.activityId,
+    );
+    expect(scoped).toHaveLength(1);
+    const empty = await service().listRecords(scenario.staffId, randomUUID());
+    expect(empty).toHaveLength(0);
+    const denied = await service().listRecords(randomUUID(), null);
+    expect(denied).toHaveLength(0);
+  });
+
   it('rejects missing permissions without revealing the redemption', async () => {
     const unauthorizedStaff = randomUUID();
     await database.dataSource.query(

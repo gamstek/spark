@@ -1,4 +1,4 @@
-import { useDemoRuntime, type DemoView } from '../lib/runtime';
+import { useRuntime, type DemoView } from '../lib/runtime';
 import { STEP_LABELS } from '../lib/runtime-steps';
 
 const VIEWS: { view: DemoView; label: string }[] = [
@@ -7,9 +7,9 @@ const VIEWS: { view: DemoView; label: string }[] = [
   { view: 'redeemed-success', label: '核销成功' },
 ];
 
-/** Demo 步骤导航工具栏：仅开发期渲染，自由切换到任意屏做验收 */
+/** Demo 步骤导航工具栏：仅开发期 demo 预览模式渲染，自由切换到任意屏做验收 */
 export function DevStepToolbar() {
-  const { step, view, go, openView } = useDemoRuntime();
+  const { step, view, go, openView } = useRuntime();
 
   return (
     <div className="fixed bottom-3 left-1/2 z-[60] -translate-x-1/2 max-w-[calc(100vw-16px)]">

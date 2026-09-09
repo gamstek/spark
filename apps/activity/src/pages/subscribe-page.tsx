@@ -1,4 +1,4 @@
-import { useDemoRuntime } from '../lib/runtime';
+import { useRuntime } from '../lib/runtime';
 import { SLICES } from '../lib/assets';
 import { PageShell } from '../components/page-shell';
 import { ActionButton } from '../components/action-button';
@@ -13,7 +13,7 @@ import { ActionButton } from '../components/action-button';
  *   按钮   (43,658) 293×58
  */
 export function SubscribePage() {
-  const { activity, openView } = useDemoRuntime();
+  const { activity, openView } = useRuntime();
 
   return (
     <PageShell className="bg-canvas">
@@ -38,7 +38,7 @@ export function SubscribePage() {
         参与抽奖
       </h1>
 
-      {/* 二维码 (52,280) 271×271 */}
+      {/* 二维码 (52,280) 271×271。真实公众号码由运营在环境中配置，这里使用设计切片 */}
       <img
         src={SLICES.subscribeQr}
         alt="公众号二维码"

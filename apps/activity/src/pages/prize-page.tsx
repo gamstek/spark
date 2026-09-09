@@ -1,4 +1,4 @@
-import { useDemoRuntime } from '../lib/runtime';
+import { useRuntime } from '../lib/runtime';
 import { SLICES } from '../lib/assets';
 import { PageShell } from '../components/page-shell';
 import { ActionButton } from '../components/action-button';
@@ -7,13 +7,20 @@ import { ActionButton } from '../components/action-button';
  * 恭喜中奖（PRIZE 中奖结果）。坐标 @1x（375×769）：
  *   祝贺标题图(63,123) 250×95  +  奖品盒图(42,223) 291×290
  *   奖项文字(133,432) 116×51    按钮(43,543) 293×58
- * 背景为深红喜庆渐变。
+ * 背景为整页 bg.png（#F6F6F6 纯色兜底）。
  */
 export function PrizePage() {
-  const { win, go } = useDemoRuntime();
+  const { win, go } = useRuntime();
 
   return (
-    <PageShell className="bg-gradient-to-b from-[#7a0d1d] via-[#b01428] to-[#e03a4a]">
+    <PageShell className="bg-[#F6F6F6]">
+      {/* 整页背景图（纯色 #F6F6F6 作为加载兜底） */}
+      <img
+        src={SLICES.prizeBg}
+        alt=""
+        aria-hidden="true"
+        className="absolute left-0 top-0 h-full w-full object-cover"
+      />
       {/* 祝贺标题图「恭喜中奖」 */}
       <img
         src={SLICES.prizeCongratsTitle}
@@ -29,10 +36,8 @@ export function PrizePage() {
       />
 
       {/* 奖项文字 */}
-      <p className="absolute left-[133px] top-[432px] w-[116px] text-center text-[18px] leading-[25px] text-white">
-        {win.levelName}
-        <br />
-        {win.prizeName}
+      <p className="absolute left-[133px] top-[432px] w-[116px] text-center text-[18px] leading-[25px] text-win">
+        {win?.prizeName}
       </p>
 
       {/* 按钮：查看奖品 (43,543) 293×58 */}

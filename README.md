@@ -21,6 +21,7 @@ monorepo.
 ```text
 pnpm install       Install the locked workspace dependencies
 pnpm dev           Run all applications in development mode
+pnpm --filter @spark/activity dev   Run only the activity frontend (Vite on port 5173)
 pnpm typecheck     Check TypeScript across the workspace
 pnpm lint          Run ESLint across the workspace
 pnpm test          Run automated tests
@@ -29,8 +30,26 @@ pnpm build         Build every application and package
 pnpm verify        Run lint, typecheck, unit tests, builds, and integration tests
 ```
 
+Stop a running development server with `Ctrl+C` in the terminal that started it.
+The activity demo opens at `http://localhost:5173/activity/<activityCode>` and
+supports a `?step=` query parameter for direct preview.
+
+The activity H5 reads its state machine from `GET /api/activity/:code/runtime`
+and establishes its session through WeChat silent OAuth. In development, when no
+WeChat session is available (the runtime call returns 401), the page falls back
+to the static demo preview with the step toolbar; production builds redirect to
+`/api/wechat/oauth/start?returnPath=…` instead. `POST /api/activity/:code/lottery`
+is protected by a CSRF check, so while testing the draw locally set
+`PUBLIC_ORIGIN` in `.env` to the exact activity origin (for example
+`http://localhost:5173`) and restart `pnpm dev`.
+
 Copy `.env.example` to `.env` for local development. Secrets must not be
 committed.
+
+`PUBLIC_ORIGIN` is the canonical origin used to build URLs (OAuth callback,
+redemption QR codes). Origin/CSRF validation also accepts the comma-separated
+`PUBLIC_ORIGIN_EXTRA` list, so several frontend dev servers (activity, staff,
+admin) can run against one API during local integration testing.
 
 Every environment variable, its source, secrecy requirement, and rotation impact
 is documented in `docs/project-spark-configuration.md`.

@@ -16,10 +16,12 @@ export interface SliceAssets {
   followSuccessBg: string;
   submitSuccessIcon: string;
   submitSuccessBg: string;
-  // 抽奖中：转盘盘面 + 转盘中心
+  // 抽奖中：整页背景 + 转盘盘面 + 转盘中心
+  lotteryBg: string;
   lotteryWheelFace: string;
   lotteryWheelCenter: string;
-  // 恭喜中奖：祝贺标题 + 奖品礼盒
+  // 恭喜中奖：整页背景 + 祝贺标题 + 奖品礼盒
+  prizeBg: string;
   prizeCongratsTitle: string;
   prizeGiftBox: string;
   // 核销成功
@@ -57,8 +59,10 @@ export const SLICES: SliceAssets = {
   followSuccessBg: pick('follow-success', 'bg'),
   submitSuccessIcon: pick('submit-success', 'icon'),
   submitSuccessBg: pick('submit-success', 'bg'),
+  lotteryBg: pick('lottery', 'bg'),
   lotteryWheelFace: pick('lottery', 'wheel-face'),
   lotteryWheelCenter: pick('lottery', 'wheel-center'),
+  prizeBg: pick('prize', 'bg'),
   prizeCongratsTitle: pick('prize', 'congrats-title'),
   prizeGiftBox: pick('prize', 'gift-box'),
   redeemedSuccessIcon: pick('redeemed-success', 'icon'),

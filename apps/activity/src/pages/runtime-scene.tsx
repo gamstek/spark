@@ -1,4 +1,4 @@
-import { useDemoRuntime } from '../lib/runtime';
+import { useRuntime } from '../lib/runtime';
 import { HomePage } from './home-page';
 import { ActivityInfoPage } from './activity-info-page';
 import { SubscribePage } from './subscribe-page';
@@ -12,35 +12,58 @@ import { RedeemedSuccessPage } from './redeemed-success-page';
 
 /**
  * step → 页面分发。view (info / redeemed-success) 为独立于状态机的正交屏。
- * 其余按 RuntimeStep 渲染。
+ * 其余按 RuntimeStep 渲染；顶部浮动展示全局提示消息。
  */
 export function RuntimeScene() {
-  const { step, view } = useDemoRuntime();
+  const { step, view, message, setMessage } = useRuntime();
 
-  if (view === 'info') return <ActivityInfoPage />;
-  if (view === 'follow-success') return <FollowSuccessPage />;
-  if (view === 'redeemed-success') return <RedeemedSuccessPage />;
+  let content;
+  if (view === 'info') content = <ActivityInfoPage />;
+  else if (view === 'follow-success') content = <FollowSuccessPage />;
+  else if (view === 'redeemed-success') content = <RedeemedSuccessPage />;
+  else
+    switch (step) {
+      case 'NOT_STARTED':
+        content = <HomePage />;
+        break;
+      case 'SUBSCRIBE':
+        content = <SubscribePage />;
+        break;
+      case 'FORM':
+        content = <FormPage />;
+        break;
+      case 'WAITING_FORM':
+        content = <SubmitSuccessPage />;
+        break;
+      case 'LOTTERY':
+      case 'OUT_OF_STOCK':
+        content = <LotteryPage />;
+        break;
+      case 'PRIZE':
+        content = <PrizePage />;
+        break;
+      case 'REDEEMED':
+      case 'EXPIRED':
+        content = <RedemptionPage />;
+        break;
+      case 'ENDED':
+      default:
+        content = <HomePage />;
+        break;
+    }
 
-  switch (step) {
-    case 'NOT_STARTED':
-      return <HomePage />;
-    case 'SUBSCRIBE':
-      return <SubscribePage />;
-    case 'FORM':
-      return <FormPage />;
-    case 'WAITING_FORM':
-      return <SubmitSuccessPage />;
-    case 'LOTTERY':
-    case 'OUT_OF_STOCK':
-      return <LotteryPage />;
-    case 'PRIZE':
-      return <PrizePage />;
-    case 'REDEEMED':
-    case 'EXPIRED':
-      return <RedemptionPage />;
-    case 'ENDED':
-      return <HomePage />;
-    default:
-      return <HomePage />;
-  }
+  return (
+    <>
+      {content}
+      {message && (
+        <button
+          type="button"
+          onClick={() => setMessage(null)}
+          className="fixed inset-x-0 top-3 z-[70] mx-auto w-fit max-w-[90vw] rounded-full bg-black/75 px-4 py-1.5 text-[13px] text-white"
+        >
+          {message}
+        </button>
+      )}
+    </>
+  );
 }

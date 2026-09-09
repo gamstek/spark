@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import {
@@ -30,32 +30,43 @@ export class StaffService {
   ): Promise<{ id: string }> {
     const id = randomUUID(),
       passwordHash = await hashPassword(input.password);
-    await this.dataSource.transaction(async (manager) => {
-      await manager.getRepository(StaffAccount).insert({
-        id,
-        username: input.username,
-        passwordHash,
-        displayName: input.displayName,
-        disabledAt: null,
-      });
-      const permissionRepository = manager.getRepository(
-        StaffActivityPermission,
-      );
-      for (const activityId of input.activityIds) {
-        await permissionRepository.insert({
-          staffAccountId: id,
-          activityId,
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const exists = await manager
+          .getRepository(StaffAccount)
+          .existsBy({ username: input.username });
+        if (exists) throw new ConflictException('RECORD_CONFLICT');
+        await manager.getRepository(StaffAccount).insert({
+          id,
+          username: input.username,
+          passwordHash,
+          displayName: input.displayName,
+          disabledAt: null,
         });
-      }
-      await manager.getRepository(AuditEvent).insert({
-        id: randomUUID(),
-        actorType: 'ADMIN',
-        actorId: actorAdminId,
-        action: 'STAFF_CREATED',
-        resourceType: 'staff_account',
-        resourceId: id,
+        const permissionRepository = manager.getRepository(
+          StaffActivityPermission,
+        );
+        for (const activityId of input.activityIds) {
+          await permissionRepository.insert({
+            staffAccountId: id,
+            activityId,
+          });
+        }
+        await manager.getRepository(AuditEvent).insert({
+          id: randomUUID(),
+          actorType: 'ADMIN',
+          actorId: actorAdminId,
+          action: 'STAFF_CREATED',
+          resourceType: 'staff_account',
+          resourceId: id,
+        });
       });
-    });
+    } catch (error) {
+      // 并发创建同名账号时由唯一约束兜底，同样映射为 409 业务冲突
+      if ((error as { code?: string }).code === '23505')
+        throw new ConflictException('RECORD_CONFLICT');
+      throw error;
+    }
     return { id };
   }
   async hasActivityPermission(

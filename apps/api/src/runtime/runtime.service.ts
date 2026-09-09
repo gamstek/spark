@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import type { ActivityRuntime, RuntimeStep, WinView } from '@spark/contracts';
+import type {
+  ActivityInfo,
+  ActivityRuntime,
+  RuntimeStep,
+  WinView,
+} from '@spark/contracts';
 import { DataSource } from 'typeorm';
 
 import { ChannelVisit, WechatIdentity } from '../../database/entities/index.js';
@@ -112,6 +117,55 @@ export class RuntimeService {
     };
   }
 
+  private origin(): string {
+    return process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173';
+  }
+
+  private absoluteUrl(url: string | null): string | null {
+    return url ? new URL(url, this.origin()).toString() : null;
+  }
+
+  /** Display data for the participant H5: name, time window, rules, prize wall. */
+  async getInfo(activityCode: string): Promise<ActivityInfo> {
+    const rows = await this.dataSource.query<
+      {
+        code: string;
+        name: string;
+        starts_at: Date;
+        ends_at: Date;
+        draw_ends_at: Date;
+        config: { rulesText?: string };
+      }[]
+    >(
+      `SELECT a.code,a.name,v.starts_at,v.ends_at,v.draw_ends_at,v.config
+       FROM activity a JOIN activity_version v ON v.id=a.published_version_id WHERE a.code=$1`,
+      [activityCode],
+    );
+    const activity = rows[0];
+    if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+    const prizes = await this.dataSource.query<
+      { prize_name: string; prize_image_url: string | null }[]
+    >(
+      `SELECT vp.prize_name,COALESCE(vp.prize_image_url,ap.prize_image_url) AS prize_image_url
+       FROM activity_version_prize vp JOIN activity_prize ap ON ap.id=vp.activity_prize_id
+       WHERE vp.activity_version_id=(SELECT published_version_id FROM activity WHERE code=$1)
+       ORDER BY ap.created_at,ap.id`,
+      [activityCode],
+    );
+    return {
+      code: activity.code,
+      name: activity.name,
+      startsAt: new Date(activity.starts_at).toISOString(),
+      endsAt: new Date(activity.ends_at).toISOString(),
+      drawEndsAt: new Date(activity.draw_ends_at).toISOString(),
+      rulesText: activity.config.rulesText ?? '',
+      prizes: prizes.map((prize) => ({
+        name: prize.prize_name,
+        imageUrl: this.absoluteUrl(prize.prize_image_url),
+      })),
+    };
+  }
+
   private async isSubscribed(userId: string): Promise<boolean> {
     const identity = await this.dataSource
       .getRepository(WechatIdentity)
@@ -155,12 +209,7 @@ export class RuntimeService {
       ? {
           id: row.id,
           prizeName: row.prize_name,
-          prizeImageUrl: row.prize_image_url
-            ? new URL(
-                row.prize_image_url,
-                process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173',
-              ).toString()
-            : null,
+          prizeImageUrl: this.absoluteUrl(row.prize_image_url),
           redeemEndAt: new Date(row.redeem_end_at).toISOString(),
           redemptionStatus: row.status,
         }

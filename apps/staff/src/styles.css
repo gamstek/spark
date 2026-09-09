@@ -1,3 +1,29 @@
-@import "tailwindcss";
-body { margin: 0; min-width: 320px; }
-main { padding: 1.5rem; }
+@import 'tailwindcss';
+
+@theme {
+  /* staff 工作人员核销端 设计 token（来自 13 张蓝湖稿） */
+  --color-brand: #cf102c; /* 主操作红：按钮/强调 */
+  --color-blue: #4b66d5; /* 品牌蓝：统计数值/高亮 tab/核销成功标题 */
+  --color-blue2: #4662d4; /* 核销成功标题蓝 */
+  --color-green: #51b643; /* 已核销绿 */
+  --color-wait: #f28e52; /* 待核销橙 */
+  --color-ink: #333333; /* 主文字 */
+  --color-sub: #666666; /* 次文字 */
+  --color-weak: #999999; /* 弱文字 */
+  --color-line: #cbcbcb; /* 边框/分隔 */
+  --color-canvas: #f4f5f9; /* 内容区浅灰底 */
+  --color-p1: #ff5165; /* 奖品序号圆 红 */
+  --color-p2: #ffd50f; /* 奖品序号圆 黄 */
+  --color-p3: #a7bccc; /* 奖品序号圆 灰 */
+  --color-p4: #66b3ee; /* 奖品序号圆 蓝 */
+  --color-scan: #393939; /* 扫码页深色底 */
+
+  --font-body:
+    'Alibaba PuHuiTi 3.0', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: var(--font-body);
+}

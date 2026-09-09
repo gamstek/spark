@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useDemoRuntime } from '../lib/runtime';
+import { useRuntime } from '../lib/runtime';
 import { SLICES } from '../lib/assets';
 import { PageShell } from '../components/page-shell';
 import { ActionButton } from '../components/action-button';
@@ -21,7 +21,7 @@ import { ActionButton } from '../components/action-button';
  *     - 分隔线  (124.5,721) 与 (249.5,721) 1×39.5  #939393
  */
 export function HomePage() {
-  const { activity, win, go, openView } = useDemoRuntime();
+  const { activity, participate, openView, showMyPrizes } = useRuntime();
   const [showRules, setShowRules] = useState(false);
   const TAB_TOP = 656.5; // 底部 tabs 容器顶部 @1x
 
@@ -50,20 +50,28 @@ export function HomePage() {
       {/* 活动时间 / 主办方 (82.5,559.5) 与 (165,559.5) */}
       <p className="absolute left-[82px] top-[559px] w-[68px] text-right text-[15px] leading-[30px] text-ink">
         活动时间：
-        <br />
-        主办方：
+        {activity.organizer ? (
+          <>
+            <br />
+            主办方：
+          </>
+        ) : null}
       </p>
       <p className="absolute left-[165px] top-[559px] w-[131px] text-[15px] leading-[30px] text-ink">
         {activity.dates}
-        <br />
-        {activity.organizer}
+        {activity.organizer ? (
+          <>
+            <br />
+            {activity.organizer}
+          </>
+        ) : null}
       </p>
 
       {/* 主按钮 矩形1626 (43,623) 292.5×58：左上角(0% 0%)径向渐变 #BE1414→#FF4444 + 底 #CF102C；
           描边 #E94262→#F99494；阴影 X3.5/Y0/blur6.5/spread0 #C81C1C35%；圆角21.42 */}
       <div className="absolute left-[43px] top-[623px] z-10 w-[292px]">
         <ActionButton
-          onClick={() => go('SUBSCRIBE')}
+          onClick={() => void participate()}
           style={{
             background:
               'radial-gradient(circle at 0% 0%, #BE1414 0%, #FF4444 99.58%), #CF102C',
@@ -114,7 +122,7 @@ export function HomePage() {
           iconTop={699.5 - TAB_TOP}
           textLeft={289}
           textTop={744.5 - TAB_TOP}
-          onClick={() => go('REDEEMED', { free: true })}
+          onClick={showMyPrizes}
         />
 
         {/* 分隔线 (124.5,721) 与 (249.5,721)，1×39.5，#939393 */}
@@ -149,8 +157,6 @@ export function HomePage() {
               </button>
             </div>
             <p className="text-[14px] leading-[1.8] text-ink">
-              {win.levelName}·{win.prizeName}
-              <br />
               {activity.rulesText}
             </p>
           </div>

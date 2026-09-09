@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 // Starts a local embedded PostgreSQL matching compose.yaml's test settings.
 // Keeps running in the foreground so callers can hold it as a background task.
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import EmbeddedPostgres from 'embedded-postgres';
 
 const port = Number(process.env.POSTGRES_PORT ?? 54329);
@@ -51,14 +54,22 @@ if (!portFree) {
   process.exit(1);
 }
 
-await pg.initialise();
-await pg.start();
-try {
-  await pg.createDatabase(database);
-} catch (error) {
-  // Database may already exist; that is fine.
-  if (!String(error).toLowerCase().includes('already exists')) throw error;
+// initdb must only run once per data directory: a second run on an existing
+// cluster aborts with "directory exists but is not empty". PG_VERSION marks a
+// complete cluster, so skip initialise() when restarting an existing one.
+const clusterExists = existsSync(join(databaseDir, 'PG_VERSION'));
+if (clusterExists) {
+  console.log(`existing cluster detected at ${databaseDir}, skipping initdb`);
+} else {
+  await pg.initialise();
+  try {
+    await pg.createDatabase(database);
+  } catch (error) {
+    // Database may already exist; that is fine.
+    if (!String(error).toLowerCase().includes('already exists')) throw error;
+  }
 }
+await pg.start();
 console.log(
   `embedded postgres ready on 127.0.0.1:${port} (user=${user}, db=${database}, data=${databaseDir})`,
 );

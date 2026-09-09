@@ -1,4 +1,4 @@
-import { useDemoRuntime } from '../lib/runtime';
+import { useRuntime } from '../lib/runtime';
 import { SLICES } from '../lib/assets';
 import { PageShell } from '../components/page-shell';
 
@@ -10,7 +10,7 @@ import { PageShell } from '../components/page-shell';
  * 背景：redeemed-success/bg.png 铺满整页。
  */
 export function RedeemedSuccessPage() {
-  const { closeView } = useDemoRuntime();
+  const { closeView } = useRuntime();
 
   return (
     <PageShell className="bg-canvas">

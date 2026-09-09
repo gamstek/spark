@@ -1,4 +1,4 @@
-import type { RedemptionStatus } from '../lib/redemption';
+import type { RedemptionStatus } from '@spark/contracts';
 
 const STATUS: Record<RedemptionStatus, { text: string; className: string }> = {
   WAIT_REDEEM: { text: '待核销', className: 'bg-wait/15 text-wait' },
