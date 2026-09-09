@@ -3,8 +3,8 @@
 ## 目标与范围
 
 将 Project Spark 部署到一台现有阿里云 ECS，并通过 `https://spark.gamstek.com`
-对外服务。部署继续使用 GHCR 中按完整 Git
-SHA 标记的镜像。服务器上的系统 Nginx 已承载其他站点，因此 Spark 容器不绑定宿主机的 80、443 端口。本次不实现
+对外服务。发布镜像保留完整 Git SHA 标签，生产部署固定使用构建输出的 OCI
+digest。服务器上的系统 Nginx 已承载其他站点，因此 Spark 容器不绑定宿主机的 80、443 端口。本次不实现
 `pg_dump` 或其他自动数据库备份。
 
 ## 运行结构
@@ -36,8 +36,14 @@ PostgreSQL 使用独立容器和命名卷
 
 ## GitHub Actions 部署
 
-流水线保持
-`Quality Gates → Publish Container Images → Deploy to Aliyun ECS`。部署任务在 GitHub 托管的 Ubuntu
+自动化由 `CI`、`Release` 和 `Deploy Production` 三个 workflow 组成。PR 和 `main`
+分支提交只运行 `CI` 的 `static`、`unit`、`build`、
+`integration`、`e2e`，不会发布或部署。手动运行
+`Release`，或推送严格 SemVer 版本标签（如
+`v1.2.3`、`v2.0.0-rc.1`）时，流水线先运行 `CI`，再并行构建 API/Web，最后调用
+`Deploy Production`。类似 `v1.2`、`v01.2.3` 和带 build
+metadata 的标签不满足当前规则。镜像同时使用完整提交 SHA 和版本标签标记，部署固定使用两个构建作业输出的
+`sha256:<64 位小写十六进制>` digest。部署任务在 GitHub 托管的 Ubuntu
 Runner 上安装 `sshpass`，通过环境变量 `SSHPASS`
 使用服务器账户密码；密码只来自 GitHub Environment `production` 的 `ECS_PASSWORD`
 secret，不写入命令参数、文件或日志。
@@ -54,18 +60,31 @@ secret，不写入命令参数、文件或日志。
 | `ECS_DEPLOY_PATH`     | 固定部署目录，例如 `/opt/spark`            |
 | `ECS_HEALTHCHECK_URL` | HTTPS 启用后的外部就绪检查地址，可暂不配置 |
 
-workflow 上传 `compose.production.yaml` 和包含两个 SHA 镜像地址的
-`.env.release`，保留服务器本地 `.env.production`。服务器需提前使用具有
-`read:packages`
-权限的凭据登录 GHCR。部署依次拉取镜像、更新容器、检查 Compose 状态和本地就绪端点；配置外部健康检查地址后，再检查公网 HTTPS。
+workflow 上传 `compose.production.yaml`、包含两个 digest 镜像地址的
+`.env.release`、`release.json` 和部署脚本，保留服务器本地
+`.env.production`。候选版本先进入
+`/opt/spark/releases/.incoming-<release-id>`，再成为不可变的
+`/opt/spark/releases/<release-id>`。服务器需提前使用具有 `read:packages`
+权限的凭据登录 GHCR。部署依次拉取 digest 镜像、更新容器并检查本地就绪端点；成功后才将
+`/opt/spark/current` 原子指向候选版本。若本地检查失败，脚本恢复 `current`
+对应的上一版本并复查，但本次部署仍失败；配置外部健康检查地址后，再检查公网 HTTPS，公网检查失败不自动回滚本地健康版本。
 
-`ECS_AUTO_DEPLOY_ENABLED`
-在首次手动部署和 HTTPS 验收完成前保持关闭。手动运行允许输入已发布镜像的完整 SHA，用于重新部署或应用版本回滚。
+`Deploy Production` 也可单独手动运行，输入已发布镜像的 40 位小写完整 source
+SHA，用于重新部署或应用版本回滚。它从该 SHA 的镜像标签解析 digest，并创建新的版本目录；镜像回滚不反向执行数据库迁移。普通分支和无版本标签的提交不会发布或部署。
 
 ## 生产保护
 
-GitHub `production`
-Environment 应启用人工审批。SSH 保留主机身份校验和连接超时；服务器安全组只开放 Web 所需的 80/443，并将 SSH 来源限制到实际需要的范围。部署账户密码不进入仓库或
+`main` 的保护规则必须要求 `static`、`unit`、`build`、`integration`、 `e2e`
+五个 CI 检查。tag ruleset 必须保护 `v*`。GitHub `production`
+Environment 必须配置 required reviewer 并启用 prevent
+self-review，将允许部署的分支和标签限制为默认分支 `main` 与受保护的 `v*`
+标签。全部 ECS
+secrets 只能保存在该 Environment，不保存在 repository 或 organization secrets。
+
+私有仓库需要使用支持 Environment required
+reviewers 的 GitHub 套餐。如果套餐不支持，应由授权操作员手动启动生产部署，并把该人工操作作为审批边界，不使用标签触发的无人审批部署。
+
+SSH 保留主机身份校验和连接超时；服务器安全组只开放 Web 所需的 80/443，并将 SSH 来源限制到实际需要的范围。部署账户密码不进入仓库或
 `.env.production`。生产配置文件权限设为仅部署账户可读。
 
 GitHub 托管 Runner 的出口地址会变化，因此密码 SSH 部署要求安全组允许当前 Runner 访问 SSH 端口。安全组维护 GitHub

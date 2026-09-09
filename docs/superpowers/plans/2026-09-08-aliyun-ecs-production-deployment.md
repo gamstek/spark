@@ -6,13 +6,15 @@
 > checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Serve Project Spark at `https://spark.gamstek.com` on the existing ECS
-while preserving its host Nginx sites and deploying SHA-pinned images through
+while preserving its host Nginx sites and deploying digest-pinned images through
 password-authenticated GitHub Actions.
 
 **Architecture:** Host Nginx owns ports 80/443 and proxies Spark to a Web
 container bound at `127.0.0.1:18080`. API and PostgreSQL remain internal Compose
-services; PostgreSQL keeps its own named volume. GitHub-hosted runners use
-`sshpass`, a protected production environment, and fixed host-key verification.
+services; PostgreSQL keeps its own named volume. `CI`, `Release`, and
+`Deploy Production` use GitHub-hosted runners; production deployment uses
+`sshpass`, a protected Environment, fixed host-key verification, and versioned
+release directories under `/opt/spark/releases`.
 
 **Tech Stack:** GitHub Actions, Docker Compose, Nginx 1.29, Certbot, GHCR,
 NestJS/Fastify, PostgreSQL 18
@@ -22,7 +24,8 @@ NestJS/Fastify, PostgreSQL 18
 
 ## Global Constraints
 
-- Deploy API and Web images by full Git SHA; do not introduce `latest` tags.
+- Publish full Git SHA tags, but deploy API and Web images by their exact OCI
+  digests.
 - Keep host ports 80/443 under the existing system Nginx.
 - Bind the Spark Web container only to `127.0.0.1:18080`.
 - Keep API and PostgreSQL ports off the host and public network.
@@ -65,10 +68,10 @@ Expected: FAIL with `Web loopback binding missing`.
 - [x] **Step 2: Convert the container Nginx to internal HTTP**
 
 Use one `listen 8080` server without certificates or an HTTP-to-HTTPS redirect.
-Keep the existing API, media, SPA and rate-limit locations. Add exact 308
-redirects for `/activity`, `/staff`, and `/admin`. Configure real-IP handling
-for the trusted Docker subnet and preserve the incoming `X-Forwarded-Proto`
-value when proxying to API.
+Keep the existing API, media and SPA locations. Add exact 308 redirects for
+`/activity`, `/staff`, and `/admin`. Configure real-IP handling for the trusted
+Docker subnet and preserve the incoming `X-Forwarded-Proto` value when proxying
+to API.
 
 - [x] **Step 3: Change the Web container exposure**
 
@@ -119,19 +122,19 @@ git commit -m "Run Spark behind host Nginx"
 
 **Files:**
 
-- Modify: `.github/workflows/deploy-aliyun-ecs.yml`
+- Modify: `.github/workflows/deploy-production.yml`
 
 **Interfaces:**
 
 - Consumes: `ECS_HOST`, `ECS_PORT`, `ECS_USER`, `ECS_PASSWORD`,
   `ECS_SSH_KNOWN_HOSTS`, `ECS_DEPLOY_PATH`
-- Produces: password-authenticated upload, SHA-pinned Compose update, local
+- Produces: password-authenticated upload, digest-pinned Compose update, local
   readiness result, optional public HTTPS readiness result
 
 - [x] **Step 1: Run a failing workflow assertion**
 
 ```powershell
-$workflow = Get-Content -Raw .github/workflows/deploy-aliyun-ecs.yml
+$workflow = Get-Content -Raw .github/workflows/deploy-production.yml
 if ($workflow -notmatch "ECS_PASSWORD") { throw "Password secret missing" }
 if ($workflow -notmatch "sshpass -e") { throw "Password SSH missing" }
 if ($workflow -match "ECS_SSH_PRIVATE_KEY") { throw "Private-key path remains" }
@@ -150,15 +153,14 @@ Continue writing only `ECS_SSH_KNOWN_HOSTS` to `~/.ssh/known_hosts`.
 
 After `docker compose up`, poll `http://127.0.0.1:18080/api/health/ready` on
 ECS. Treat `ECS_HEALTHCHECK_URL` as optional; when non-empty, require HTTPS and
-run the external retrying check. Keep automatic deployment disabled unless
-`ECS_AUTO_DEPLOY_ENABLED=true`.
+run the external retrying check.
 
 - [x] **Step 4: Validate the workflow**
 
 Run the Step 1 assertion again and expect PASS, then run:
 
 ```powershell
-Get-Content -Raw .github/workflows/deploy-aliyun-ecs.yml |
+Get-Content -Raw .github/workflows/deploy-production.yml |
   docker run --rm -i rhysd/actionlint:1.7.12 -color -
 ```
 
@@ -167,7 +169,7 @@ Expected: actionlint exits 0 with no findings.
 - [x] **Step 5: Commit the workflow**
 
 ```bash
-git add .github/workflows/deploy-aliyun-ecs.yml
+git add .github/workflows/deploy-production.yml
 git commit -m "Deploy to ECS with password SSH"
 ```
 
@@ -193,12 +195,13 @@ git commit -m "Deploy to ECS with password SSH"
 Document the host Nginx proxy, loopback port, password secret, optional external
 health URL, GHCR login, independent PostgreSQL container, and the absence of
 automated backups. List the exact order: HTTP site, containers, local health,
-DNS A record, Certbot, HTTPS health, WeChat settings, automatic deployment flag.
+DNS A record, Certbot, HTTPS health, WeChat settings, and protected production
+Environment rules.
 
 - [x] **Step 2: Format and validate all changed files**
 
 ```bash
-pnpm exec prettier --write .github/workflows/deploy-aliyun-ecs.yml compose.production.yaml nginx/nginx.conf nginx/proxy_params docs/project-spark-deployment.md docs/project-spark-configuration.md docs/superpowers/specs/2026-09-08-aliyun-ecs-production-deployment-design.md docs/superpowers/plans/2026-09-08-aliyun-ecs-production-deployment.md
+pnpm exec prettier --write .github/workflows/deploy-production.yml compose.production.yaml nginx/nginx.conf nginx/proxy_params docs/project-spark-deployment.md docs/project-spark-configuration.md docs/superpowers/specs/2026-09-08-aliyun-ecs-production-deployment-design.md docs/superpowers/plans/2026-09-08-aliyun-ecs-production-deployment.md
 pnpm verify
 git diff --check
 ```
@@ -219,14 +222,16 @@ git commit -m "Document Spark production rollout"
 
 - Install on ECS: `/etc/nginx/sites-available/spark.gamstek.com`
 - Create on ECS: `/opt/spark/.env.production`
-- Create on ECS: `/opt/spark/.env.release`
-- Create on ECS: `/opt/spark/compose.production.yaml`
+- Create on ECS: `/opt/spark/releases/<release-id>/.env.release`
+- Create on ECS: `/opt/spark/releases/<release-id>/compose.production.yaml`
+- Create on ECS: `/opt/spark/current` symlink
 
 **Interfaces:**
 
 - Consumes: ECS public IP, SSH port, account password, production environment
   values, GHCR read credentials
-- Produces: running local Spark endpoint ready for DNS and TLS activation
+- Produces: running local Spark endpoint with `current` pointing to a healthy,
+  versioned release, ready for DNS and TLS activation
 
 - [ ] **Step 1: Open an interactive bootstrap session**
 
@@ -259,18 +264,17 @@ a successful test.
 
 - [ ] **Step 4: Prepare the deployment directory**
 
-Create `/opt/spark`, save `.env.production` with mode `600`, log in to GHCR
-using a token with `read:packages`, and copy the reviewed Compose file plus
-`.env.release` into the directory.
+Create `/opt/spark/releases`, save `/opt/spark/.env.production` with mode `600`,
+log in to GHCR using a token with `read:packages`, and use the reviewed
+deployment workflow to upload the versioned Compose file, `.env.release`,
+`release.json`, and deployment script.
 
 - [ ] **Step 5: Start and verify containers**
 
 ```bash
-cd /opt/spark
-docker compose --env-file .env.production --env-file .env.release \
-  -f compose.production.yaml pull
-docker compose --env-file .env.production --env-file .env.release \
-  -f compose.production.yaml up -d --no-build
+cd /opt/spark/current
+docker compose -p spark --env-file /opt/spark/.env.production \
+  --env-file .env.release -f compose.production.yaml ps
 curl -fsS http://127.0.0.1:18080/api/health/ready
 ```
 
@@ -288,11 +292,15 @@ curl -fsS https://spark.gamstek.com/api/health/ready
 ```
 
 Verify `/activity/`, `/staff/`, `/admin/`, `/api/health/ready` and `/media/`
-behavior before setting `ECS_AUTO_DEPLOY_ENABLED=true`.
+behavior before creating the first `v*` release tag.
 
 - [ ] **Step 7: Configure GitHub and external platforms**
 
-Add the documented `production` Environment secrets, enable required reviewers,
-then configure the WeChat OAuth domain and IP allowlist plus the DingTalk
-callback URL. Keep automatic deployment disabled until a manual workflow run
-succeeds.
+Require all five `CI` checks on `main`, protect `v*` tags, and configure the
+`production` Environment with a required reviewer, prevent self-review, only the
+default branch and protected `v*` tags, and Environment-only ECS secrets. Then
+configure the WeChat OAuth domain and IP allowlist plus the DingTalk callback
+URL. Complete one manual `Release` and `Deploy Production` run before using a
+`v*` release tag. Private repositories need a GitHub plan that supports
+Environment reviewers; otherwise an authorized operator must use manual
+deployment as the approval boundary.

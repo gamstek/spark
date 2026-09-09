@@ -502,7 +502,7 @@ expect(report.available).toBe(report.totalStock - report.awarded);
 
 - [ ] 先测试 `/activity/:code`、`/staff/redeem/:code`、`/admin/activities`
       深链接刷新及 `/api` 响应，确保静态 fallback 不吞 API 404。
-- [x] 配置 HTTPS、Cookie、代理信任范围、Origin/CSRF、no-referrer、日志脱敏、请求大小与限流；前端产物中不得出现服务端秘密。
+- [x] 配置 HTTPS、Cookie、代理信任范围、Origin/CSRF、no-referrer、日志脱敏与请求大小；前端产物中不得出现服务端秘密。请求限流按后续设计另行实现。
 - [ ] CI 从空 PostgreSQL 执行迁移、业务并发测试、三个前端 E2E；执行
       `pnpm verify` 和 `pnpm exec playwright test`，记录版本、命令与结果。
 - [ ] 真实联调：经用户指定测试活动，用专用测试记录验证微信内打开钉钉、participationId 实际预填、回调请求头及 recordId、返回后可抽、扫码核销。录入外部数据前确认具体测试范围，不向现有真实客户表单擅自造记录；没有真实证据时该检查保持未完成，不用 Mock 替代。
