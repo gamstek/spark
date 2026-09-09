@@ -14,7 +14,15 @@ import { api } from '../../api';
 import { ActivityNav } from '../../components/activity-nav';
 import { FeedbackCallout, LoadingState } from '../../components/feedback';
 import { PageHeader } from '../../components/page-header';
-import { ConfigForm } from '../../templates/exhibition-lottery/config-form';
+import { RequiredFieldMark } from '../../components/required-field-mark';
+import {
+  ConfigForm,
+  getLotteryConfigError,
+} from '../../templates/exhibition-lottery/config-form';
+import {
+  getActivityScheduleError,
+  type ActivitySchedule,
+} from './schedule-validation';
 
 type Detail = {
   name: string;
@@ -59,6 +67,7 @@ export function ActivityEditPage() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(id !== 'new');
   const [saving, setSaving] = useState(false);
+  const [endingDraw, setEndingDraw] = useState(false);
   const savingRef = useRef(false);
   const [message, setMessage] = useState('');
   const [tone, setTone] = useState<'success' | 'error' | 'warning' | 'info'>(
@@ -69,6 +78,14 @@ export function ActivityEditPage() {
     detail?.published_version_id &&
     detail.starts_at &&
     new Date(detail.starts_at) <= new Date(),
+  );
+  const now = Date.now();
+  const canEndDraw = Boolean(
+    detail?.published_version_id &&
+    detail.starts_at &&
+    new Date(detail.starts_at).getTime() <= now &&
+    detail.draw_ends_at &&
+    new Date(detail.draw_ends_at).getTime() > now,
   );
 
   async function loadDetail() {
@@ -95,9 +112,38 @@ export function ActivityEditPage() {
 
     try {
       const form = new FormData(event.currentTarget);
+      const schedule = Object.fromEntries(
+        scheduleFields.map(([name]) => [name, String(form.get(name) ?? '')]),
+      ) as ActivitySchedule;
+      const scheduleError = getActivityScheduleError(schedule);
+      if (scheduleError) {
+        setTone('error');
+        setMessage(scheduleError);
+        return;
+      }
       let heroAssetId = form.get('heroAssetId');
       const heroFile = form.get('heroFile');
-      if (heroFile instanceof File && heroFile.size > 0) {
+      const hasHeroFile = heroFile instanceof File && heroFile.size > 0;
+      const configFields = {
+        formId: form.get('formId'),
+        formUrl: form.get('formUrl'),
+        prefillField: form.get('prefillField'),
+        fieldMapping: {
+          participationId: '参与编号',
+          name: '姓名',
+          phone: '手机号',
+        },
+        requireSubscribe: true,
+        heroAssetId: heroAssetId || (hasHeroFile ? 'pending-upload' : ''),
+        rulesText: form.get('rulesText'),
+      };
+      const configError = getLotteryConfigError(configFields);
+      if (configError) {
+        setTone('error');
+        setMessage(configError);
+        return;
+      }
+      if (hasHeroFile) {
         uploadingHero = true;
         const uploaded = await api<{ id: string }>('admin/media', {
           method: 'POST',
@@ -110,17 +156,8 @@ export function ActivityEditPage() {
         uploadingHero = false;
       }
       const config = {
-        formId: form.get('formId'),
-        formUrl: form.get('formUrl'),
-        prefillField: form.get('prefillField'),
-        fieldMapping: {
-          participationId: '参与编号',
-          name: '姓名',
-          phone: '手机号',
-        },
-        requireSubscribe: true,
+        ...configFields,
         heroAssetId,
-        rulesText: form.get('rulesText'),
       };
 
       if (id === 'new') {
@@ -131,10 +168,10 @@ export function ActivityEditPage() {
             templateId: 'exhibition-lottery',
             templateVersion: 1,
             config,
-            startsAt: fromShanghaiInput(form.get('startsAt')),
-            drawEndsAt: fromShanghaiInput(form.get('drawEndsAt')),
-            endsAt: fromShanghaiInput(form.get('endsAt')),
-            redeemEndsAt: fromShanghaiInput(form.get('redeemEndsAt')),
+            startsAt: fromShanghaiInput(schedule.startsAt),
+            drawEndsAt: fromShanghaiInput(schedule.drawEndsAt),
+            endsAt: fromShanghaiInput(schedule.endsAt),
+            redeemEndsAt: fromShanghaiInput(schedule.redeemEndsAt),
           }),
         });
         navigate(`/activities/${created.id}`);
@@ -149,10 +186,10 @@ export function ActivityEditPage() {
             expectedRevision: detail?.revision,
             name: form.get('name'),
             config,
-            startsAt: fromShanghaiInput(form.get('startsAt')),
-            drawEndsAt: fromShanghaiInput(form.get('drawEndsAt')),
-            endsAt: fromShanghaiInput(form.get('endsAt')),
-            redeemEndsAt: fromShanghaiInput(form.get('redeemEndsAt')),
+            startsAt: fromShanghaiInput(schedule.startsAt),
+            drawEndsAt: fromShanghaiInput(schedule.drawEndsAt),
+            endsAt: fromShanghaiInput(schedule.endsAt),
+            redeemEndsAt: fromShanghaiInput(schedule.redeemEndsAt),
           }),
         },
       );
@@ -192,9 +229,18 @@ export function ActivityEditPage() {
   }
 
   async function endDraw() {
-    await api(`admin/activities/${id}/end-draw`, { method: 'POST' });
-    setTone('warning');
-    setMessage('抽奖已提前结束');
+    setEndingDraw(true);
+    try {
+      await api(`admin/activities/${id}/end-draw`, { method: 'POST' });
+      await loadDetail();
+      setTone('warning');
+      setMessage('抽奖已提前结束');
+    } catch {
+      setTone('error');
+      setMessage('结束抽奖失败，活动可能尚未开始或已经结束。');
+    } finally {
+      setEndingDraw(false);
+    }
   }
 
   if (loading) return <LoadingState label="正在加载活动配置" />;
@@ -270,6 +316,7 @@ export function ActivityEditPage() {
                 weight="medium"
               >
                 活动名称
+                <RequiredFieldMark />
               </Text>
             </label>
             <TextField.Root
@@ -341,6 +388,7 @@ export function ActivityEditPage() {
                       weight="medium"
                     >
                       {label}
+                      <RequiredFieldMark />
                     </Text>
                     <Text
                       size="1"
@@ -357,7 +405,7 @@ export function ActivityEditPage() {
                     name={name}
                     type="datetime-local"
                     defaultValue={toShanghaiInput(source)}
-                    required={id === 'new'}
+                    required
                     disabled={locked}
                   />
                 </Flex>
@@ -423,7 +471,7 @@ export function ActivityEditPage() {
                 发布活动
               </Button>
             )}
-            {id !== 'new' && (
+            {id !== 'new' && canEndDraw && (
               <AlertDialog.Root>
                 <AlertDialog.Trigger>
                   <Button
@@ -449,6 +497,7 @@ export function ActivityEditPage() {
                   >
                     <AlertDialog.Cancel>
                       <Button
+                        type="button"
                         variant="soft"
                         color="gray"
                       >
@@ -457,9 +506,12 @@ export function ActivityEditPage() {
                     </AlertDialog.Cancel>
                     <AlertDialog.Action>
                       <Button
+                        type="button"
                         variant="solid"
                         color="red"
                         onClick={endDraw}
+                        loading={endingDraw}
+                        disabled={endingDraw}
                       >
                         确认结束抽奖
                       </Button>

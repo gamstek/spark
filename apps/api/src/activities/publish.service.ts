@@ -112,12 +112,36 @@ export class PublishService {
 
   async endDraw(activityId: string, adminId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      await manager.query(`SELECT id FROM activity WHERE id=$1 FOR UPDATE`, [
-        activityId,
-      ]);
-      await manager.query(
-        `UPDATE activity_version SET draw_ends_at=LEAST(draw_ends_at, now()), ends_at=GREATEST(ends_at, now()) WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      const activities = await manager.query<
+        {
+          published_version_id: string | null;
+          starts_at: Date | null;
+          draw_ends_at: Date | null;
+        }[]
+      >(
+        `SELECT a.published_version_id,v.starts_at,v.draw_ends_at
+         FROM activity a
+         LEFT JOIN activity_version v ON v.id=a.published_version_id
+         WHERE a.id=$1
+         FOR UPDATE OF a`,
         [activityId],
+      );
+      const activity = activities[0];
+      if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+      const now = this.clock();
+      if (
+        !activity.published_version_id ||
+        !activity.starts_at ||
+        !activity.draw_ends_at ||
+        new Date(activity.starts_at) > now ||
+        new Date(activity.draw_ends_at) <= now
+      )
+        throw new Error('DRAW_NOT_ACTIVE');
+      await manager.query(
+        `UPDATE activity_version
+         SET draw_ends_at=$2,ends_at=GREATEST(ends_at,$2)
+         WHERE id=$1`,
+        [activity.published_version_id, now],
       );
       await manager.query(
         `INSERT INTO audit_event (id, actor_type, actor_id, action, resource_type, resource_id) VALUES ($1,'ADMIN',$2,'DRAW_ENDED','activity',$3)`,

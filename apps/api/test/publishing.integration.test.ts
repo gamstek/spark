@@ -141,17 +141,17 @@ describe('activity publishing and mutable inventory', () => {
       [scenario.activityPrizeId],
     );
     expect(stock[0]?.total_stock).toBe(13);
-    await new PublishService(database.dataSource).endDraw(
-      scenario.activityId,
-      scenario.adminId,
-    );
+    const activeNow = new Date(scenario.now.getTime() + 2 * 3_600_000);
+    const publishing = new PublishService(database.dataSource, () => activeNow);
+    await publishing.endDraw(scenario.activityId, scenario.adminId);
     const rows = await database.dataSource.query<{ draw_ends_at: Date }[]>(
       `SELECT draw_ends_at FROM activity_version WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
       [scenario.activityId],
     );
-    expect(new Date(rows[0]?.draw_ends_at ?? 0).getTime()).toBeLessThanOrEqual(
-      Date.now(),
-    );
+    expect(new Date(rows[0]?.draw_ends_at ?? 0)).toEqual(activeNow);
+    await expect(
+      publishing.endDraw(scenario.activityId, scenario.adminId),
+    ).rejects.toThrow('DRAW_NOT_ACTIVE');
   });
 
   it('accepts real PNG bytes and rejects disguised or oversized media', async () => {
