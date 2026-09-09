@@ -213,6 +213,7 @@ export function ConfigForm({
               color="gray"
               id="hero-asset-id"
               name="heroAssetId"
+              aria-label="主图资源 ID"
               placeholder="主图资源 ID"
               defaultValue={String(value.heroAssetId ?? '')}
               disabled={locked}
@@ -232,6 +233,7 @@ export function ConfigForm({
                 id="hero-file"
                 className="file-input"
                 name="heroFile"
+                aria-label="上传新主图"
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
               />

@@ -143,6 +143,7 @@ test('locks a running activity', async ({ page }) => {
         revision: 2,
         published_version_id: 'v1',
         starts_at: '2020-01-01T00:00:00Z',
+        draw_ends_at: '2099-01-01T00:00:00Z',
       },
     }),
   );
