@@ -18,6 +18,13 @@ const deploymentScript = await readFile(
   new URL('./deploy-production.sh', import.meta.url),
   'utf8',
 );
+const hostNginxConfig = await readFile(
+  new URL(
+    '../../nginx/sites-available/spark.gamstek.com.conf',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 function job(name) {
   const match = workflow.match(
@@ -65,4 +72,14 @@ test('uses the PostgreSQL 18 volume layout and includes database failure logs', 
     /database:\/var\/lib\/postgresql\/data/,
   );
   assert.match(deploymentScript, /logs --tail 100 postgres api web/);
+});
+
+test('routes the host Nginx site through a named upstream', () => {
+  assert.match(hostNginxConfig, /upstream spark_web \{/);
+  assert.match(hostNginxConfig, /server 127\.0\.0\.1:18080;/);
+  assert.match(hostNginxConfig, /proxy_pass http:\/\/spark_web;/);
+  assert.doesNotMatch(
+    hostNginxConfig,
+    /proxy_pass http:\/\/127\.0\.0\.1:18080/,
+  );
 });
