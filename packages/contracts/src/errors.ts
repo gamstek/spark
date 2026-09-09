@@ -14,6 +14,7 @@ export const ApiErrorCodeSchema = z.enum([
   'ACTIVITY_NOT_FOUND',
   'ACTIVITY_LOCKED',
   'ACTIVITY_STARTED',
+  'DRAW_NOT_ACTIVE',
   'DRAFT_NOT_FOUND',
   'EXPORT_NOT_FOUND',
   'PRIZE_CODE_NOT_FOUND',

@@ -7,16 +7,36 @@ import {
   TextField,
 } from '@radix-ui/themes';
 
+import { RequiredFieldMark } from '../../components/required-field-mark';
+
 type ConfigValue = Record<string, unknown>;
+
+export function getLotteryConfigError(config: ConfigValue): string | null {
+  try {
+    const formUrl = new URL(String(config.formUrl ?? ''));
+    if (
+      formUrl.protocol !== 'https:' ||
+      formUrl.hostname !== 'alidocs.dingtalk.com'
+    )
+      throw new Error('INVALID_DINGTALK_FORM_URL');
+  } catch {
+    return '请输入 alidocs.dingtalk.com 域名下的 HTTPS 表单链接。';
+  }
+  if (!String(config.heroAssetId ?? '').trim())
+    return '请上传活动主图，或填写已有的主图资源 ID。';
+  return null;
+}
 
 function FieldLabel({
   htmlFor,
   title,
   description,
+  required = false,
 }: {
   htmlFor: string;
   title: string;
   description?: string;
+  required?: boolean;
 }) {
   return (
     <label
@@ -28,6 +48,7 @@ function FieldLabel({
         weight="medium"
       >
         {title}
+        {required && <RequiredFieldMark />}
       </Text>
       {description && (
         <Text
@@ -85,6 +106,7 @@ export function ConfigForm({
             <FieldLabel
               htmlFor="form-id"
               title="钉钉表单 ID"
+              required
             />
             <TextField.Root
               size="2"
@@ -106,6 +128,7 @@ export function ConfigForm({
               htmlFor="prefill-field"
               title="参与编号参数"
               description="用于把 participationId 写入表单记录"
+              required
             />
             <TextField.Root
               size="2"
@@ -128,11 +151,13 @@ export function ConfigForm({
               htmlFor="form-url"
               title="已验证的表单链接"
               description="仅支持 alidocs.dingtalk.com 的 HTTPS 预填链接"
+              required
             />
             <TextField.Root
               size="2"
               variant="soft"
               color="gray"
+              type="url"
               id="form-url"
               name="formUrl"
               placeholder="已验证的钉钉预填链接"
@@ -178,7 +203,9 @@ export function ConfigForm({
           >
             <FieldLabel
               htmlFor="hero-asset-id"
-              title="当前主图资源 ID"
+              title="主图资源 ID"
+              description="可以填写已有资源 ID，或上传新主图自动生成"
+              required
             />
             <TextField.Root
               size="2"
@@ -186,6 +213,7 @@ export function ConfigForm({
               color="gray"
               id="hero-asset-id"
               name="heroAssetId"
+              aria-label="主图资源 ID"
               placeholder="主图资源 ID"
               defaultValue={String(value.heroAssetId ?? '')}
               disabled={locked}
@@ -205,6 +233,7 @@ export function ConfigForm({
                 id="hero-file"
                 className="file-input"
                 name="heroFile"
+                aria-label="上传新主图"
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
               />
@@ -218,6 +247,7 @@ export function ConfigForm({
             <FieldLabel
               htmlFor="rules-text"
               title="活动规则"
+              required
             />
             <TextArea
               size="2"

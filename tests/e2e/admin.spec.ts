@@ -54,6 +54,7 @@ test('logs in and creates the only supported activity template', async ({
   await page.getByLabel('密码', { exact: true }).fill('password');
   await page.getByRole('button', { name: '登录' }).click();
   await page.getByRole('link', { name: '新建活动' }).click();
+  await expect(page.locator('.required-field-mark')).toHaveCount(10);
   await page.getByPlaceholder('活动名称').fill('展会活动');
   await page.getByPlaceholder('钉钉表单 ID').fill('form-id');
   await page
@@ -61,8 +62,16 @@ test('logs in and creates the only supported activity template', async ({
     .fill('https://alidocs.dingtalk.com/notable/share/form/test?participant=');
   await page.getByPlaceholder('主图资源 ID').fill('hero');
   await page.getByPlaceholder('活动规则').fill('数量有限，先到先得');
-  for (const input of await page.locator('input[type=datetime-local]').all())
-    await input.fill('2026-09-09T10:00');
+  await page.locator('[name="startsAt"]').fill('2026-09-17T10:49');
+  await page.locator('[name="drawEndsAt"]').fill('2026-09-15T10:49');
+  await page.locator('[name="endsAt"]').fill('2026-09-26T10:49');
+  await page.locator('[name="redeemEndsAt"]').fill('2026-09-30T10:49');
+  await page.getByRole('button', { name: '保存草稿' }).click();
+  await expect(
+    page.getByText('抽奖截止时间必须晚于活动开始时间。'),
+  ).toBeVisible();
+
+  await page.locator('[name="drawEndsAt"]').fill('2026-09-18T10:49');
   await page.getByRole('button', { name: '保存草稿' }).click();
   await expect(page).toHaveURL(/\/admin\/activities\/created$/);
   await expect(page.getByText('活动地址：/activity/generated1')).toBeVisible();
@@ -134,6 +143,7 @@ test('locks a running activity', async ({ page }) => {
         revision: 2,
         published_version_id: 'v1',
         starts_at: '2020-01-01T00:00:00Z',
+        draw_ends_at: '2099-01-01T00:00:00Z',
       },
     }),
   );
@@ -171,6 +181,7 @@ test('provides a responsive navigation shell and directed empty state', async ({
 
 test('confirms before ending an activity draw', async ({ page }) => {
   let ended = false;
+  let detailLoads = 0;
   await page.route('**/api/admin/auth/me', (route) =>
     route.fulfill({ json: { csrfToken: 'csrf' } }),
   );
@@ -178,8 +189,9 @@ test('confirms before ending an activity draw', async ({ page }) => {
     ended = true;
     return route.fulfill({ json: {} });
   });
-  await page.route('**/api/admin/activities/a1', (route) =>
-    route.fulfill({
+  await page.route('**/api/admin/activities/a1', (route) => {
+    detailLoads += 1;
+    return route.fulfill({
       json: {
         id: 'a1',
         name: '运行活动',
@@ -187,16 +199,21 @@ test('confirms before ending an activity draw', async ({ page }) => {
         revision: 2,
         published_version_id: 'v1',
         starts_at: '2020-01-01T00:00:00Z',
+        draw_ends_at: ended ? '2020-01-02T00:00:00Z' : '2099-01-01T00:00:00Z',
       },
-    }),
-  );
+    });
+  });
 
   await page.goto('/admin/activities/a1');
+  const loadsBeforeEnd = detailLoads;
   await page.getByRole('button', { name: '提前结束抽奖' }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   expect(ended).toBe(false);
   await page.getByRole('button', { name: '确认结束抽奖' }).click();
   await expect.poll(() => ended).toBe(true);
+  await expect.poll(() => detailLoads).toBeGreaterThan(loadsBeforeEnd);
+  await expect(page.getByText('抽奖已提前结束')).toBeVisible();
+  await expect(page.getByRole('button', { name: '提前结束抽奖' })).toBeHidden();
 });
 
 test('adds inventory through a labeled dialog', async ({ page }) => {
@@ -328,6 +345,13 @@ test('confirms staff disabling before changing account status', async ({
   });
 
   await page.goto('/admin/staff');
+  await expect(page.getByText('展会核销组')).toBeVisible();
+  await expect(page.getByText('@expo-staff')).toBeVisible();
+  await expect(page.getByText('可操作活动 · 1')).toBeVisible();
+  await page.getByRole('button', { name: '账号设置' }).click();
+  const settingsDialog = page.getByRole('dialog');
+  await expect(settingsDialog.getByLabel('显示名称')).toHaveValue('展会核销组');
+  await settingsDialog.getByRole('button', { name: '取消' }).click();
   await page.getByRole('button', { name: '停用账号' }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   expect(disabled).toBe(false);

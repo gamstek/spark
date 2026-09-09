@@ -15,7 +15,9 @@ describe('activity reporting', () => {
       [scenario.activityPrizeId],
     );
     await database.dataSource.query(
-      `UPDATE redemption SET status='WAIT_REDEEM' WHERE lottery_record_id=$1`,
+      `UPDATE redemption
+       SET status='WAIT_REDEEM',redeem_end_at=now()+interval '1 day'
+       WHERE lottery_record_id=$1`,
       [scenario.lotteryRecordId],
     );
     for (const status of ['REDEEMED', 'EXPIRED']) {
