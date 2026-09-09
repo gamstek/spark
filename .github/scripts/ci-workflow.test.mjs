@@ -6,6 +6,10 @@ const workflow = await readFile(
   new URL('../workflows/ci.yml', import.meta.url),
   'utf8',
 );
+const releaseWorkflow = await readFile(
+  new URL('../workflows/release.yml', import.meta.url),
+  'utf8',
+);
 
 function job(name) {
   const match = workflow.match(
@@ -26,5 +30,15 @@ test('runs database-backed template compatibility after migrations', () => {
   assert.match(
     integrationJob,
     /db:migrate[^\n]*\n?[^\n]*templates:check[^\n]*\n?[^\n]*test:integration/,
+  );
+});
+
+test('verifies release ancestry from the full checkout without another authenticated fetch', () => {
+  assert.match(releaseWorkflow, /fetch-depth: 0/);
+  assert.match(releaseWorkflow, /persist-credentials: false/);
+  assert.doesNotMatch(releaseWorkflow, /git fetch/);
+  assert.match(
+    releaseWorkflow,
+    /git merge-base --is-ancestor "\$SOURCE_SHA" origin\/main/,
   );
 });

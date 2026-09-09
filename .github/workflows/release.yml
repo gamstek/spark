@@ -41,7 +41,6 @@ jobs:
           SOURCE_SHA: ${{ steps.metadata.outputs.source_sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags origin main:refs/remotes/origin/main
           git merge-base --is-ancestor "$SOURCE_SHA" origin/main || {
             echo "Release commit must belong to main" >&2
             exit 1
