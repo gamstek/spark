@@ -205,6 +205,7 @@ jobs:
       contents: read
       packages: read
     uses: ./.github/workflows/deploy-production.yml
+    secrets: inherit
     with:
       source_sha: ${{ needs.prepare.outputs.source_sha }}
       version: ${{ needs.prepare.outputs.version }}

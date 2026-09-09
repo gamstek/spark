@@ -42,3 +42,10 @@ test('verifies release ancestry from the full checkout without another authentic
     /git merge-base --is-ancestor "\$SOURCE_SHA" origin\/main/,
   );
 });
+
+test('passes production secrets to the reusable deployment workflow', () => {
+  assert.match(
+    releaseWorkflow,
+    /  deploy:\r?\n[\s\S]*?uses: \.\/\.github\/workflows\/deploy-production\.yml[\s\S]*?secrets: inherit/,
+  );
+});
