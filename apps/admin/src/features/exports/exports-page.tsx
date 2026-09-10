@@ -1,9 +1,18 @@
-import { Button, Card, Flex, Text } from '@radix-ui/themes';
+import {
+  Button,
+  DropdownMenu,
+  Flex,
+  Heading,
+  Table,
+  Text,
+} from '@radix-ui/themes';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { FeedbackCallout } from '../../components/feedback-callout';
+import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
 import { StatusBadge } from '../../components/status-badge';
+import { TableRowActions } from '../../components/table-row-actions';
 
 type ExportView = {
   id: string;
@@ -62,7 +71,27 @@ export function ExportsPage() {
 
   return (
     <>
-      <Flex justify="end">
+      <Flex
+        justify="between"
+        align="start"
+        gap="4"
+        wrap="wrap"
+      >
+        <div className="export-description">
+          <Heading
+            as="h2"
+            size="4"
+          >
+            导出说明
+          </Heading>
+          <Text
+            as="p"
+            size="2"
+            color="gray"
+          >
+            文件包含任务创建时的数据快照，并会在生成 24 小时后自动过期。
+          </Text>
+        </div>
         <Button
           variant="solid"
           onClick={create}
@@ -85,78 +114,63 @@ export function ExportsPage() {
         />
       )}
 
-      <Card
-        variant="classic"
-        size="3"
-      >
-        <Flex
-          direction="column"
-          gap="4"
-        >
-          <Flex
-            direction="column"
-            gap="1"
-          >
-            <Text weight="bold">导出说明</Text>
-            <Text
-              size="2"
-              color="gray"
-            >
-              文件包含任务创建时的数据快照，并会在生成 24 小时后自动过期。
-            </Text>
-          </Flex>
-
-          {view ? (
-            <Flex
-              align="center"
-              justify="between"
-              gap="3"
-              wrap="wrap"
-            >
-              <Flex
-                align="center"
-                gap="3"
-                wrap="wrap"
-              >
-                <StatusBadge status={view.status} />
-                <Text
-                  size="2"
-                  color="gray"
-                >
+      {view ? (
+        <div className="table-panel">
+          <GhostTable>
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeaderCell>导出任务</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>状态</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>记录数</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell justify="end">
+                  操作
+                </Table.ColumnHeaderCell>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              <Table.Row align="center">
+                <Table.RowHeaderCell>活动线索 XLSX</Table.RowHeaderCell>
+                <Table.Cell>
+                  <StatusBadge status={view.status} />
+                </Table.Cell>
+                <Table.Cell className="is-numeric">
                   {view.rowCount === null
                     ? '记录数将在生成后显示'
                     : `共 ${view.rowCount.toLocaleString('zh-CN')} 条记录`}
-                </Text>
-              </Flex>
-              <Flex gap="2">
-                <Button
-                  variant="soft"
-                  color="gray"
-                  onClick={refresh}
-                  loading={busy}
-                >
-                  刷新状态
-                </Button>
-                {view.downloadUrl && (
-                  <Button
-                    variant="solid"
-                    asChild
+                </Table.Cell>
+                <Table.Cell justify="end">
+                  <TableRowActions
+                    label={`导出操作：${view.id}`}
+                    loading={busy}
                   >
-                    <a href={view.downloadUrl}>下载文件</a>
-                  </Button>
-                )}
-              </Flex>
-            </Flex>
-          ) : (
-            <Text
-              size="2"
-              color="gray"
-            >
-              本页尚未创建导出任务。
-            </Text>
-          )}
-        </Flex>
-      </Card>
+                    <DropdownMenu.Item
+                      onSelect={() => void refresh()}
+                      disabled={busy}
+                    >
+                      刷新状态
+                    </DropdownMenu.Item>
+                    {view.downloadUrl && (
+                      <DropdownMenu.Item asChild>
+                        <a href={view.downloadUrl}>下载文件</a>
+                      </DropdownMenu.Item>
+                    )}
+                  </TableRowActions>
+                </Table.Cell>
+              </Table.Row>
+            </Table.Body>
+          </GhostTable>
+          <GhostTableFooter range="本页最近创建的 1 个任务" />
+        </div>
+      ) : (
+        <Text
+          as="p"
+          size="2"
+          color="gray"
+          className="export-empty"
+        >
+          本页尚未创建导出任务。
+        </Text>
+      )}
     </>
   );
 }

@@ -1,8 +1,8 @@
 import { PlusIcon } from '@radix-ui/react-icons';
 import {
   Button,
-  Card,
   Dialog,
+  DropdownMenu,
   Flex,
   Heading,
   Table,
@@ -19,6 +19,8 @@ import {
   LoadingState,
 } from '../../components/feedback';
 import { RequiredFieldMark } from '../../components/required-field-mark';
+import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
+import { TableRowActions } from '../../components/table-row-actions';
 import { randomUUID } from '../../random';
 
 type Prize = {
@@ -62,6 +64,7 @@ export function PrizesPage() {
     useState('');
   const [stockBusy, setStockBusy] = useState(false);
   const stockBusyRef = useRef(false);
+  const stockReturnFocusRef = useRef<HTMLButtonElement | null>(null);
 
   const load = async () => {
     setRows(await api<Prize[]>(`admin/prizes/activities/${id}`));
@@ -234,11 +237,7 @@ export function PrizesPage() {
         />
       )}
 
-      <Card
-        variant="classic"
-        size="4"
-        className="form-section"
-      >
+      <section className="form-section activity-form-section">
         <div className="form-section-heading">
           <Text
             size="1"
@@ -291,6 +290,8 @@ export function PrizesPage() {
             </Flex>
             <Button
               type="submit"
+              variant="ghost"
+              color="gray"
               loading={savingNoPrizeWeight}
               disabled={savingNoPrizeWeight}
             >
@@ -298,7 +299,7 @@ export function PrizesPage() {
             </Button>
           </Flex>
         </form>
-      </Card>
+      </section>
 
       {rows.length === 0 ? (
         <EmptyState
@@ -306,20 +307,24 @@ export function PrizesPage() {
           description="至少添加一个奖项后才能发布活动。"
         />
       ) : (
-        <Card
-          variant="classic"
-          size="3"
-          className="table-panel"
-        >
-          <Table.Root>
+        <div className="table-panel">
+          <GhostTable>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeaderCell>奖项等级</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell>奖品</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>已发放</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>可用库存</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>总库存</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>权重</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell justify="end">
+                  已发放
+                </Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell justify="end">
+                  可用库存
+                </Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell justify="end">
+                  总库存
+                </Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell justify="end">
+                  权重
+                </Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell justify="end">
                   操作
                 </Table.ColumnHeaderCell>
@@ -335,36 +340,57 @@ export function PrizesPage() {
                   <Table.RowHeaderCell>
                     <Text weight="medium">{row.prize_name}</Text>
                   </Table.RowHeaderCell>
-                  <Table.Cell>{row.awarded_stock}</Table.Cell>
-                  <Table.Cell>
+                  <Table.Cell
+                    justify="end"
+                    className="is-numeric"
+                  >
+                    {row.awarded_stock}
+                  </Table.Cell>
+                  <Table.Cell
+                    justify="end"
+                    className="is-numeric"
+                  >
                     <Text weight="bold">
                       {row.total_stock - row.awarded_stock}
                     </Text>
                   </Table.Cell>
-                  <Table.Cell>{row.total_stock}</Table.Cell>
-                  <Table.Cell>{row.weight}</Table.Cell>
+                  <Table.Cell
+                    justify="end"
+                    className="is-numeric"
+                  >
+                    {row.total_stock}
+                  </Table.Cell>
+                  <Table.Cell
+                    justify="end"
+                    className="is-numeric"
+                  >
+                    {row.weight}
+                  </Table.Cell>
                   <Table.Cell justify="end">
-                    <Button
-                      variant="soft"
-                      color="gray"
-                      onClick={() => setStockPrize(row)}
+                    <TableRowActions
+                      label={`奖品操作：${row.prize_name}`}
+                      onOpen={(trigger) => {
+                        stockReturnFocusRef.current = trigger;
+                      }}
+                      onCloseAutoFocus={(event) => {
+                        if (stockPrize) event.preventDefault();
+                      }}
                     >
-                      添加库存
-                    </Button>
+                      <DropdownMenu.Item onSelect={() => setStockPrize(row)}>
+                        添加库存
+                      </DropdownMenu.Item>
+                    </TableRowActions>
                   </Table.Cell>
                 </Table.Row>
               ))}
             </Table.Body>
-          </Table.Root>
-        </Card>
+          </GhostTable>
+          <GhostTableFooter range={`共 ${rows.length} 个奖项`} />
+        </div>
       )}
 
       {!started && (
-        <Card
-          variant="classic"
-          size="4"
-          className="form-section"
-        >
+        <section className="form-section activity-form-section">
           <div className="form-section-heading">
             <Text
               size="1"
@@ -508,7 +534,7 @@ export function PrizesPage() {
               </Flex>
             </div>
           </form>
-        </Card>
+        </section>
       )}
 
       <Dialog.Root
@@ -517,7 +543,13 @@ export function PrizesPage() {
           if (!open && !stockBusyRef.current) setStockPrize(null);
         }}
       >
-        <Dialog.Content maxWidth="420px">
+        <Dialog.Content
+          maxWidth="420px"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            stockReturnFocusRef.current?.focus();
+          }}
+        >
           <Dialog.Title>添加库存</Dialog.Title>
           <Dialog.Description
             size="2"
@@ -581,7 +613,7 @@ export function PrizesPage() {
               <Dialog.Close>
                 <Button
                   type="button"
-                  variant="soft"
+                  variant="ghost"
                   color="gray"
                   disabled={stockBusy}
                 >

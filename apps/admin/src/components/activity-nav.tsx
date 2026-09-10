@@ -5,6 +5,27 @@ type ActivityNavProps = {
   activityId: string;
 };
 
+export type ActivityIdentity = {
+  name: string;
+  code: string;
+  published_version_id?: string | null;
+  starts_at?: string;
+  ends_at?: string;
+};
+
+export const activityContextEvent = 'spark:activity-context-updated';
+
+export function updateActivityContext(
+  activityId: string,
+  detail: ActivityIdentity,
+) {
+  window.dispatchEvent(
+    new CustomEvent(activityContextEvent, {
+      detail: { activityId, activity: detail },
+    }),
+  );
+}
+
 const activityNavigation = [
   ['活动设置', ''],
   ['奖品与库存', 'prizes'],
@@ -19,23 +40,25 @@ export function ActivityNav({ activityId }: ActivityNavProps) {
   const basePath = `/activities/${activityId}`;
 
   return (
-    <TabNav.Root
-      className="activity-navigation"
-      aria-label="活动功能"
-    >
-      {activityNavigation.map(([label, suffix]) => {
-        const path = suffix ? `${basePath}/${suffix}` : basePath;
+    <>
+      <TabNav.Root
+        className="activity-navigation"
+        aria-label="活动功能"
+      >
+        {activityNavigation.map(([label, suffix]) => {
+          const path = suffix ? `${basePath}/${suffix}` : basePath;
 
-        return (
-          <TabNav.Link
-            key={path}
-            asChild
-            active={pathname === path}
-          >
-            <Link to={path}>{label}</Link>
-          </TabNav.Link>
-        );
-      })}
-    </TabNav.Root>
+          return (
+            <TabNav.Link
+              key={path}
+              asChild
+              active={pathname === path}
+            >
+              <Link to={path}>{label}</Link>
+            </TabNav.Link>
+          );
+        })}
+      </TabNav.Root>
+    </>
   );
 }

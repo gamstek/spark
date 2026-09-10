@@ -1,11 +1,14 @@
-import { Button, Card, Flex, Table, Text } from '@radix-ui/themes';
+import { DropdownMenu, Table, Text } from '@radix-ui/themes';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
+import { GhostTable } from '../../components/ghost-table';
 import { LoadingState } from '../../components/loading-state';
 import { PageHeader } from '../../components/page-header';
 import { StatusBadge } from '../../components/status-badge';
+import { TableRowActions } from '../../components/table-row-actions';
+import { updateFailedJobsContext } from '../../components/workspace-context-events';
 
 type Job = {
   id: string;
@@ -29,7 +32,9 @@ export function JobsPage() {
 
   const load = useCallback(async () => {
     try {
-      setRows(await api<Job[]>('admin/jobs/failed'));
+      const jobs = await api<Job[]>('admin/jobs/failed');
+      setRows(jobs);
+      updateFailedJobsContext(jobs);
     } catch {
       setError('失败任务加载失败，请稍后重试。');
     } finally {
@@ -84,68 +89,58 @@ export function JobsPage() {
           description="后台任务运行正常，无需人工处理。"
         />
       ) : (
-        <Card
-          variant="classic"
-          size="3"
-        >
-          <Table.Root variant="ghost">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeaderCell>任务</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>状态</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>最近错误</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell justify="end">
-                  操作
-                </Table.ColumnHeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {rows.map((job) => (
-                <Table.Row key={job.id}>
-                  <Table.RowHeaderCell>
-                    <Flex
-                      direction="column"
-                      gap="1"
-                    >
-                      <Text weight="bold">
-                        {jobLabels[job.kind] ?? job.kind}
-                      </Text>
-                      <Text
-                        size="1"
-                        color="gray"
-                      >
-                        {job.id}
-                      </Text>
-                    </Flex>
-                  </Table.RowHeaderCell>
-                  <Table.Cell>
-                    <StatusBadge status="FAILED">
-                      已失败 {job.attempts} 次
-                    </StatusBadge>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text
-                      size="2"
-                      color={job.lastError ? undefined : 'gray'}
-                    >
-                      {job.lastError || '未记录错误详情'}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell justify="end">
-                    <Button
-                      variant="soft"
-                      color="gray"
-                      onClick={() => retry(job)}
-                      loading={retryingId === job.id}
+        <GhostTable>
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeaderCell>任务</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>任务 ID</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>状态</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>尝试次数</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>最近错误</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell justify="end">
+                操作
+              </Table.ColumnHeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {rows.map((job) => (
+              <Table.Row
+                key={job.id}
+                align="center"
+              >
+                <Table.RowHeaderCell>
+                  <Text weight="bold">{jobLabels[job.kind] ?? job.kind}</Text>
+                </Table.RowHeaderCell>
+                <Table.Cell>{job.id}</Table.Cell>
+                <Table.Cell>
+                  <StatusBadge status="FAILED" />
+                </Table.Cell>
+                <Table.Cell className="is-numeric">{job.attempts}</Table.Cell>
+                <Table.Cell>
+                  <Text
+                    size="2"
+                    color={job.lastError ? undefined : 'gray'}
+                  >
+                    {job.lastError || '未记录错误详情'}
+                  </Text>
+                </Table.Cell>
+                <Table.Cell justify="end">
+                  <TableRowActions
+                    label={`任务操作：${job.id}`}
+                    loading={retryingId === job.id}
+                  >
+                    <DropdownMenu.Item
+                      onSelect={() => void retry(job)}
+                      disabled={retryingId === job.id}
                     >
                       重新处理
-                    </Button>
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Root>
-        </Card>
+                    </DropdownMenu.Item>
+                  </TableRowActions>
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </GhostTable>
       )}
     </>
   );

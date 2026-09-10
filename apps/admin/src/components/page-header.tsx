@@ -6,9 +6,18 @@ type PageHeaderProps = {
   description?: string;
   actions?: ReactNode;
   eyebrow?: string;
+  context?: string;
 };
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  eyebrow,
+  context,
+}: PageHeaderProps) {
+  const contextText = context ?? eyebrow;
+
   return (
     <Flex
       className="page-header"
@@ -17,6 +26,15 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
       gap="5"
     >
       <Box className="page-header__copy">
+        {contextText && (
+          <Text
+            as="p"
+            className="page-header__context"
+            size="1"
+          >
+            {contextText}
+          </Text>
+        )}
         <Heading
           as="h1"
           size="6"
@@ -34,7 +52,15 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
           </Text>
         )}
       </Box>
-      {actions && <Flex className="page-header__actions">{actions}</Flex>}
+      {actions && (
+        <Flex
+          className="page-header__actions"
+          align="center"
+          gap="2"
+        >
+          {actions}
+        </Flex>
+      )}
     </Flex>
   );
 }

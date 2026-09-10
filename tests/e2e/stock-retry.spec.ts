@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './admin-test';
 
 type StockOperation = {
   operationId: string;
@@ -44,8 +45,20 @@ async function mockPrizePage(
   });
 }
 
+async function openStockDialog(page: Page) {
+  await page.getByRole('button', { name: '奖品操作：定制礼盒' }).click();
+  await page.getByRole('menuitem', { name: '添加库存' }).click();
+}
+
 function stockRow(page: Page) {
   return page.getByRole('row', { name: /定制礼盒/ });
+}
+
+async function totalStockCell(page: Page) {
+  const totalStockColumn = await page
+    .getByRole('columnheader', { name: '总库存', exact: true })
+    .evaluate((header) => (header as HTMLTableCellElement).cellIndex);
+  return stockRow(page).locator('td, th').nth(totalStockColumn);
 }
 
 test('retries an uncertain stock addition without adding inventory twice', async ({
@@ -77,7 +90,7 @@ test('retries an uncertain stock addition without adding inventory twice', async
   );
 
   await page.goto('/admin/activities/a1/prizes');
-  await page.getByRole('button', { name: '添加库存' }).click();
+  await openStockDialog(page);
   await page.getByLabel('增加数量').fill('5');
   await page.getByRole('button', { name: '确认添加' }).click();
 
@@ -88,23 +101,23 @@ test('retries an uncertain stock addition without adding inventory twice', async
   await expect(page.getByLabel('增加数量')).toBeDisabled();
 
   await page.getByRole('button', { name: '取消' }).click();
-  await page.getByRole('button', { name: '添加库存' }).click();
+  await openStockDialog(page);
   await expect(page.getByLabel('增加数量')).toHaveValue('5');
   await expect(page.getByLabel('增加数量')).toBeDisabled();
   await page.getByRole('button', { name: '重试添加' }).click();
 
   await expect(page.getByText('库存已添加')).toBeVisible();
-  await expect(stockRow(page).getByRole('cell').nth(2)).toHaveText('15');
+  await expect(await totalStockCell(page)).toHaveText('15');
   expect(requests[1].operationId).toBe(requests[0].operationId);
   expect(requests[1].quantity).toBe(5);
 
-  await page.getByRole('button', { name: '添加库存' }).click();
+  await openStockDialog(page);
   await expect(page.getByLabel('增加数量')).toBeEnabled();
   await expect(page.getByLabel('增加数量')).toHaveValue('');
   await page.getByLabel('增加数量').fill('2');
   await page.getByRole('button', { name: '确认添加' }).click();
 
-  await expect(stockRow(page).getByRole('cell').nth(2)).toHaveText('17');
+  await expect(await totalStockCell(page)).toHaveText('17');
   expect(requests[2].operationId).not.toBe(requests[0].operationId);
 });
 
@@ -135,7 +148,7 @@ test('coalesces repeated submits while a stock addition is in flight', async ({
   );
 
   await page.goto('/admin/activities/a1/prizes');
-  await page.getByRole('button', { name: '添加库存' }).click();
+  await openStockDialog(page);
   await page.getByLabel('增加数量').fill('5');
   await page.getByRole('button', { name: '确认添加' }).evaluate((button) => {
     const form = button.closest('form');
@@ -151,7 +164,7 @@ test('coalesces repeated submits while a stock addition is in flight', async ({
   releaseResponse();
 
   await expect(page.getByText('库存已添加')).toBeVisible();
-  await expect(stockRow(page).getByRole('cell').nth(2)).toHaveText('15');
+  await expect(await totalStockCell(page)).toHaveText('15');
 });
 
 test('allows correction after the server rejects a stock quantity', async ({
@@ -183,7 +196,7 @@ test('allows correction after the server rejects a stock quantity', async ({
   );
 
   await page.goto('/admin/activities/a1/prizes');
-  await page.getByRole('button', { name: '添加库存' }).click();
+  await openStockDialog(page);
   await page.getByLabel('增加数量').fill('9007199254740992');
   await page.getByRole('button', { name: '确认添加' }).click();
 
@@ -195,7 +208,7 @@ test('allows correction after the server rejects a stock quantity', async ({
   await page.getByRole('button', { name: '确认添加' }).click();
 
   await expect(page.getByText('库存已添加')).toBeVisible();
-  await expect(stockRow(page).getByRole('cell').nth(2)).toHaveText('15');
+  await expect(await totalStockCell(page)).toHaveText('15');
   expect(requests[1].operationId).not.toBe(requests[0].operationId);
 });
 
@@ -221,12 +234,12 @@ test('clears stale success feedback when a later stock addition is uncertain', a
   );
 
   await page.goto('/admin/activities/a1/prizes');
-  await page.getByRole('button', { name: '添加库存' }).click();
+  await openStockDialog(page);
   await page.getByLabel('增加数量').fill('5');
   await page.getByRole('button', { name: '确认添加' }).click();
   await expect(page.getByText('库存已添加')).toBeVisible();
 
-  await page.getByRole('button', { name: '添加库存' }).click();
+  await openStockDialog(page);
   await page.getByLabel('增加数量').fill('2');
   await page.getByRole('button', { name: '确认添加' }).click();
 
@@ -252,7 +265,7 @@ test('reports a refresh failure separately after stock was added', async ({
   );
 
   await page.goto('/admin/activities/a1/prizes');
-  await page.getByRole('button', { name: '添加库存' }).click();
+  await openStockDialog(page);
   await page.getByLabel('增加数量').fill('5');
   await page.getByRole('button', { name: '确认添加' }).click();
 
@@ -261,5 +274,5 @@ test('reports a refresh failure separately after stock was added', async ({
   await expect(
     page.getByText('库存数据刷新失败，请刷新页面查看最新结果。'),
   ).toBeVisible();
-  await expect(stockRow(page).getByRole('cell').nth(2)).toHaveText('10');
+  await expect(await totalStockCell(page)).toHaveText('10');
 });

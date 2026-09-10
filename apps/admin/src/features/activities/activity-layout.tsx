@@ -1,6 +1,5 @@
-import { Outlet, useLocation, useParams } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
-import { ActivityNav } from '../../components/activity-nav';
 import { PageHeader } from '../../components/page-header';
 
 const pageDetails = [
@@ -12,18 +11,15 @@ const pageDetails = [
 ] as const;
 
 export function ActivityLayout() {
-  const { id = '' } = useParams();
   const { pathname } = useLocation();
   const detail = pageDetails.find(([suffix]) => pathname.endsWith(suffix));
 
   return (
     <>
       <PageHeader
-        eyebrow="活动运营"
         title={detail?.[1] ?? '活动设置'}
         description={detail?.[2] ?? '配置活动模板、页面内容和运行时间。'}
       />
-      <ActivityNav activityId={id} />
       <div className="activity-tab-content">
         <Outlet />
       </div>

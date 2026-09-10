@@ -1,6 +1,5 @@
 import {
   AlertDialog,
-  Card,
   Button,
   Flex,
   Heading,
@@ -11,9 +10,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { api } from '../../api';
+import { updateActivityContext } from '../../components/activity-nav';
 import { FeedbackCallout, LoadingState } from '../../components/feedback';
 import { PageHeader } from '../../components/page-header';
 import { RequiredFieldMark } from '../../components/required-field-mark';
+import { StatusBadge } from '../../components/status-badge';
 import {
   ConfigForm,
   getLotteryConfigError,
@@ -91,7 +92,9 @@ export function ActivityEditPage() {
     if (!id || id === 'new') return;
     setLoading(true);
     try {
-      setDetail(await api<Detail>(`admin/activities/${id}`));
+      const nextDetail = await api<Detail>(`admin/activities/${id}`);
+      setDetail(nextDetail);
+      updateActivityContext(id, nextDetail);
     } finally {
       setLoading(false);
     }
@@ -196,6 +199,11 @@ export function ActivityEditPage() {
       setDetail((current) =>
         current ? { ...current, revision: saved.revision } : current,
       );
+      if (detail)
+        updateActivityContext(id, {
+          ...detail,
+          name: String(form.get('name') ?? ''),
+        });
       setTone('success');
       setMessage('草稿已保存');
     } catch (error) {
@@ -249,22 +257,10 @@ export function ActivityEditPage() {
     <>
       {id === 'new' && (
         <PageHeader
-          eyebrow="创建活动"
           title="新建活动"
           description="首版使用展会抽奖模板，完成配置和奖品设置后即可发布。"
         />
       )}
-      {id !== 'new' && detail?.code && (
-        <Text
-          as="p"
-          size="2"
-          color="gray"
-          className="activity-address"
-        >
-          活动地址：/activity/{detail.code}
-        </Text>
-      )}
-
       {locked && (
         <FeedbackCallout
           tone="warning"
@@ -283,11 +279,7 @@ export function ActivityEditPage() {
         onSubmit={submit}
       >
         <div className="editor-form-content">
-          <Card
-            variant="classic"
-            size="4"
-            className="form-section"
-          >
+          <section className="form-section activity-form-section">
             <div className="form-section-heading">
               <Text
                 size="1"
@@ -338,18 +330,14 @@ export function ActivityEditPage() {
                 disabled={locked}
               />
             </Flex>
-          </Card>
+          </section>
 
           <ConfigForm
             locked={locked}
             value={detail?.config}
           />
 
-          <Card
-            variant="classic"
-            size="4"
-            className="form-section"
-          >
+          <section className="form-section activity-form-section">
             <div className="form-section-heading">
               <Text
                 size="1"
@@ -419,10 +407,28 @@ export function ActivityEditPage() {
                 );
               })}
             </div>
-          </Card>
+          </section>
         </div>
 
-        <div className="editor-action-bar">
+        <section
+          className="editor-action-bar"
+          aria-label="发布状态"
+        >
+          <Flex
+            justify="between"
+            align="center"
+            gap="3"
+          >
+            <Heading
+              as="h2"
+              size="3"
+            >
+              发布状态
+            </Heading>
+            <StatusBadge
+              status={detail?.published_version_id ? '已发布' : '草稿'}
+            />
+          </Flex>
           <div className="editor-action-summary">
             <span
               className={`editor-state-dot${locked ? ' is-live' : ''}`}
@@ -461,9 +467,9 @@ export function ActivityEditPage() {
           >
             <Button
               type="submit"
-              size="3"
-              variant={id === 'new' ? 'solid' : 'soft'}
-              color={id === 'new' ? undefined : 'gray'}
+              size="2"
+              variant="ghost"
+              color="gray"
               disabled={locked || saving}
               loading={saving}
             >
@@ -473,7 +479,7 @@ export function ActivityEditPage() {
               <Button
                 variant="solid"
                 type="button"
-                size="3"
+                size="2"
                 onClick={publish}
                 disabled={locked || saving}
               >
@@ -488,7 +494,7 @@ export function ActivityEditPage() {
                     color="red"
                     variant="outline"
                     className="editor-danger-action"
-                    size="3"
+                    size="2"
                     disabled={saving}
                   >
                     提前结束抽奖
@@ -507,7 +513,7 @@ export function ActivityEditPage() {
                     <AlertDialog.Cancel>
                       <Button
                         type="button"
-                        variant="soft"
+                        variant="ghost"
                         color="gray"
                       >
                         取消
@@ -530,7 +536,7 @@ export function ActivityEditPage() {
               </AlertDialog.Root>
             )}
           </Flex>
-        </div>
+        </section>
       </form>
     </>
   );

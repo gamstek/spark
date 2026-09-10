@@ -1,11 +1,4 @@
-import {
-  Card,
-  Flex,
-  Heading,
-  Text,
-  TextArea,
-  TextField,
-} from '@radix-ui/themes';
+import { Flex, Heading, Text, TextArea, TextField } from '@radix-ui/themes';
 import { useState } from 'react';
 
 import { RequiredFieldMark } from '../../components/required-field-mark';
@@ -92,11 +85,7 @@ export function ConfigForm({
 
   return (
     <>
-      <Card
-        variant="classic"
-        size="4"
-        className="form-section"
-      >
+      <section className="form-section activity-form-section">
         <div className="form-section-heading">
           <Text
             size="1"
@@ -195,13 +184,9 @@ export function ConfigForm({
             />
           </Flex>
         </div>
-      </Card>
+      </section>
 
-      <Card
-        variant="classic"
-        size="4"
-        className="form-section"
-      >
+      <section className="form-section activity-form-section">
         <div className="form-section-heading">
           <Text
             size="1"
@@ -292,7 +277,7 @@ export function ConfigForm({
             />
           </Flex>
         </div>
-      </Card>
+      </section>
     </>
   );
 }

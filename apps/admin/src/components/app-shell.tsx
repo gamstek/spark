@@ -7,6 +7,8 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   ExitIcon,
+  SunIcon,
+  MoonIcon,
 } from '@radix-ui/react-icons';
 import {
   Avatar,
@@ -16,11 +18,14 @@ import {
   Flex,
   IconButton,
   Text,
+  Tooltip,
 } from '@radix-ui/themes';
 import { useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { api, setCsrf } from '../api';
+import { useAdminTheme } from '../theme/theme-provider';
 import { FeedbackCallout } from './feedback-callout';
+import { WorkspaceContext } from './workspace-context';
 
 const navigation = [
   { label: '活动管理', path: '/activities', icon: DashboardIcon },
@@ -42,6 +47,7 @@ function getPageTitle(path: string) {
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const { pathname } = useLocation();
   return (
     <>
       <div className="app-sidebar__brand">
@@ -65,7 +71,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
       <div className="navigation-caption">运营</div>
-      <nav className="app-navigation">
+      <nav
+        className="app-navigation"
+        aria-label="运营导航"
+      >
         {navigation.map(({ label, path, icon: Icon }) => (
           <NavLink
             key={path}
@@ -88,12 +97,20 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </NavLink>
         ))}
       </nav>
+      <div
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest('a')) onNavigate?.();
+        }}
+      >
+        <WorkspaceContext pathname={pathname} />
+      </div>
     </>
   );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const { preference, resolvedTheme, setPreference } = useAdminTheme();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -139,7 +156,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Dialog.Trigger>
                 <IconButton
                   className="app-topbar__menu"
-                  variant="soft"
+                  variant="ghost"
                   color="gray"
                   aria-label="打开导航"
                 >
@@ -155,7 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <IconButton
                     className="mobile-navigation__close"
                     aria-label="关闭导航"
-                    variant="soft"
+                    variant="ghost"
                     color="gray"
                   >
                     <Cross2Icon />
@@ -176,43 +193,102 @@ export function AppShell({ children }: { children: ReactNode }) {
               {getPageTitle(location.pathname)}
             </Text>
           </Flex>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <Button
-                variant="ghost"
-                size="3"
-                color="gray"
-                className="account-menu-trigger"
-                aria-label="账号菜单"
-                loading={loggingOut}
-              >
-                <Avatar
-                  size="1"
-                  radius="full"
-                  variant="soft"
-                  fallback={<PersonIcon />}
-                />
-                <span>管理员</span>
-                <ChevronDownIcon />
-              </Button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content
-              variant="soft"
-              align="end"
-              style={{ minWidth: 200 }}
+          <Flex
+            align="center"
+            gap="4"
+          >
+            <Tooltip
+              content={
+                resolvedTheme === 'dark' ? '切换为浅色主题' : '切换为深色主题'
+              }
             >
-              <DropdownMenu.Label>Spark 运营后台</DropdownMenu.Label>
-              <DropdownMenu.Separator />
-              <DropdownMenu.Item
-                color="red"
-                onSelect={() => void logout()}
-                disabled={loggingOut}
+              <IconButton
+                size="2"
+                variant="ghost"
+                color="gray"
+                className="theme-toggle"
+                aria-label={
+                  resolvedTheme === 'dark' ? '切换为浅色主题' : '切换为深色主题'
+                }
+                onClick={() =>
+                  setPreference(resolvedTheme === 'dark' ? 'light' : 'dark')
+                }
               >
-                <ExitIcon />
-                退出登录
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+                {resolvedTheme === 'dark' ? (
+                  <SunIcon
+                    width="18"
+                    height="18"
+                  />
+                ) : (
+                  <MoonIcon
+                    width="18"
+                    height="18"
+                  />
+                )}
+              </IconButton>
+            </Tooltip>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                <Button
+                  variant="ghost"
+                  size="2"
+                  color="gray"
+                  className="account-menu-trigger"
+                  aria-label="账号菜单"
+                  loading={loggingOut}
+                >
+                  <Avatar
+                    size="1"
+                    radius="full"
+                    variant="soft"
+                    fallback={<PersonIcon />}
+                  />
+                  <span>管理员</span>
+                  <ChevronDownIcon />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content
+                variant="soft"
+                align="end"
+                style={{ minWidth: 200 }}
+              >
+                <DropdownMenu.Label>Spark 运营后台</DropdownMenu.Label>
+                <DropdownMenu.Separator />
+                <DropdownMenu.Label>外观</DropdownMenu.Label>
+                <DropdownMenu.RadioGroup
+                  value={preference}
+                  onValueChange={(value) => {
+                    if (
+                      value === 'light' ||
+                      value === 'dark' ||
+                      value === 'system'
+                    ) {
+                      setPreference(value);
+                    }
+                  }}
+                >
+                  <DropdownMenu.RadioItem value="light">
+                    浅色
+                  </DropdownMenu.RadioItem>
+                  <DropdownMenu.RadioItem value="dark">
+                    深色
+                  </DropdownMenu.RadioItem>
+                  <DropdownMenu.RadioItem value="system">
+                    跟随系统
+                  </DropdownMenu.RadioItem>
+                </DropdownMenu.RadioGroup>
+                <DropdownMenu.Separator />
+                <DropdownMenu.Item
+                  color="red"
+                  onSelect={() => void logout()}
+                  disabled={loggingOut}
+                >
+                  <ExitIcon />
+                  退出登录
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </Flex>
         </header>
         <main
           id="main-content"

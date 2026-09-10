@@ -1,10 +1,11 @@
-import { Card, Flex, Grid, Table, Text } from '@radix-ui/themes';
+import { Flex, Grid, Heading, Table, Text } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
 import { LoadingState } from '../../components/loading-state';
+import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
 
 type Report = {
   visits: number;
@@ -73,12 +74,10 @@ export function ReportsOverviewPage() {
         >
           <Grid
             columns={{ initial: '2', md: '5' }}
-            gap="3"
+            className="report-metrics"
           >
             {metrics.map(([label, value]) => (
-              <Card
-                variant="classic"
-                size="3"
+              <div
                 key={label}
                 className="report-metric"
               >
@@ -94,14 +93,14 @@ export function ReportsOverviewPage() {
                   </Text>
                   <Text
                     className="metric"
-                    size="7"
-                    weight="bold"
+                    size="6"
+                    weight="medium"
                     highContrast
                   >
                     {value.toLocaleString('zh-CN')}
                   </Text>
                 </Flex>
-              </Card>
+              </div>
             ))}
           </Grid>
 
@@ -109,24 +108,24 @@ export function ReportsOverviewPage() {
             columns={{ initial: '1', lg: '2' }}
             gap="4"
           >
-            <Card
-              variant="classic"
-              size="3"
+            <section
+              className="report-dataset"
+              aria-label="渠道访问"
             >
               <Flex
                 direction="column"
                 gap="3"
               >
-                <Text
+                <Heading
+                  as="h2"
                   size="4"
-                  weight="bold"
                 >
                   渠道访问
-                </Text>
+                </Heading>
                 {report.channels.length === 0 ? (
                   <Text color="gray">暂无渠道访问数据</Text>
                 ) : (
-                  <Table.Root className="report-table">
+                  <GhostTable className="report-table">
                     <Table.Header>
                       <Table.Row>
                         <Table.ColumnHeaderCell>渠道</Table.ColumnHeaderCell>
@@ -147,29 +146,32 @@ export function ReportsOverviewPage() {
                         </Table.Row>
                       ))}
                     </Table.Body>
-                  </Table.Root>
+                  </GhostTable>
                 )}
+                <GhostTableFooter
+                  range={`共 ${report.channels.length} 个渠道`}
+                />
               </Flex>
-            </Card>
+            </section>
 
-            <Card
-              variant="classic"
-              size="3"
+            <section
+              className="report-dataset"
+              aria-label="奖品表现"
             >
               <Flex
                 direction="column"
                 gap="3"
               >
-                <Text
+                <Heading
+                  as="h2"
                   size="4"
-                  weight="bold"
                 >
                   奖品表现
-                </Text>
+                </Heading>
                 {report.prizes.length === 0 ? (
                   <Text color="gray">暂无中奖数据</Text>
                 ) : (
-                  <Table.Root className="report-table">
+                  <GhostTable className="report-table">
                     <Table.Header>
                       <Table.Row>
                         <Table.ColumnHeaderCell>奖品</Table.ColumnHeaderCell>
@@ -194,10 +196,11 @@ export function ReportsOverviewPage() {
                         </Table.Row>
                       ))}
                     </Table.Body>
-                  </Table.Root>
+                  </GhostTable>
                 )}
+                <GhostTableFooter range={`共 ${report.prizes.length} 个奖品`} />
               </Flex>
-            </Card>
+            </section>
           </Grid>
         </Flex>
       )}

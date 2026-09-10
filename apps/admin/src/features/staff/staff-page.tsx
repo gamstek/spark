@@ -3,18 +3,18 @@ import {
   Avatar,
   Badge,
   Button,
-  Card,
   Dialog,
+  DropdownMenu,
   Flex,
   Grid,
   Heading,
+  Table,
   Text,
   TextField,
 } from '@radix-ui/themes';
 import {
   CheckCircledIcon,
   LockClosedIcon,
-  Pencil2Icon,
   PersonIcon,
   PlusIcon,
 } from '@radix-ui/react-icons';
@@ -32,6 +32,8 @@ import { LoadingState } from '../../components/loading-state';
 import { PageHeader } from '../../components/page-header';
 import { RequiredFieldMark } from '../../components/required-field-mark';
 import { StatusBadge } from '../../components/status-badge';
+import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
+import { TableRowActions } from '../../components/table-row-actions';
 import {
   ActivityPermissionSelect,
   type ActivityOption,
@@ -61,6 +63,23 @@ export function StaffPage() {
   const [createActivityIds, setCreateActivityIds] = useState<string[]>([]);
   const [editingActivityIds, setEditingActivityIds] = useState<string[]>([]);
   const createPending = useRef(false);
+  const [disablingStaff, setDisablingStaff] = useState<Staff | null>(null);
+  const rowReturnFocusRef = useRef<HTMLButtonElement | null>(null);
+  const restoreRowAfterLoading = useRef(false);
+
+  useEffect(() => {
+    if (!busyId && restoreRowAfterLoading.current) {
+      restoreRowAfterLoading.current = false;
+      if (document.activeElement === document.body)
+        rowReturnFocusRef.current?.focus();
+    }
+  }, [busyId]);
+
+  function returnRowFocus(event: Event) {
+    event.preventDefault();
+    if (busyId) restoreRowAfterLoading.current = true;
+    else rowReturnFocusRef.current?.focus();
+  }
 
   const load = useCallback(async () => {
     try {
@@ -196,7 +215,7 @@ export function StaffPage() {
           <Dialog.Trigger>
             <Button
               variant="solid"
-              size="3"
+              size="2"
             >
               <PlusIcon />
               创建工作人员
@@ -382,10 +401,8 @@ export function StaffPage() {
               tone: 'amber',
             },
           ].map((metric) => (
-            <Card
+            <div
               key={metric.label}
-              variant="classic"
-              size="3"
               className={`staff-metric tone-${metric.tone}`}
             >
               <div className="staff-metric__heading">
@@ -410,15 +427,14 @@ export function StaffPage() {
               >
                 {metric.note}
               </Text>
-            </Card>
+            </div>
           ))}
         </div>
       )}
 
-      <Card
-        variant="classic"
-        size={{ initial: '3', sm: '4' }}
+      <section
         className="staff-directory-panel"
+        aria-label="核销团队"
       >
         {!loading && rows.length > 0 && (
           <div className="staff-directory-heading">
@@ -459,171 +475,173 @@ export function StaffPage() {
             description="创建账号后，工作人员即可登录移动核销平台。"
           />
         ) : (
-          <div className="staff-directory">
-            {rows.map((staff) => (
-              <article
-                className={`staff-account${staff.disabled_at ? ' is-disabled' : ''}`}
-                key={staff.id}
-              >
-                <div className="staff-account__identity">
-                  <Avatar
-                    size="3"
-                    variant="soft"
-                    color={staff.disabled_at ? 'gray' : 'iris'}
-                    fallback={staff.display_name.slice(0, 1)}
-                    aria-hidden="true"
-                  />
-                  <div className="staff-account__name">
-                    <Flex
-                      align="center"
-                      gap="2"
-                      wrap="wrap"
+          <div className="table-panel">
+            <GhostTable className="staff-table">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeaderCell>显示名称</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>账号</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>活动权限</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="end">
+                    授权数量
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>状态</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="end">
+                    操作
+                  </Table.ColumnHeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {rows.map((staff) => (
+                  <Table.Row
+                    key={staff.id}
+                    align="center"
+                  >
+                    <Table.RowHeaderCell>
+                      {staff.display_name}
+                    </Table.RowHeaderCell>
+                    <Table.Cell>@{staff.username}</Table.Cell>
+                    <Table.Cell>
+                      <Flex gap="1">
+                        {staff.activity_ids.length === 0 ? (
+                          <Text
+                            size="2"
+                            color="gray"
+                          >
+                            尚未授权活动
+                          </Text>
+                        ) : (
+                          <>
+                            {staff.activity_ids
+                              .slice(0, 3)
+                              .map((activityId) => (
+                                <Badge
+                                  key={activityId}
+                                  color="gray"
+                                  variant="surface"
+                                >
+                                  {activities.find(
+                                    (activity) => activity.id === activityId,
+                                  )?.name ?? '未知活动'}
+                                </Badge>
+                              ))}
+                            {staff.activity_ids.length > 3 && (
+                              <Badge
+                                color="gray"
+                                variant="soft"
+                              >
+                                +{staff.activity_ids.length - 3}
+                              </Badge>
+                            )}
+                          </>
+                        )}
+                      </Flex>
+                    </Table.Cell>
+                    <Table.Cell
+                      justify="end"
+                      className="is-numeric"
                     >
-                      <Text weight="bold">{staff.display_name}</Text>
+                      {staff.activity_ids.length}
+                    </Table.Cell>
+                    <Table.Cell>
                       <StatusBadge
                         status={staff.disabled_at ? 'disabled' : 'enabled'}
                       />
-                    </Flex>
-                    <Text
-                      size="2"
-                      color="gray"
-                    >
-                      @{staff.username}
-                    </Text>
-                  </div>
-                </div>
-
-                <div className="staff-account__permissions">
-                  <Text
-                    size="1"
-                    color="gray"
-                    weight="medium"
-                  >
-                    可操作活动 · {staff.activity_ids.length}
-                  </Text>
-                  <Flex
-                    gap="1"
-                    wrap="wrap"
-                  >
-                    {staff.activity_ids.length === 0 ? (
-                      <Text
-                        size="2"
-                        color="gray"
+                    </Table.Cell>
+                    <Table.Cell justify="end">
+                      <TableRowActions
+                        label={`工作人员操作：${staff.username}`}
+                        loading={busyId === staff.id}
+                        onOpen={(trigger) => {
+                          rowReturnFocusRef.current = trigger;
+                        }}
+                        onCloseAutoFocus={(event) => {
+                          if (editingStaff || disablingStaff)
+                            event.preventDefault();
+                        }}
                       >
-                        尚未授权活动
-                      </Text>
-                    ) : (
-                      <>
-                        {staff.activity_ids.slice(0, 3).map((activityId) => (
-                          <Badge
-                            key={activityId}
-                            color="gray"
-                            variant="surface"
+                        <DropdownMenu.Item
+                          disabled={busyId === staff.id}
+                          onSelect={() => {
+                            setEditingStaff(staff);
+                            setEditingActivityIds(staff.activity_ids);
+                          }}
+                        >
+                          账号设置
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Separator />
+                        {staff.disabled_at ? (
+                          <DropdownMenu.Item
+                            disabled={busyId === staff.id}
+                            onSelect={() => void toggle(staff)}
                           >
-                            {activities.find(
-                              (activity) => activity.id === activityId,
-                            )?.name ?? '未知活动'}
-                          </Badge>
-                        ))}
-                        {staff.activity_ids.length > 3 && (
-                          <Badge
-                            color="gray"
-                            variant="soft"
+                            启用账号
+                          </DropdownMenu.Item>
+                        ) : (
+                          <DropdownMenu.Item
+                            color="red"
+                            disabled={busyId === staff.id}
+                            onSelect={() => setDisablingStaff(staff)}
                           >
-                            +{staff.activity_ids.length - 3}
-                          </Badge>
+                            停用账号
+                          </DropdownMenu.Item>
                         )}
-                      </>
-                    )}
-                  </Flex>
-                </div>
-
-                <Flex
-                  className="staff-account__actions"
-                  gap="2"
-                  align="center"
-                  justify="end"
-                  wrap="wrap"
-                >
-                  <Button
-                    type="button"
-                    size="2"
-                    variant="soft"
-                    color="gray"
-                    onClick={() => {
-                      setEditingStaff(staff);
-                      setEditingActivityIds(staff.activity_ids);
-                    }}
-                  >
-                    <Pencil2Icon />
-                    账号设置
-                  </Button>
-                  {staff.disabled_at ? (
-                    <Button
-                      type="button"
-                      size="2"
-                      color="iris"
-                      variant="soft"
-                      loading={busyId === staff.id}
-                      onClick={() => toggle(staff)}
-                    >
-                      启用账号
-                    </Button>
-                  ) : (
-                    <AlertDialog.Root>
-                      <AlertDialog.Trigger>
-                        <Button
-                          type="button"
-                          size="2"
-                          color="red"
-                          variant="outline"
-                        >
-                          停用账号
-                        </Button>
-                      </AlertDialog.Trigger>
-                      <AlertDialog.Content maxWidth="440px">
-                        <AlertDialog.Title>
-                          停用工作人员账号？
-                        </AlertDialog.Title>
-                        <AlertDialog.Description size="2">
-                          {staff.display_name}
-                          将立即无法登录核销平台，已有核销记录不会受到影响。
-                        </AlertDialog.Description>
-                        <Flex
-                          gap="3"
-                          mt="4"
-                          justify="end"
-                        >
-                          <AlertDialog.Cancel>
-                            <Button
-                              type="button"
-                              variant="soft"
-                              color="gray"
-                            >
-                              取消
-                            </Button>
-                          </AlertDialog.Cancel>
-                          <AlertDialog.Action>
-                            <Button
-                              type="button"
-                              variant="solid"
-                              color="red"
-                              loading={busyId === staff.id}
-                              onClick={() => toggle(staff)}
-                            >
-                              确认停用
-                            </Button>
-                          </AlertDialog.Action>
-                        </Flex>
-                      </AlertDialog.Content>
-                    </AlertDialog.Root>
-                  )}
-                </Flex>
-              </article>
-            ))}
+                      </TableRowActions>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </GhostTable>
+            <GhostTableFooter range={`共 ${rows.length} 个账号`} />
           </div>
         )}
-      </Card>
+      </section>
+
+      <AlertDialog.Root
+        open={Boolean(disablingStaff)}
+        onOpenChange={(open) => {
+          if (!open) setDisablingStaff(null);
+        }}
+      >
+        <AlertDialog.Content
+          maxWidth="440px"
+          onCloseAutoFocus={returnRowFocus}
+        >
+          <AlertDialog.Title>停用工作人员账号？</AlertDialog.Title>
+          <AlertDialog.Description size="2">
+            {disablingStaff?.display_name}
+            将立即无法登录核销平台，已有核销记录不会受到影响。
+          </AlertDialog.Description>
+          <Flex
+            gap="3"
+            mt="4"
+            justify="end"
+          >
+            <AlertDialog.Cancel>
+              <Button
+                type="button"
+                variant="soft"
+                color="gray"
+              >
+                取消
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action>
+              <Button
+                type="button"
+                variant="solid"
+                color="red"
+                loading={busyId === disablingStaff?.id}
+                onClick={() => {
+                  if (disablingStaff) void toggle(disablingStaff);
+                }}
+              >
+                确认停用
+              </Button>
+            </AlertDialog.Action>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
 
       <Dialog.Root
         open={Boolean(editingStaff)}
@@ -631,7 +649,10 @@ export function StaffPage() {
           if (!open && !busyId) setEditingStaff(null);
         }}
       >
-        <Dialog.Content maxWidth="560px">
+        <Dialog.Content
+          maxWidth="560px"
+          onCloseAutoFocus={returnRowFocus}
+        >
           <Dialog.Title>账号设置</Dialog.Title>
           <Dialog.Description
             size="2"

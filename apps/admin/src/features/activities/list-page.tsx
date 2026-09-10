@@ -1,9 +1,4 @@
 import {
-  ArrowRightIcon,
-  DashboardIcon,
-  ActivityLogIcon,
-  Pencil2Icon,
-  CheckCircledIcon,
   PlusIcon,
   MagnifyingGlassIcon,
   Cross2Icon,
@@ -11,12 +6,10 @@ import {
 } from '@radix-ui/react-icons';
 import {
   Avatar,
-  Badge,
-  Card,
   Button,
-  Code,
-  IconButton,
+  DropdownMenu,
   Heading,
+  IconButton,
   Select,
   Table,
   Text,
@@ -27,8 +20,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { api } from '../../api';
 import { EmptyState, LoadingState } from '../../components/feedback';
+import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
 import { PageHeader } from '../../components/page-header';
 import { StatusBadge } from '../../components/status-badge';
+import { TableRowActions } from '../../components/table-row-actions';
 
 type Activity = {
   id: string;
@@ -100,14 +95,15 @@ export function ActivitiesListPage() {
   return (
     <>
       <PageHeader
-        eyebrow="活动运营"
-        title="活动管理"
-        description="管理活动、奖品和现场参与。"
+        title="让每一场活动，都井然有序"
+        description="查看活动状态，继续配置或追踪运营表现。"
         actions={
           <Button
-            variant="solid"
+            variant={
+              !loading && !failed && rows.length === 0 ? 'ghost' : 'solid'
+            }
             asChild
-            size="3"
+            size="2"
           >
             <Link to="new">
               <PlusIcon />
@@ -123,149 +119,121 @@ export function ActivitiesListPage() {
             {
               label: '全部活动',
               value: rows.length,
-              tone: 'violet',
-              icon: DashboardIcon,
               note: '全部已创建活动',
             },
             {
               label: '进行中',
               value: rows.filter((row) => statusOf(row) === '进行中').length,
-              tone: 'teal',
-              icon: ActivityLogIcon,
               note: '已发布并开放参与',
             },
             {
               label: '草稿',
               value: rows.filter((row) => statusOf(row) === '草稿').length,
-              tone: 'amber',
-              icon: Pencil2Icon,
               note: '配置完成后即可发布',
             },
             {
               label: '已结束',
               value: rows.filter((row) => statusOf(row) === '已结束').length,
-              tone: 'blue',
-              icon: CheckCircledIcon,
               note: '可继续查看运营记录',
             },
           ].map((metric) => (
-            <Card
-              variant="classic"
-              size="3"
-              className={`activity-metric tone-${metric.tone}`}
+            <div
+              className="activity-metric"
               key={metric.label}
             >
               <div className="activity-metric-label">
                 <span>{metric.label}</span>
-                <span
-                  className="metric-marker"
-                  aria-hidden="true"
-                >
-                  <metric.icon
-                    width="18"
-                    height="18"
-                  />
-                </span>
               </div>
               <strong>{metric.value}</strong>
               <p>{metric.note}</p>
-            </Card>
+            </div>
           ))}
         </div>
       )}
 
-      <Card
-        variant="classic"
-        size={{ initial: '3', sm: '4' }}
+      <section
         className="activity-collection"
+        aria-label="活动列表"
       >
-        {!loading && !failed && (
-          <div className="collection-heading">
-            <Heading
-              as="h2"
-              size="4"
-            >
-              全部活动
-            </Heading>
-            <Badge
-              color="gray"
-              variant="soft"
-            >
-              {rows.length}
-            </Badge>
-          </div>
-        )}
-        {!loading && !failed && (
-          <Text
-            as="p"
-            size="2"
-            color="gray"
-            className="collection-description"
-          >
-            查看活动状态，继续配置或追踪运营表现。
-          </Text>
-        )}
         {!loading && !failed && rows.length > 0 && (
           <div className="list-toolbar">
-            <TextField.Root
-              ref={searchInput}
-              variant="soft"
-              color="gray"
-              aria-label="搜索活动"
-              placeholder="搜索活动名称或访问路径…"
-              value={query}
-              onChange={(event) => updateFilter('q', event.target.value)}
-              className="activity-search"
-              size="2"
-            >
-              <TextField.Slot>
-                <MagnifyingGlassIcon />
-              </TextField.Slot>
-              {query && (
-                <TextField.Slot>
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    aria-label="清除搜索"
-                    onClick={() => {
-                      updateFilter('q', '');
-                      searchInput.current?.focus();
-                    }}
-                  >
-                    <Cross2Icon />
-                  </IconButton>
-                </TextField.Slot>
-              )}
-            </TextField.Root>
-            <Select.Root
-              value={status}
-              onValueChange={(value) => updateFilter('status', value)}
-              size="2"
-            >
-              <Select.Trigger
+            <div className="activity-collection-copy">
+              <Heading
+                as="h2"
+                size="4"
+              >
+                全部活动
+              </Heading>
+              <Text
+                as="p"
+                size="1"
+                className="collection-description"
+                color="gray"
+              >
+                共 {rows.length} 场活动，集中管理配置与运营记录。
+              </Text>
+            </div>
+            <div className="activity-collection-tools">
+              <TextField.Root
+                ref={searchInput}
                 variant="soft"
                 color="gray"
-                aria-label="活动状态"
-                className="status-filter"
+                aria-label="搜索活动"
+                placeholder="搜索活动名称或访问路径…"
+                value={query}
+                onChange={(event) => updateFilter('q', event.target.value)}
+                className="activity-search"
+                size="2"
               >
-                <MixerHorizontalIcon />
-                <span>{status === 'all' ? '全部状态' : status}</span>
-              </Select.Trigger>
-              <Select.Content
-                position="popper"
-                className="activity-filter-popup"
+                <TextField.Slot>
+                  <MagnifyingGlassIcon />
+                </TextField.Slot>
+                {query && (
+                  <TextField.Slot>
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      aria-label="清除搜索"
+                      onClick={() => {
+                        updateFilter('q', '');
+                        searchInput.current?.focus();
+                      }}
+                    >
+                      <Cross2Icon />
+                    </IconButton>
+                  </TextField.Slot>
+                )}
+              </TextField.Root>
+              <Select.Root
+                value={status}
+                onValueChange={(value) => updateFilter('status', value)}
+                size="2"
               >
-                <Select.Item value="all">全部状态</Select.Item>
-                {statuses.map((value) => (
-                  <Select.Item
-                    key={value}
-                    value={value}
-                  >
-                    {value}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
+                <Select.Trigger
+                  variant="ghost"
+                  color="gray"
+                  aria-label="活动状态"
+                  className="status-filter"
+                >
+                  <MixerHorizontalIcon />
+                  <span>{status === 'all' ? '全部状态' : status}</span>
+                </Select.Trigger>
+                <Select.Content
+                  position="popper"
+                  className="activity-filter-popup"
+                >
+                  <Select.Item value="all">全部状态</Select.Item>
+                  {statuses.map((value) => (
+                    <Select.Item
+                      key={value}
+                      value={value}
+                    >
+                      {value}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+            </div>
           </div>
         )}
 
@@ -331,7 +299,7 @@ export function ActivitiesListPage() {
             description="试试其他名称，或清除筛选查看全部活动。"
             action={
               <Button
-                variant="soft"
+                variant="ghost"
                 onClick={() => setParams({})}
               >
                 清除筛选
@@ -340,13 +308,13 @@ export function ActivitiesListPage() {
           />
         ) : (
           <div className="table-panel">
-            <Table.Root className="activity-table">
+            <GhostTable className="activity-table">
               <Table.Header>
                 <Table.Row>
                   <Table.ColumnHeaderCell>活动</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>访问路径</Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>活动时间</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>状态</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>活动时间</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell justify="end">
                     操作
                   </Table.ColumnHeaderCell>
@@ -366,17 +334,28 @@ export function ActivitiesListPage() {
                           fallback={row.name.slice(0, 1)}
                           aria-hidden="true"
                         />
-                        <Text weight="medium">{row.name}</Text>
+                        <Text
+                          as="div"
+                          weight="medium"
+                          className="activity-name-copy"
+                          title={row.name}
+                        >
+                          {row.name}
+                        </Text>
                       </div>
                     </Table.RowHeaderCell>
                     <Table.Cell>
-                      <Code
+                      <Text
+                        as="div"
+                        size="1"
                         className="activity-path"
-                        variant="ghost"
-                        color="gray"
+                        title={`/activity/${row.code}`}
                       >
                         /activity/{row.code}
-                      </Code>
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <StatusBadge status={statusOf(row)} />
                     </Table.Cell>
                     <Table.Cell>
                       <Text
@@ -386,34 +365,25 @@ export function ActivitiesListPage() {
                         {formatDate(row.starts_at)} – {formatDate(row.ends_at)}
                       </Text>
                     </Table.Cell>
-                    <Table.Cell>
-                      <StatusBadge status={statusOf(row)} />
-                    </Table.Cell>
                     <Table.Cell justify="end">
-                      <Button
-                        asChild
-                        variant="soft"
-                      >
-                        <Link to={row.id}>
-                          管理
-                          <ArrowRightIcon />
-                        </Link>
-                      </Button>
+                      <TableRowActions label={`活动操作：${row.name}`}>
+                        <DropdownMenu.Item asChild>
+                          <Link to={row.id}>管理</Link>
+                        </DropdownMenu.Item>
+                      </TableRowActions>
                     </Table.Cell>
                   </Table.Row>
                 ))}
               </Table.Body>
-            </Table.Root>
-            <div
-              className="table-footer"
-              role="status"
+            </GhostTable>
+            <GhostTableFooter
+              range={`显示 ${filtered.length} 场活动 · 共 ${rows.length} 场`}
             >
-              显示 {filtered.length} 场活动 · 共 {rows.length} 场
-              <span>时间以北京时间为准</span>
-            </div>
+              <Text size="1">时间以北京时间为准</Text>
+            </GhostTableFooter>
           </div>
         )}
-      </Card>
+      </section>
     </>
   );
 }

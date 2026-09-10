@@ -1,4 +1,4 @@
-import { Flex, Spinner, Theme } from '@radix-ui/themes';
+import { Flex, Spinner } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components';
@@ -14,6 +14,7 @@ import { ReportsOverviewPage } from './features/reports/overview-page';
 import { RedemptionsListPage } from './features/redemptions/list-page';
 import { ExportsPage } from './features/exports/exports-page';
 import { restoreAdminSession } from './api';
+import { ThemeProvider } from './theme/theme-provider';
 function Shell() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -93,14 +94,7 @@ function Shell() {
 }
 export function App() {
   return (
-    <Theme
-      accentColor="violet"
-      appearance="light"
-      panelBackground="translucent"
-      grayColor="slate"
-      radius="medium"
-      scaling="100%"
-    >
+    <ThemeProvider>
       <BrowserRouter basename="/admin">
         <Routes>
           <Route
@@ -113,6 +107,6 @@ export function App() {
           />
         </Routes>
       </BrowserRouter>
-    </Theme>
+    </ThemeProvider>
   );
 }

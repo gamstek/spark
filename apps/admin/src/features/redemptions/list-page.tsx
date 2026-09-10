@@ -1,10 +1,11 @@
-import { Card, Table } from '@radix-ui/themes';
+import { Table } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
 import { LoadingState } from '../../components/loading-state';
+import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
 import { StatusBadge } from '../../components/status-badge';
 
 type Redemption = {
@@ -52,11 +53,8 @@ export function RedemptionsListPage() {
           description="参与者中奖后，相应凭证会显示在这里。"
         />
       ) : (
-        <Card
-          variant="classic"
-          size="3"
-        >
-          <Table.Root variant="ghost">
+        <div className="table-panel">
+          <GhostTable>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeaderCell>奖品</Table.ColumnHeaderCell>
@@ -81,8 +79,11 @@ export function RedemptionsListPage() {
                 </Table.Row>
               ))}
             </Table.Body>
-          </Table.Root>
-        </Card>
+          </GhostTable>
+          <GhostTableFooter
+            range={`共 ${rows.length.toLocaleString('zh-CN')} 条核销记录`}
+          />
+        </div>
       )}
     </>
   );

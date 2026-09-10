@@ -1,10 +1,11 @@
-import { Card, Table, Text } from '@radix-ui/themes';
+import { Table } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
 import { LoadingState } from '../../components/loading-state';
+import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
 import { StatusBadge } from '../../components/status-badge';
 
 type Participant = {
@@ -55,18 +56,16 @@ export function ParticipantsPage() {
           description="活动产生参与记录后，参与者信息会显示在这里。"
         />
       ) : (
-        <Card
-          variant="classic"
-          size="3"
-        >
-          <Table.Root variant="ghost">
+        <div className="table-panel">
+          <GhostTable>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeaderCell>参与者</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell>手机号码</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell>线索状态</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell>渠道</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>奖品与核销</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>奖品</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>核销状态</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell>参与时间</Table.ColumnHeaderCell>
               </Table.Row>
             </Table.Header>
@@ -85,21 +84,12 @@ export function ParticipantsPage() {
                     </StatusBadge>
                   </Table.Cell>
                   <Table.Cell>{row.channel_code || '直接访问'}</Table.Cell>
+                  <Table.Cell>{row.prize_name || '未中奖'}</Table.Cell>
                   <Table.Cell>
-                    {row.prize_name ? (
-                      <>
-                        <Text
-                          as="div"
-                          weight="medium"
-                        >
-                          {row.prize_name}
-                        </Text>
-                        {row.redemption_status && (
-                          <StatusBadge status={row.redemption_status} />
-                        )}
-                      </>
+                    {row.redemption_status ? (
+                      <StatusBadge status={row.redemption_status} />
                     ) : (
-                      '未中奖'
+                      '—'
                     )}
                   </Table.Cell>
                   <Table.Cell>
@@ -108,8 +98,11 @@ export function ParticipantsPage() {
                 </Table.Row>
               ))}
             </Table.Body>
-          </Table.Root>
-        </Card>
+          </GhostTable>
+          <GhostTableFooter
+            range={`共 ${rows.length.toLocaleString('zh-CN')} 位参与者`}
+          />
+        </div>
       )}
     </>
   );
