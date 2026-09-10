@@ -9,6 +9,24 @@ monorepo.
 - pnpm 10.15.1
 - PostgreSQL (required by API features added after the initial workspace task)
 
+## Test database
+
+Integration tests and local API development need a PostgreSQL instance on
+`127.0.0.1:54329` (database `spark_test`, user `spark`). Two supported options:
+
+```bash
+pnpm db:test:start   # embedded PostgreSQL (keep-alive foreground process)
+docker compose up -d postgres   # or the postgres:18-alpine container
+```
+
+`pnpm db:test:start` runs `scripts/start-test-postgres.mjs`. It detects an
+existing data cluster (`node_modules/.cache/spark-pg`) via `PG_VERSION` and
+skips `initdb` and database creation on restart, so it is safe to stop and
+rerun. The port must stay free of a second instance — starting both the
+embedded server and the container on `54329` fails with an explicit port
+conflict error. Point `DATABASE_URL`/`TEST_DATABASE_URL` in `.env` at this
+instance and apply migrations with `pnpm --filter @spark/api db:migrate`.
+
 ## Applications
 
 - `apps/activity`: participant experience under `/activity/:activityCode`
