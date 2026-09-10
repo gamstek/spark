@@ -60,7 +60,7 @@ export function AppQr({ value, size = 158 }: AppQrProps) {
 
   return (
     <div
-      className="rounded-lg bg-white p-2 shadow"
+      className="rounded-xl border border-black/10 bg-white p-2"
       style={{ width: size, height: size }}
       title={value}
     >

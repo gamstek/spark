@@ -11,7 +11,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { api } from '../../api';
-import { ActivityNav } from '../../components/activity-nav';
 import { FeedbackCallout, LoadingState } from '../../components/feedback';
 import { PageHeader } from '../../components/page-header';
 import { RequiredFieldMark } from '../../components/required-field-mark';
@@ -62,7 +61,7 @@ const readBase64 = (file: File) =>
   });
 
 export function ActivityEditPage() {
-  const { id } = useParams();
+  const { id = 'new' } = useParams();
   const navigate = useNavigate();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(id !== 'new');
@@ -134,6 +133,7 @@ export function ActivityEditPage() {
           phone: '手机号',
         },
         requireSubscribe: true,
+        noPrizeWeight: Number(detail?.config?.noPrizeWeight ?? 1),
         heroAssetId: heroAssetId || (hasHeroFile ? 'pending-upload' : ''),
         rulesText: form.get('rulesText'),
       };
@@ -247,17 +247,23 @@ export function ActivityEditPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow={id === 'new' ? '创建活动' : `活动 / ${detail?.code ?? ''}`}
-        title={id === 'new' ? '新建活动' : detail?.name || '活动设置'}
-        description={
-          id === 'new'
-            ? '首版使用展会抽奖模板，完成配置和奖品设置后即可发布。'
-            : `活动地址：/activity/${detail?.code ?? ''}`
-        }
-      />
-
-      {id !== 'new' && id && <ActivityNav activityId={id} />}
+      {id === 'new' && (
+        <PageHeader
+          eyebrow="创建活动"
+          title="新建活动"
+          description="首版使用展会抽奖模板，完成配置和奖品设置后即可发布。"
+        />
+      )}
+      {id !== 'new' && detail?.code && (
+        <Text
+          as="p"
+          size="2"
+          color="gray"
+          className="activity-address"
+        >
+          活动地址：/activity/{detail.code}
+        </Text>
+      )}
 
       {locked && (
         <FeedbackCallout
@@ -276,143 +282,145 @@ export function ActivityEditPage() {
         className="editor-form"
         onSubmit={submit}
       >
-        <Card
-          variant="classic"
-          size="4"
-          className="form-section"
-        >
-          <div className="form-section-heading">
-            <Text
-              size="1"
-              color="iris"
-              weight="bold"
-            >
-              基本信息
-            </Text>
-            <Heading
-              as="h2"
-              size="4"
-            >
-              活动名称
-            </Heading>
-            <Text
-              as="p"
-              size="2"
-              color="gray"
-            >
-              名称会出现在运营后台和活动页面。
-            </Text>
-          </div>
-          <Flex
-            direction="column"
-            gap="2"
+        <div className="editor-form-content">
+          <Card
+            variant="classic"
+            size="4"
+            className="form-section"
           >
-            <label
-              className="field-label"
-              htmlFor="activity-name"
-            >
+            <div className="form-section-heading">
               <Text
-                size="2"
-                weight="medium"
+                size="1"
+                color="iris"
+                weight="bold"
+              >
+                基本信息
+              </Text>
+              <Heading
+                as="h2"
+                size="4"
               >
                 活动名称
-                <RequiredFieldMark />
+              </Heading>
+              <Text
+                as="p"
+                size="2"
+                color="gray"
+              >
+                名称会出现在运营后台和活动页面。
               </Text>
-            </label>
-            <TextField.Root
-              variant="soft"
-              color="gray"
-              id="activity-name"
-              name="name"
-              placeholder="活动名称"
-              defaultValue={detail?.name}
-              size="2"
-              required
-              disabled={locked}
-            />
-          </Flex>
-        </Card>
-
-        <ConfigForm
-          locked={locked}
-          value={detail?.config}
-        />
-
-        <Card
-          variant="classic"
-          size="4"
-          className="form-section"
-        >
-          <div className="form-section-heading">
-            <Text
-              size="1"
-              color="iris"
-              weight="bold"
+            </div>
+            <Flex
+              direction="column"
+              gap="2"
             >
-              时间安排
-            </Text>
-            <Heading
-              as="h2"
-              size="4"
-            >
-              活动与兑奖周期
-            </Heading>
-            <Text
-              as="p"
-              size="2"
-              color="gray"
-            >
-              所有时间按上海时区填写，发布后活动运行以服务端时间为准。
-            </Text>
-          </div>
-          <div className="form-grid">
-            {scheduleFields.map(([name, label, description]) => {
-              const source = {
-                startsAt: detail?.starts_at,
-                drawEndsAt: detail?.draw_ends_at,
-                endsAt: detail?.ends_at,
-                redeemEndsAt: detail?.redeem_ends_at,
-              }[name];
-              return (
-                <Flex
-                  key={name}
-                  direction="column"
-                  gap="2"
+              <label
+                className="field-label"
+                htmlFor="activity-name"
+              >
+                <Text
+                  size="2"
+                  weight="medium"
                 >
-                  <label
-                    className="field-label"
-                    htmlFor={name}
+                  活动名称
+                  <RequiredFieldMark />
+                </Text>
+              </label>
+              <TextField.Root
+                variant="soft"
+                color="gray"
+                id="activity-name"
+                name="name"
+                placeholder="活动名称"
+                defaultValue={detail?.name}
+                size="2"
+                required
+                disabled={locked}
+              />
+            </Flex>
+          </Card>
+
+          <ConfigForm
+            locked={locked}
+            value={detail?.config}
+          />
+
+          <Card
+            variant="classic"
+            size="4"
+            className="form-section"
+          >
+            <div className="form-section-heading">
+              <Text
+                size="1"
+                color="iris"
+                weight="bold"
+              >
+                时间安排
+              </Text>
+              <Heading
+                as="h2"
+                size="4"
+              >
+                活动与兑奖周期
+              </Heading>
+              <Text
+                as="p"
+                size="2"
+                color="gray"
+              >
+                所有时间按上海时区填写，发布后活动运行以服务端时间为准。
+              </Text>
+            </div>
+            <div className="form-grid">
+              {scheduleFields.map(([name, label, description]) => {
+                const source = {
+                  startsAt: detail?.starts_at,
+                  drawEndsAt: detail?.draw_ends_at,
+                  endsAt: detail?.ends_at,
+                  redeemEndsAt: detail?.redeem_ends_at,
+                }[name];
+                return (
+                  <Flex
+                    key={name}
+                    direction="column"
+                    gap="2"
                   >
-                    <Text
+                    <label
+                      className="field-label"
+                      htmlFor={name}
+                    >
+                      <Text
+                        size="2"
+                        weight="medium"
+                      >
+                        {label}
+                        <RequiredFieldMark />
+                      </Text>
+                      <Text
+                        size="1"
+                        color="gray"
+                      >
+                        {description}
+                      </Text>
+                    </label>
+                    <TextField.Root
                       size="2"
-                      weight="medium"
-                    >
-                      {label}
-                      <RequiredFieldMark />
-                    </Text>
-                    <Text
-                      size="1"
+                      variant="soft"
                       color="gray"
-                    >
-                      {description}
-                    </Text>
-                  </label>
-                  <TextField.Root
-                    size="2"
-                    variant="soft"
-                    color="gray"
-                    id={name}
-                    name={name}
-                    type="datetime-local"
-                    defaultValue={toShanghaiInput(source)}
-                    required
-                    disabled={locked}
-                  />
-                </Flex>
-              );
-            })}
-          </div>
-        </Card>
+                      id={name}
+                      name={name}
+                      type="datetime-local"
+                      defaultValue={toShanghaiInput(source)}
+                      required
+                      disabled={locked}
+                    />
+                  </Flex>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
 
         <div className="editor-action-bar">
           <div className="editor-action-summary">
@@ -446,6 +454,7 @@ export function ActivityEditPage() {
             </div>
           </div>
           <Flex
+            className="editor-action-buttons"
             gap="3"
             wrap="wrap"
             justify="end"

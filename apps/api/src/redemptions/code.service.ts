@@ -7,6 +7,14 @@ import {
 
 import { Injectable } from '@nestjs/common';
 
+const REDEMPTION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function createRedemptionCode(): string {
+  return [...randomBytes(8)]
+    .map((value) => REDEMPTION_CODE_ALPHABET[value! & 31])
+    .join('');
+}
+
 function keys(): Record<string, Buffer> {
   const raw = JSON.parse(process.env.REDEEM_CODE_KEYS ?? '{}') as Record<
     string,
@@ -26,7 +34,7 @@ export class CodeService {
     const keyId = process.env.REDEEM_CODE_ACTIVE_KEY_ID ?? '';
     const key = keys()[keyId];
     if (!key || key.length !== 32) throw new Error('REDEEM_CODE_KEY_INVALID');
-    const code = randomBytes(18).toString('base64url');
+    const code = createRedemptionCode();
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', key, iv);
     const ciphertext = Buffer.concat([

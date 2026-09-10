@@ -18,13 +18,25 @@ export function SelectSheet({
   onClose,
 }: SelectSheetProps) {
   return (
-    <div className="fixed inset-0 z-20 flex items-end justify-center">
-      <div
-        className="absolute inset-0 bg-black/70"
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="select-sheet-title"
+      className="fixed inset-0 z-50 flex items-end justify-center"
+    >
+      <button
+        type="button"
+        aria-label="关闭选择活动"
+        className="absolute inset-0 h-full w-full cursor-default bg-black/70"
         onClick={onClose}
       />
       <div className="relative w-full max-w-[375px] rounded-t-[16px] bg-white px-4 pb-6 pt-4">
-        <p className="text-[15px] text-ink">{title}</p>
+        <p
+          id="select-sheet-title"
+          className="text-[15px] text-ink"
+        >
+          {title}
+        </p>
         <div className="mt-3 flex items-center rounded-[10px] border border-[#CFD3D9] bg-[#FBFBFB] px-3 py-2.5">
           <select
             value={value}

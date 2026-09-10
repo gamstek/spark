@@ -38,7 +38,7 @@ export function AppShell({
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
       )}
-      <div className="relative flex min-h-screen flex-col">
+      <div className="relative flex min-h-dvh flex-col pb-[74px]">
         <div className="flex-1">{children}</div>
         <BottomTabBar
           active={active}

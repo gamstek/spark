@@ -15,6 +15,7 @@ export class ParticipantsService {
     userId: string;
     activityId: string;
     leadCompleted: boolean;
+    drawnAt: Date | null;
   }> {
     const proposedId = randomUUID();
     type ParticipationRow = {
@@ -22,13 +23,14 @@ export class ParticipantsService {
       user_id: string;
       activity_id: string;
       lead_completed: boolean;
+      drawn_at: Date | null;
     };
     const result = await this.dataSource.query<
       ParticipationRow[] | [ParticipationRow[], number]
     >(
       `INSERT INTO activity_participation (id, activity_id, user_id, lead_completed) VALUES ($1,$2,$3,false)
        ON CONFLICT (activity_id, user_id) DO UPDATE SET updated_at=activity_participation.updated_at
-       RETURNING id, user_id, activity_id, lead_completed`,
+       RETURNING id, user_id, activity_id, lead_completed, drawn_at`,
       [proposedId, activityId, userId],
     );
     const first = result[0];
@@ -39,6 +41,7 @@ export class ParticipantsService {
       userId: row.user_id,
       activityId: row.activity_id,
       leadCompleted: row.lead_completed,
+      drawnAt: row.drawn_at,
     };
   }
 }

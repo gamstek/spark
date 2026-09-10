@@ -6,12 +6,14 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 
 import { RequireSession, SessionGuard } from '../auth/session.guard.js';
 import { CsrfGuard } from '../auth/csrf.guard.js';
+import { requestOrigin } from '../common/request-origin.js';
 import { LotteryService } from './lottery.service.js';
 
-type ActivityRequest = { session: { subjectId: string } };
+type ActivityRequest = FastifyRequest & { session: { subjectId: string } };
 
 @Controller('activity/:code/lottery')
 @RequireSession('ACTIVITY')
@@ -23,6 +25,12 @@ export class LotteryController {
   @Post()
   @UseGuards(CsrfGuard)
   async draw(@Param('code') code: string, @Req() request: ActivityRequest) {
-    return { win: await this.lottery.draw(request.session.subjectId, code) };
+    return {
+      win: await this.lottery.draw(
+        request.session.subjectId,
+        code,
+        requestOrigin(request),
+      ),
+    };
   }
 }

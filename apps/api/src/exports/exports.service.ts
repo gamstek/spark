@@ -49,7 +49,11 @@ export class ExportsService {
     return { jobId: id };
   }
 
-  async get(id: string, adminId: string): Promise<ExportView> {
+  async get(
+    id: string,
+    adminId: string,
+    origin = 'http://localhost',
+  ): Promise<ExportView> {
     const rows = await this.dataSource.query<
       {
         id: string;
@@ -72,10 +76,7 @@ export class ExportsService {
       id: row.id,
       status: row.status,
       downloadUrl: available
-        ? new URL(
-            `/api/admin/exports/${id}/download`,
-            process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173',
-          ).toString()
+        ? new URL(`/api/admin/exports/${id}/download`, origin).toString()
         : null,
       createdAt: new Date(row.created_at).toISOString(),
       rowCount: row.row_count,

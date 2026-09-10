@@ -2,11 +2,9 @@ import { Card, Table } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
-import { ActivityNav } from '../../components/activity-nav';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
 import { LoadingState } from '../../components/loading-state';
-import { PageHeader } from '../../components/page-header';
 import { StatusBadge } from '../../components/status-badge';
 
 type Redemption = {
@@ -40,13 +38,6 @@ export function RedemptionsListPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="活动运营"
-        title="核销记录"
-        description="追踪中奖凭证的待核销、已核销和过期状态。"
-      />
-      <ActivityNav activityId={id} />
-
       {error && (
         <FeedbackCallout
           message={error}

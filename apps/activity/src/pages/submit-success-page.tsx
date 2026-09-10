@@ -1,7 +1,10 @@
-import { useRuntime } from '../lib/runtime';
+import { useNavigate } from 'react-router-dom';
+import { useRuntime } from '../hooks/use-runtime';
 import { SLICES } from '../lib/assets';
 import { PageShell } from '../components/page-shell';
 import { ActionButton } from '../components/action-button';
+import { PageHeader } from '../components/page-header';
+import { useDocumentTitle } from '../hooks/use-document-title';
 
 /**
  * 提交成功（表单提交后的等待/确认屏）。
@@ -10,6 +13,8 @@ import { ActionButton } from '../components/action-button';
  */
 export function SubmitSuccessPage() {
   const { activity, participate } = useRuntime();
+  const navigate = useNavigate();
+  useDocumentTitle(activity.title, '提交成功');
 
   return (
     <PageShell className="bg-canvas">
@@ -20,10 +25,10 @@ export function SubmitSuccessPage() {
         aria-hidden="true"
         className="absolute left-0 top-0 h-full w-full object-cover"
       />
-      {/* 顶部标语 */}
-      <header className="absolute inset-x-0 top-[53px] text-center text-[18px] text-ink">
-        {activity.slug}
-      </header>
+      <PageHeader
+        title="提交成功"
+        onBack={() => navigate(-1)}
+      />
 
       {/* 成功图标 133.5×118.5 (120.5,242.5) */}
       <img

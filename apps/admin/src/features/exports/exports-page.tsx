@@ -2,9 +2,7 @@ import { Button, Card, Flex, Text } from '@radix-ui/themes';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
-import { ActivityNav } from '../../components/activity-nav';
 import { FeedbackCallout } from '../../components/feedback-callout';
-import { PageHeader } from '../../components/page-header';
 import { StatusBadge } from '../../components/status-badge';
 
 type ExportView = {
@@ -64,21 +62,15 @@ export function ExportsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="活动运营"
-        title="导出线索"
-        description="生成活动线索快照，用于后续整理和跟进。"
-        actions={
-          <Button
-            variant="solid"
-            onClick={create}
-            loading={busy && !view}
-          >
-            生成 XLSX
-          </Button>
-        }
-      />
-      <ActivityNav activityId={id} />
+      <Flex justify="end">
+        <Button
+          variant="solid"
+          onClick={create}
+          loading={busy && !view}
+        >
+          生成 XLSX
+        </Button>
+      </Flex>
 
       {error && (
         <FeedbackCallout

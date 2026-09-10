@@ -6,10 +6,25 @@ import {
   TextArea,
   TextField,
 } from '@radix-ui/themes';
+import { useState } from 'react';
 
 import { RequiredFieldMark } from '../../components/required-field-mark';
 
 type ConfigValue = Record<string, unknown>;
+
+export function extractDingTalkFormId(value: string): string {
+  try {
+    const url = new URL(value);
+    if (url.hostname !== 'alidocs.dingtalk.com') return '';
+    const segments = url.pathname.split('/').filter(Boolean);
+    const formIndex = segments.findIndex((segment) => segment === 'form');
+    return formIndex >= 0
+      ? decodeURIComponent(segments[formIndex + 1] ?? '')
+      : '';
+  } catch {
+    return '';
+  }
+}
 
 export function getLotteryConfigError(config: ConfigValue): string | null {
   try {
@@ -69,6 +84,12 @@ export function ConfigForm({
   locked?: boolean;
   value?: ConfigValue;
 }) {
+  const initialFormUrl = String(value.formUrl ?? '');
+  const [formId, setFormId] = useState(
+    String(value.formId ?? extractDingTalkFormId(initialFormUrl)),
+  );
+  const [formUrl, setFormUrl] = useState(initialFormUrl);
+
   return (
     <>
       <Card
@@ -102,6 +123,36 @@ export function ConfigForm({
           <Flex
             direction="column"
             gap="2"
+            className="form-grid-wide"
+          >
+            <FieldLabel
+              htmlFor="form-url"
+              title="钉钉表单链接"
+              description="系统会自动识别表单 ID，并追加参与编号参数"
+              required
+            />
+            <TextField.Root
+              size="2"
+              variant="soft"
+              color="gray"
+              type="url"
+              id="form-url"
+              name="formUrl"
+              placeholder="钉钉表单 HTTPS 分享链接"
+              required
+              disabled={locked}
+              value={formUrl}
+              onChange={(event) => {
+                const nextUrl = event.target.value;
+                setFormUrl(nextUrl);
+                const extractedFormId = extractDingTalkFormId(nextUrl);
+                if (extractedFormId) setFormId(extractedFormId);
+              }}
+            />
+          </Flex>
+          <Flex
+            direction="column"
+            gap="2"
           >
             <FieldLabel
               htmlFor="form-id"
@@ -115,7 +166,8 @@ export function ConfigForm({
               id="form-id"
               name="formId"
               placeholder="钉钉表单 ID"
-              defaultValue={String(value.formId ?? '')}
+              value={formId}
+              onChange={(event) => setFormId(event.target.value)}
               required
               disabled={locked}
             />
@@ -137,33 +189,9 @@ export function ConfigForm({
               id="prefill-field"
               name="prefillField"
               placeholder="预填参数名"
-              defaultValue={String(value.prefillField ?? 'participant')}
+              defaultValue={String(value.prefillField ?? 'prefill_participant')}
               required
               disabled={locked}
-            />
-          </Flex>
-          <Flex
-            direction="column"
-            gap="2"
-            className="form-grid-wide"
-          >
-            <FieldLabel
-              htmlFor="form-url"
-              title="已验证的表单链接"
-              description="仅支持 alidocs.dingtalk.com 的 HTTPS 预填链接"
-              required
-            />
-            <TextField.Root
-              size="2"
-              variant="soft"
-              color="gray"
-              type="url"
-              id="form-url"
-              name="formUrl"
-              placeholder="已验证的钉钉预填链接"
-              required
-              disabled={locked}
-              defaultValue={String(value.formUrl ?? '')}
             />
           </Flex>
         </div>

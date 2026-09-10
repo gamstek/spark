@@ -25,7 +25,7 @@ for (const viewport of viewports) {
       page,
     }) => {
       await page.route('**/api/admin/auth/login', (route) =>
-        route.fulfill({ status: 403, json: { code: 'ORIGIN_INVALID' } }),
+        route.fulfill({ status: 401, json: { code: 'UNAUTHORIZED' } }),
       );
       await page.goto('/admin/login');
       await page.getByLabel('管理员账号', { exact: true }).fill('admin');
@@ -33,7 +33,7 @@ for (const viewport of viewports) {
       const submit = page.getByRole('button', { name: '登录', exact: true });
       await submit.click();
       const error = page.getByRole('alert');
-      await expect(error).toContainText('当前访问地址未获授权');
+      await expect(error).toContainText('账号或密码错误');
       const security = page.getByText('仅限授权管理员访问');
       const help = page.getByText(
         '账号由管理员统一创建。如需帮助，请联系系统管理员。',

@@ -1,26 +1,44 @@
-import { useRuntime } from '../lib/runtime';
+import { useEffect } from 'react';
+import { useRuntime } from '../hooks/use-runtime';
+import { useDocumentTitle } from '../hooks/use-document-title';
 import { HomePage } from './home-page';
 import { ActivityInfoPage } from './activity-info-page';
+import { ActivityRulesPage } from './activity-rules-page';
 import { SubscribePage } from './subscribe-page';
-import { FollowSuccessPage } from './follow-success-page';
-import { FormPage } from './form-page';
 import { SubmitSuccessPage } from './submit-success-page';
 import { LotteryPage } from './lottery-page';
-import { PrizePage } from './prize-page';
 import { RedemptionPage } from './redemption-page';
-import { RedeemedSuccessPage } from './redeemed-success-page';
+
+function DingTalkFormRedirect() {
+  const { activity, startForm } = useRuntime();
+  useDocumentTitle(activity.title, '正在打开钉钉表单');
+
+  useEffect(() => {
+    void startForm();
+  }, [startForm]);
+
+  return (
+    <main
+      className="mx-auto flex min-h-dvh w-full max-w-[430px] items-center justify-center bg-[#f5f6fa] px-6 text-center text-[15px] text-ink"
+      role="status"
+    >
+      正在打开钉钉表单…
+    </main>
+  );
+}
 
 /**
- * step → 页面分发。view (info / redeemed-success) 为独立于状态机的正交屏。
+ * step → 页面分发。活动说明是独立于状态机的正交页面。
  * 其余按 RuntimeStep 渲染；顶部浮动展示全局提示消息。
  */
 export function RuntimeScene() {
   const { step, view, message, setMessage } = useRuntime();
 
   let content;
-  if (view === 'info') content = <ActivityInfoPage />;
-  else if (view === 'follow-success') content = <FollowSuccessPage />;
-  else if (view === 'redeemed-success') content = <RedeemedSuccessPage />;
+  if (view === 'home') content = <HomePage />;
+  else if (view === 'rules') content = <ActivityRulesPage />;
+  else if (view === 'info') content = <ActivityInfoPage />;
+  else if (view === 'prizes') content = <RedemptionPage />;
   else
     switch (step) {
       case 'NOT_STARTED':
@@ -30,21 +48,18 @@ export function RuntimeScene() {
         content = <SubscribePage />;
         break;
       case 'FORM':
-        content = <FormPage />;
+        content = <DingTalkFormRedirect />;
         break;
       case 'WAITING_FORM':
         content = <SubmitSuccessPage />;
         break;
       case 'LOTTERY':
+      case 'NO_PRIZE':
       case 'OUT_OF_STOCK':
-        content = <LotteryPage />;
-        break;
       case 'PRIZE':
-        content = <PrizePage />;
-        break;
       case 'REDEEMED':
       case 'EXPIRED':
-        content = <RedemptionPage />;
+        content = <LotteryPage />;
         break;
       case 'ENDED':
       default:

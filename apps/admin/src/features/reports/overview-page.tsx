@@ -2,11 +2,9 @@ import { Card, Flex, Grid, Table, Text } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
-import { ActivityNav } from '../../components/activity-nav';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
 import { LoadingState } from '../../components/loading-state';
-import { PageHeader } from '../../components/page-header';
 
 type Report = {
   visits: number;
@@ -55,13 +53,6 @@ export function ReportsOverviewPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="活动运营"
-        title="数据概览"
-        description="查看访问、转化、奖品库存和核销结果。"
-      />
-      <ActivityNav activityId={id} />
-
       {error && (
         <FeedbackCallout
           message={error}

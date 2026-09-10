@@ -20,6 +20,7 @@ export const RuntimeStepSchema = z.enum([
   'FORM',
   'WAITING_FORM',
   'LOTTERY',
+  'NO_PRIZE',
   'OUT_OF_STOCK',
   'PRIZE',
   'REDEEMED',

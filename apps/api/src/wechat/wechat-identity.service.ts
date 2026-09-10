@@ -38,4 +38,13 @@ export class WechatIdentityService {
       return { userId };
     });
   }
+
+  async markSubscribed(openid: string): Promise<void> {
+    await this.dataSource
+      .getRepository(WechatIdentity)
+      .update(
+        { appId: this.appId, openid },
+        { subscribed: true, subscriptionCheckedAt: () => 'now()' },
+      );
+  }
 }

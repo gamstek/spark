@@ -23,3 +23,18 @@ body {
   background: var(--color-canvas);
   font-family: var(--font-body);
 }
+
+@keyframes lottery-wheel-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lottery-wheel--spinning {
+  animation: lottery-wheel-spin 720ms linear infinite;
+  will-change: transform;
+}

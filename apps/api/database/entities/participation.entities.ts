@@ -12,6 +12,8 @@ export class ActivityParticipation {
   leadCompletedAt!: Date | null;
   @Column({ name: 'adopted_submission_id', type: 'uuid', nullable: true })
   adoptedSubmissionId!: string | null;
+  @Column({ name: 'drawn_at', type: 'timestamptz', nullable: true })
+  drawnAt!: Date | null;
   @Column({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
   createdAt!: Date;
   @Column({ name: 'updated_at', type: 'timestamptz', default: () => 'now()' })

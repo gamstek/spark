@@ -1,11 +1,9 @@
 import { z } from 'zod';
 
-const DingTalkFormUrlSchema = z
-  .url()
-  .refine((value) => {
-    const url = new URL(value);
-    return url.protocol === 'https:' && url.hostname === 'alidocs.dingtalk.com';
-  }, 'formUrl must use HTTPS on alidocs.dingtalk.com');
+const DingTalkFormUrlSchema = z.url().refine((value) => {
+  const url = new URL(value);
+  return url.protocol === 'https:' && url.hostname === 'alidocs.dingtalk.com';
+}, 'formUrl must use HTTPS on alidocs.dingtalk.com');
 
 export const LotteryConfigSchema = z
   .object({
@@ -20,6 +18,7 @@ export const LotteryConfigSchema = z
       })
       .strict(),
     requireSubscribe: z.boolean(),
+    noPrizeWeight: z.number().finite().min(0),
     heroAssetId: z.string().trim().min(1).max(128),
     rulesText: z.string().trim().min(1).max(4_000),
   })

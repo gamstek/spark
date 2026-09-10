@@ -80,8 +80,8 @@ export class PublishService {
         [activity.draft_version_id],
       );
       await manager.query(
-        `INSERT INTO activity_version_prize (id,activity_version_id,activity_prize_id,prize_name,prize_image_url,weight)
-         SELECT gen_random_uuid(),$2,ap.id,ap.prize_name,ap.prize_image_url,ap.weight
+        `INSERT INTO activity_version_prize (id,activity_version_id,activity_prize_id,prize_level,prize_name,prize_image_url,weight)
+         SELECT gen_random_uuid(),$2,ap.id,ap.prize_level,ap.prize_name,ap.prize_image_url,ap.weight
          FROM activity_prize ap WHERE ap.activity_id=$1`,
         [activityId, activity.draft_version_id],
       );

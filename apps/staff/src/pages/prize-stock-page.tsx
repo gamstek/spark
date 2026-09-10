@@ -1,49 +1,66 @@
-import { SLICES } from '../lib/assets';
 import { useStaff } from '../lib/runtime';
 import { AppShell } from './app-shell';
 
-const DOT_CLASSES = ['bg-p1', 'bg-p2', 'bg-p3', 'bg-p4'];
+const DOT_CLASSES = [
+  'bg-p1',
+  'bg-p2',
+  'bg-p3',
+  'bg-p4',
+  'bg-[#58afe8]',
+  'bg-[#58afe8]',
+];
 
-/** 奖品查看（只读）：库存由管理后台维护，工作人员现场只查看剩余数量。 */
+/** 工作人员只读库存；运行中的库存调整仅允许管理员操作。 */
 export function PrizeStockPage() {
   const { prizes } = useStaff();
 
   return (
-    <AppShell bg={SLICES.prizeStock.bg}>
-      <div className="px-3 pb-4">
-        <header className="py-3 text-center text-[18px] text-ink">
-          奖品查看
-        </header>
-        <div className="mb-2 flex items-center px-2 text-[14px] text-ink">
-          <span className="flex-1">奖品</span>
-          <span>剩余/总量</span>
-        </div>
-        <div className="divide-y divide-line/60 overflow-hidden rounded-[12px]">
-          {prizes.map((prize, i) => (
-            <div
+    <AppShell>
+      <main className="grid gap-3 px-4 pt-3 pb-6">
+        {prizes.map((prize, index) => {
+          const remaining = Math.max(0, prize.totalStock - prize.awardedStock);
+          return (
+            <article
               key={prize.id}
-              className="flex items-center gap-3 bg-white px-3 py-3"
+              className="flex min-h-[86px] items-start rounded-[12px] bg-white px-5 py-4 shadow-[0_3px_12px_rgba(30,37,62,0.035)]"
             >
-              <div
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${DOT_CLASSES[i % DOT_CLASSES.length]} text-[12px] leading-none text-white`}
+              <span
+                style={{ marginRight: '0.5rem' }}
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[12px] leading-none text-white ${
+                  DOT_CLASSES[index % DOT_CLASSES.length]
+                }`}
               >
-                {i + 1}
-              </div>
-              <p className="min-w-0 flex-1 truncate text-[15px] text-ink">
-                {prize.name}
-              </p>
-              <span className="shrink-0 text-[15px] text-ink">
-                {prize.totalStock - prize.awardedStock}/{prize.totalStock}
+                {index + 1}
               </span>
-            </div>
-          ))}
-          {prizes.length === 0 && (
-            <p className="bg-white py-8 text-center text-[13px] text-sub">
-              当前活动暂无奖品
-            </p>
-          )}
-        </div>
-      </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-[15px] font-normal text-ink">
+                  {prize.name}
+                </h2>
+                <p className="mt-2.5 flex items-center gap-5 text-[14px] text-sub">
+                  <span>
+                    总数：
+                    <strong className="font-normal text-ink">
+                      {prize.totalStock}
+                    </strong>
+                  </span>
+                  <span>
+                    剩余：
+                    <strong className="font-normal text-ink">
+                      {remaining}
+                    </strong>
+                  </span>
+                </p>
+              </div>
+            </article>
+          );
+        })}
+
+        {prizes.length === 0 && (
+          <div className="flex min-h-48 items-center justify-center rounded-[14px] bg-white text-[14px] text-weak">
+            当前活动暂无奖品
+          </div>
+        )}
+      </main>
     </AppShell>
   );
 }

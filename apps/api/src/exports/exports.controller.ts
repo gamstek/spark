@@ -9,11 +9,12 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { RequireSession, SessionGuard } from '../auth/session.guard.js';
+import { requestOrigin } from '../common/request-origin.js';
 import { ExportsService } from './exports.service.js';
-type Request = { session: { subjectId: string } };
+type Request = FastifyRequest & { session: { subjectId: string } };
 @Controller('admin')
 @RequireSession('ADMIN')
 @UseGuards(SessionGuard)
@@ -27,7 +28,11 @@ export class ExportsController {
     return this.exports.create(id, request.session.subjectId);
   }
   @Get('exports/:id') get(@Param('id') id: string, @Req() request: Request) {
-    return this.exports.get(id, request.session.subjectId);
+    return this.exports.get(
+      id,
+      request.session.subjectId,
+      requestOrigin(request),
+    );
   }
   @Get('exports/:id/download')
   async download(

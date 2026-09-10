@@ -22,10 +22,10 @@ docker compose up -d postgres   # or the postgres:18-alpine container
 `pnpm db:test:start` runs `scripts/start-test-postgres.mjs`. It detects an
 existing data cluster (`node_modules/.cache/spark-pg`) via `PG_VERSION` and
 skips `initdb` and database creation on restart, so it is safe to stop and
-rerun. The port must stay free of a second instance — starting both the
-embedded server and the container on `54329` fails with an explicit port
-conflict error. Point `DATABASE_URL`/`TEST_DATABASE_URL` in `.env` at this
-instance and apply migrations with `pnpm --filter @spark/api db:migrate`.
+rerun. The port must stay free of a second instance — starting both the embedded
+server and the container on `54329` fails with an explicit port conflict error.
+Point `DATABASE_URL`/`TEST_DATABASE_URL` in `.env` at this instance and apply
+migrations with `pnpm --filter @spark/api db:migrate`.
 
 ## Applications
 
@@ -56,18 +56,16 @@ The activity H5 reads its state machine from `GET /api/activity/:code/runtime`
 and establishes its session through WeChat silent OAuth. In development, when no
 WeChat session is available (the runtime call returns 401), the page falls back
 to the static demo preview with the step toolbar; production builds redirect to
-`/api/wechat/oauth/start?returnPath=…` instead. `POST /api/activity/:code/lottery`
-is protected by a CSRF check, so while testing the draw locally set
-`PUBLIC_ORIGIN` in `.env` to the exact activity origin (for example
-`http://localhost:5173`) and restart `pnpm dev`.
+`/api/wechat/oauth/start?returnPath=…` instead.
+`POST /api/activity/:code/lottery` is protected by a CSRF token bound to the
+current session.
 
 Copy `.env.example` to `.env` for local development. Secrets must not be
 committed.
 
-`PUBLIC_ORIGIN` is the canonical origin used to build URLs (OAuth callback,
-redemption QR codes). Origin/CSRF validation also accepts the comma-separated
-`PUBLIC_ORIGIN_EXTRA` list, so several frontend dev servers (activity, staff,
-admin) can run against one API during local integration testing.
+OAuth callbacks, redemption QR codes and download links are built from the
+current request origin. This lets the Activity, Staff and Admin development
+servers share one API without maintaining an origin allowlist.
 
 Every environment variable, its source, secrecy requirement, and rotation impact
 is documented in `docs/project-spark-configuration.md`.
@@ -83,12 +81,9 @@ and are not exposed to browser code. Restart `pnpm dev` after changing `.env`;
 code watch mode does not reload the parent process environment. Production
 containers continue to receive their environment from Compose.
 
-For local admin login, set `PUBLIC_ORIGIN` to the exact browser origin (for
-example `http://localhost:5175`, without `/admin/`). If Vite selects another
-port because the default is occupied, update this setting to that port and
-restart `pnpm dev`. `localhost` and `127.0.0.1` are different origins. A
-mismatch is rejected with `ORIGIN_INVALID`, even when the account password is
-correct.
+OAuth and generated absolute links use the request protocol and host. Reverse
+proxies must preserve `Host` and set `X-Forwarded-Proto`; the included Nginx
+configuration already does so.
 
 The API's `predev` step applies pending database migrations before starting the
 development server. Direct API startup requires an up-to-date database; run

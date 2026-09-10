@@ -10,12 +10,14 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { RequireSession, SessionGuard } from '../auth/session.guard.js';
+import { requestOrigin } from '../common/request-origin.js';
 import { RedemptionsService } from './redemptions.service.js';
 
-type SessionRequest = { session: { subjectId: string } };
+type SessionRequest = FastifyRequest & { session: { subjectId: string } };
 
 @Controller()
 export class RedemptionsController {
@@ -28,7 +30,11 @@ export class RedemptionsController {
   @RequireSession('ACTIVITY')
   @UseGuards(SessionGuard)
   getOwnCode(@Param('code') code: string, @Req() request: SessionRequest) {
-    return this.redemptions.getOwnCode(request.session.subjectId, code);
+    return this.redemptions.getOwnCode(
+      request.session.subjectId,
+      code,
+      requestOrigin(request),
+    );
   }
 
   @Post('staff/redemptions/lookup')

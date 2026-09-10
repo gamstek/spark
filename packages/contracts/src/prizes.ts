@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const PrizeInputSchema = z
   .object({
+    prizeLevel: z.string().trim().min(1).max(40),
     name: z.string().trim().min(1).max(120),
     imageAssetId: z.string().trim().min(1).max(128).nullable(),
     stock: z.int().min(0),

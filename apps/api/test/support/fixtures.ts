@@ -82,11 +82,11 @@ export async function createScenario(
       prizeId,
     ]);
     await manager.query(
-      `INSERT INTO activity_prize (id, activity_id, prize_id, total_stock, awarded_stock, weight, prize_name) VALUES ($1,$2,$3,10,1,1,'一等奖')`,
+      `INSERT INTO activity_prize (id, activity_id, prize_id, total_stock, awarded_stock, weight, prize_level, prize_name) VALUES ($1,$2,$3,10,1,1,'一等奖','一等奖')`,
       [activityPrizeId, activityId, prizeId],
     );
     await manager.query(
-      `INSERT INTO activity_version_prize (id,activity_version_id,activity_prize_id,prize_name,weight) SELECT $1,$2,$3,prize_name,weight FROM activity_prize WHERE id=$3`,
+      `INSERT INTO activity_version_prize (id,activity_version_id,activity_prize_id,prize_level,prize_name,weight) SELECT $1,$2,$3,prize_level,prize_name,weight FROM activity_prize WHERE id=$3`,
       [randomUUID(), versionId, activityPrizeId],
     );
     await manager.query(

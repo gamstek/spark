@@ -12,16 +12,19 @@ type ActivityRow = {
   starts_at: Date;
   draw_ends_at: Date;
   redeem_ends_at: Date;
+  config: { noPrizeWeight?: number };
 };
 type PrizeRow = {
   id: string;
   remaining_stock: number;
   weight: string;
+  prize_level: string;
   prize_name: string;
   prize_image_url: string | null;
 };
 type WinRow = {
   id: string;
+  prize_level: string;
   prize_name: string;
   prize_image_url: string | null;
   redeem_end_at: Date;
@@ -29,6 +32,7 @@ type WinRow = {
 };
 
 const retryableCodes = new Set(['40001', '40P01']);
+const NO_PRIZE_ID = '__NO_PRIZE__';
 
 @Injectable()
 export class LotteryService {
@@ -41,10 +45,14 @@ export class LotteryService {
     ) => number = randomInt,
   ) {}
 
-  async draw(userId: string, activityCode: string): Promise<WinView> {
+  async draw(
+    userId: string,
+    activityCode: string,
+    origin = 'http://localhost',
+  ): Promise<WinView | null> {
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return await this.drawOnce(userId, activityCode);
+        return await this.drawOnce(userId, activityCode, origin);
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (!code || !retryableCodes.has(code) || attempt >= 2) throw error;
@@ -55,34 +63,36 @@ export class LotteryService {
   private async drawOnce(
     userId: string,
     activityCode: string,
-  ): Promise<WinView> {
+    origin: string,
+  ): Promise<WinView | null> {
     return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
       const activities = await manager.query<ActivityRow[]>(
-        `SELECT a.id,v.starts_at,v.draw_ends_at,v.redeem_ends_at FROM activity a JOIN activity_version v ON v.id=a.published_version_id WHERE a.code=$1`,
+        `SELECT a.id,v.starts_at,v.draw_ends_at,v.redeem_ends_at,v.config FROM activity a JOIN activity_version v ON v.id=a.published_version_id WHERE a.code=$1`,
         [activityCode],
       );
       const activity = activities[0];
       if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
       const prizes = await manager.query<PrizeRow[]>(
-        `SELECT ap.id,ap.total_stock-ap.awarded_stock AS remaining_stock,vp.weight,vp.prize_name,vp.prize_image_url
+        `SELECT ap.id,ap.total_stock-ap.awarded_stock AS remaining_stock,vp.weight,vp.prize_level,vp.prize_name,vp.prize_image_url
          FROM activity_version_prize vp JOIN activity_prize ap ON ap.id=vp.activity_prize_id
          WHERE vp.activity_version_id=(SELECT published_version_id FROM activity WHERE id=$1)
          ORDER BY ap.id FOR UPDATE OF ap`,
         [activity.id],
       );
       const participations = await manager.query<
-        { id: string; lead_completed: boolean }[]
+        { id: string; lead_completed: boolean; drawn_at: Date | null }[]
       >(
-        `SELECT id,lead_completed FROM activity_participation WHERE activity_id=$1 AND user_id=$2 FOR UPDATE`,
+        `SELECT id,lead_completed,drawn_at FROM activity_participation WHERE activity_id=$1 AND user_id=$2 FOR UPDATE`,
         [activity.id, userId],
       );
       const existing = await manager.query<WinRow[]>(
-        `SELECT l.id,l.prize_name,l.prize_image_url,l.redeem_end_at,r.status FROM lottery_record l JOIN redemption r ON r.lottery_record_id=l.id WHERE l.activity_id=$1 AND l.user_id=$2`,
+        `SELECT l.id,l.prize_level,l.prize_name,l.prize_image_url,l.redeem_end_at,r.status FROM lottery_record l JOIN redemption r ON r.lottery_record_id=l.id WHERE l.activity_id=$1 AND l.user_id=$2`,
         [activity.id, userId],
       );
-      if (existing[0]) return this.toView(existing[0]);
+      if (existing[0]) return this.toView(existing[0], origin);
       const participation = participations[0];
       if (!participation?.lead_completed) throw new Error('LEAD_REQUIRED');
+      if (participation.drawn_at) return null;
       const subscribed = await manager.query<{ subscribed: boolean }[]>(
         `SELECT subscribed FROM wechat_identity WHERE user_id=$1 AND subscribed=true LIMIT 1`,
         [userId],
@@ -94,15 +104,25 @@ export class LotteryService {
         now >= new Date(activity.draw_ends_at)
       )
         throw new Error('ACTIVITY_ENDED');
-      const selected = chooseWeightedPrize(
-        prizes.map((prize) => ({
-          id: prize.id,
-          remainingStock: Number(prize.remaining_stock),
-          weight: Number(prize.weight),
-        })),
-        this.randomInteger,
-      );
+      const candidates = prizes.map((prize) => ({
+        id: prize.id,
+        remainingStock: Number(prize.remaining_stock),
+        weight: Number(prize.weight),
+      }));
+      const noPrizeWeight = Number(activity.config.noPrizeWeight ?? 0);
+      if (noPrizeWeight > 0)
+        candidates.push({
+          id: NO_PRIZE_ID,
+          remainingStock: 1,
+          weight: noPrizeWeight,
+        });
+      const selected = chooseWeightedPrize(candidates, this.randomInteger);
       if (!selected) throw new Error('OUT_OF_STOCK');
+      await manager.query(
+        `UPDATE activity_participation SET drawn_at=$2,updated_at=$2 WHERE id=$1`,
+        [participation.id, now],
+      );
+      if (selected.id === NO_PRIZE_ID) return null;
       const prize = prizes.find((candidate) => candidate.id === selected.id)!;
       const updated = await manager.query(
         `UPDATE activity_prize SET awarded_stock=awarded_stock+1 WHERE id=$1 AND awarded_stock<total_stock`,
@@ -117,13 +137,14 @@ export class LotteryService {
       const redemptionId = randomUUID();
       const code = this.codes.create();
       await manager.query(
-        `INSERT INTO lottery_record (id,activity_id,user_id,participation_id,activity_prize_id,prize_name,prize_image_url,redeem_end_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        `INSERT INTO lottery_record (id,activity_id,user_id,participation_id,activity_prize_id,prize_level,prize_name,prize_image_url,redeem_end_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [
           lotteryId,
           activity.id,
           userId,
           participation.id,
           prize.id,
+          prize.prize_level,
           prize.prize_name,
           prize.prize_image_url,
           activity.redeem_ends_at,
@@ -140,27 +161,27 @@ export class LotteryService {
           activity.redeem_ends_at,
         ],
       );
-      return this.toView({
-        id: lotteryId,
-        prize_name: prize.prize_name,
-        prize_image_url: prize.prize_image_url,
-        redeem_end_at: activity.redeem_ends_at,
-        status: 'WAIT_REDEEM',
-      });
+      return this.toView(
+        {
+          id: lotteryId,
+          prize_level: prize.prize_level,
+          prize_name: prize.prize_name,
+          prize_image_url: prize.prize_image_url,
+          redeem_end_at: activity.redeem_ends_at,
+          status: 'WAIT_REDEEM',
+        },
+        origin,
+      );
     });
   }
 
-  private toView(row: WinRow): WinView {
+  private toView(row: WinRow, origin: string): WinView {
     const image = row.prize_image_url;
     return {
       id: row.id,
+      prizeLevel: row.prize_level,
       prizeName: row.prize_name,
-      prizeImageUrl: image
-        ? new URL(
-            image,
-            process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173',
-          ).toString()
-        : null,
+      prizeImageUrl: image ? new URL(image, origin).toString() : null,
       redeemEndAt: new Date(row.redeem_end_at).toISOString(),
       redemptionStatus: row.status,
     };

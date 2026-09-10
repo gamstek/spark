@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const ActivityPrizeViewSchema = z
   .object({
+    prizeLevel: z.string().trim().min(1).max(40),
     name: z.string().trim().min(1).max(120),
     imageUrl: z.string().nullable(),
   })
@@ -17,6 +18,7 @@ export const ActivityInfoSchema = z
     endsAt: z.iso.datetime(),
     drawEndsAt: z.iso.datetime(),
     rulesText: z.string().trim().min(1).max(4_000),
+    noPrizeWeight: z.number().min(0),
     prizes: z.array(ActivityPrizeViewSchema).max(64),
   })
   .strict();

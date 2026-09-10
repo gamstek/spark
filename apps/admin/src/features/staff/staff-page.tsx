@@ -32,6 +32,10 @@ import { LoadingState } from '../../components/loading-state';
 import { PageHeader } from '../../components/page-header';
 import { RequiredFieldMark } from '../../components/required-field-mark';
 import { StatusBadge } from '../../components/status-badge';
+import {
+  ActivityPermissionSelect,
+  type ActivityOption,
+} from './activity-permission-select';
 
 type Staff = {
   id: string;
@@ -41,14 +45,12 @@ type Staff = {
   disabled_at: string | null;
 };
 
-const parseActivityIds = (value: FormDataEntryValue | null) =>
-  String(value || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
+const activityIdsFrom = (form: FormData) =>
+  form.getAll('activityIds').map(String).filter(Boolean);
 
 export function StaffPage() {
   const [rows, setRows] = useState<Staff[]>([]);
+  const [activities, setActivities] = useState<ActivityOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
@@ -56,11 +58,18 @@ export function StaffPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [createError, setCreateError] = useState('');
+  const [createActivityIds, setCreateActivityIds] = useState<string[]>([]);
+  const [editingActivityIds, setEditingActivityIds] = useState<string[]>([]);
   const createPending = useRef(false);
 
   const load = useCallback(async () => {
     try {
-      setRows(await api<Staff[]>('admin/staff'));
+      const [staffRows, activityRows] = await Promise.all([
+        api<Staff[]>('admin/staff'),
+        api<ActivityOption[]>('admin/activities'),
+      ]);
+      setRows(staffRows);
+      setActivities(activityRows);
     } catch {
       setError('工作人员列表加载失败，请稍后重试。');
     } finally {
@@ -99,15 +108,16 @@ export function StaffPage() {
           username: form.get('username'),
           displayName: form.get('displayName'),
           password: form.get('password'),
-          activityIds: parseActivityIds(form.get('activityIds')),
+          activityIds: activityIdsFrom(form),
         }),
       });
       formElement.reset();
+      setCreateActivityIds([]);
       setCreateOpen(false);
       setMessage('工作人员已创建并完成活动授权。');
       await load();
     } catch {
-      setCreateError('工作人员创建失败，请检查登录名、密码和活动 ID。');
+      setCreateError('工作人员创建失败，请检查登录名、密码和活动授权。');
     } finally {
       setBusyId('');
       createPending.current = false;
@@ -125,7 +135,7 @@ export function StaffPage() {
         method: 'PATCH',
         body: JSON.stringify({
           displayName: form.get('displayName'),
-          activityIds: parseActivityIds(form.get('activityIds')),
+          activityIds: activityIdsFrom(form),
         }),
       });
       const password = String(form.get('password') ?? '');
@@ -174,6 +184,7 @@ export function StaffPage() {
         if (!createPending.current) {
           setCreateOpen(value);
           setCreateError('');
+          if (value) setCreateActivityIds([]);
         }
       }}
     >
@@ -228,17 +239,12 @@ export function StaffPage() {
             direction="column"
             gap="4"
           >
-            <Flex
-              direction="column"
-              gap="1"
+            <Text
+              size="2"
+              color="gray"
             >
-              <Text
-                size="2"
-                color="gray"
-              >
-                活动 ID 使用英文逗号分隔。账号创建后可随时修改授权范围。
-              </Text>
-            </Flex>
+              账号创建后可随时修改活动授权范围。
+            </Text>
             <Grid
               columns={{ initial: '1', sm: '2' }}
               gap="3"
@@ -299,22 +305,22 @@ export function StaffPage() {
                   required
                 />
               </Text>
-              <Text
-                as="label"
-                size="2"
-                weight="medium"
-              >
-                可操作活动 ID
-                <TextField.Root
+              <div>
+                <Text
+                  as="div"
                   size="2"
-                  variant="soft"
-                  color="gray"
-                  mt="1"
-                  name="activityIds"
-                  aria-label="可操作活动 ID"
-                  placeholder="ID-1, ID-2"
-                />
-              </Text>
+                  weight="medium"
+                >
+                  可操作活动
+                </Text>
+                <div className="mt-1">
+                  <ActivityPermissionSelect
+                    activities={activities}
+                    selectedIds={createActivityIds}
+                    onChange={setCreateActivityIds}
+                  />
+                </div>
+              </div>
             </Grid>
             {createError && (
               <div role="alert">
@@ -514,7 +520,9 @@ export function StaffPage() {
                             color="gray"
                             variant="surface"
                           >
-                            {activityId}
+                            {activities.find(
+                              (activity) => activity.id === activityId,
+                            )?.name ?? '未知活动'}
                           </Badge>
                         ))}
                         {staff.activity_ids.length > 3 && (
@@ -542,7 +550,10 @@ export function StaffPage() {
                     size="2"
                     variant="soft"
                     color="gray"
-                    onClick={() => setEditingStaff(staff)}
+                    onClick={() => {
+                      setEditingStaff(staff);
+                      setEditingActivityIds(staff.activity_ids);
+                    }}
                   >
                     <Pencil2Icon />
                     账号设置
@@ -677,23 +688,22 @@ export function StaffPage() {
                     required
                   />
                 </Text>
-                <Text
-                  as="label"
-                  size="2"
-                  weight="medium"
-                >
-                  可操作活动 ID
-                  <TextField.Root
+                <div>
+                  <Text
+                    as="div"
                     size="2"
-                    variant="soft"
-                    color="gray"
-                    mt="1"
-                    name="activityIds"
-                    aria-label="可操作活动 ID"
-                    defaultValue={editingStaff.activity_ids.join(', ')}
-                    placeholder="活动 ID，以英文逗号分隔"
-                  />
-                </Text>
+                    weight="medium"
+                  >
+                    可操作活动
+                  </Text>
+                  <div className="mt-1">
+                    <ActivityPermissionSelect
+                      activities={activities}
+                      selectedIds={editingActivityIds}
+                      onChange={setEditingActivityIds}
+                    />
+                  </div>
+                </div>
                 <Text
                   as="label"
                   size="2"

@@ -12,7 +12,6 @@ import {
   useSearchParams,
 } from 'react-router-dom';
 
-import { DevStepToolbar } from './components/dev-step-toolbar';
 import { StaffRuntimeProvider, useStaff } from './lib/runtime';
 import { EnterCodePage } from './pages/enter-code-page';
 import { HomePage } from './pages/home-page';
@@ -21,6 +20,7 @@ import { PrizeStockPage } from './pages/prize-stock-page';
 import { ProfilePage } from './pages/profile-page';
 import { RedeemConfirmPage } from './pages/redeem-confirm-page';
 import { RedeemSuccessPage } from './pages/redeem-success-page';
+import { RulesPage } from './pages/rules-page';
 import { ScanPage } from './pages/scan-page';
 import { TodosPage } from './pages/todos-page';
 
@@ -107,6 +107,10 @@ export function App() {
                   element={<TodosPage />}
                 />
                 <Route
+                  path="/rules"
+                  element={<RulesPage />}
+                />
+                <Route
                   path="*"
                   element={
                     <Navigate
@@ -117,7 +121,6 @@ export function App() {
                 />
               </Route>
             </Routes>
-            <DevStepToolbar />
           </StaffRuntimeProvider>
         </BrowserRouter>
       </QueryClientProvider>

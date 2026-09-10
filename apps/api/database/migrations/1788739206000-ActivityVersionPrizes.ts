@@ -12,6 +12,7 @@ export class ActivityVersionPrizes1788739206000 implements MigrationInterface {
         id uuid PRIMARY KEY,
         activity_version_id uuid NOT NULL REFERENCES activity_version(id) ON DELETE RESTRICT,
         activity_prize_id uuid NOT NULL REFERENCES activity_prize(id) ON DELETE RESTRICT,
+        prize_level varchar(40) NOT NULL,
         prize_name varchar(120) NOT NULL,
         prize_image_url text,
         weight numeric(12,6) NOT NULL CHECK (weight > 0),

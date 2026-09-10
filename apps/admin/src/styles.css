@@ -602,9 +602,18 @@ a {
 }
 .editor-form {
   display: grid;
-  max-width: 1040px;
-  margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  width: 100%;
   gap: 24px;
+}
+.editor-form-content {
+  display: grid;
+  min-width: 0;
+  gap: 24px;
+}
+.activity-tab-content {
+  min-width: 0;
 }
 .editor-form,
 .form-section,
@@ -633,7 +642,10 @@ a {
   grid-column: 1 / -1;
 }
 .form-grid-prize {
-  grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(90px, 0.75fr));
+  grid-template-columns: repeat(2, minmax(0, 1.2fr)) repeat(
+      2,
+      minmax(90px, 0.75fr)
+    );
 }
 .field-label {
   display: flex;
@@ -683,17 +695,20 @@ a {
 }
 .editor-action-bar {
   position: sticky;
-  bottom: 20px;
+  top: 96px;
   z-index: 10;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 20px;
   padding: 20px 24px;
   border: 1px solid var(--gray-a5);
   border-radius: var(--radius-5);
   box-shadow: var(--shadow-4);
   background: var(--color-panel-solid);
+}
+.editor-action-buttons {
+  width: 100%;
 }
 .editor-action-summary {
   display: flex;
@@ -901,6 +916,12 @@ a {
   color: var(--spark-muted);
 }
 @media (max-width: 1150px) {
+  .editor-form {
+    grid-template-columns: 1fr;
+  }
+  .editor-action-bar {
+    position: static;
+  }
   .form-section {
     grid-template-columns: 1fr;
     gap: 24px;
@@ -1053,6 +1074,21 @@ a {
     min-height: auto;
   }
 }
+.activity-permission-select {
+  width: 100%;
+  justify-content: space-between;
+}
+.activity-permission-select > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-permission-menu {
+  min-width: min(320px, calc(100vw - 32px));
+  max-width: min(420px, calc(100vw - 32px));
+}
+
 @media (forced-colors: active) {
   * {
     scrollbar-color: auto;

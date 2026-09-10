@@ -15,6 +15,7 @@ const config = {
   prefillField: 'participant',
   fieldMapping: { participationId: '参与编号', name: '姓名', phone: '手机号' },
   requireSubscribe: true,
+  noPrizeWeight: 1,
   heroAssetId: 'hero',
   rulesText: '规则',
 };
@@ -70,6 +71,7 @@ describe('admin operations', () => {
     });
     const service = new PrizesService(database.dataSource);
     const prize = await service.create(activity.id, {
+      prizeLevel: '纪念奖',
       name: '纪念奖',
       totalStock: 0,
       weight: 1,
@@ -92,11 +94,30 @@ describe('admin operations', () => {
   it('rejects adding a prize after the published activity starts', async () => {
     await expect(
       new PrizesService(database.dataSource).create(scenario.activityId, {
+        prizeLevel: '特别奖',
         name: 'Too late',
         totalStock: 1,
         weight: 1,
       }),
     ).rejects.toThrow('ACTIVITY_STARTED');
+  });
+  it('updates the live no-prize weight after an activity starts', async () => {
+    const service = new PrizesService(database.dataSource);
+
+    await service.updateNoPrizeWeight(scenario.activityId, 12.5);
+
+    const versions = await database.dataSource.query<
+      { no_prize_weight: number }[]
+    >(
+      `SELECT (config->>'noPrizeWeight')::double precision AS no_prize_weight
+       FROM activity_version
+       WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId],
+    );
+    expect(versions[0]?.no_prize_weight).toBe(12.5);
+    await expect(
+      service.updateNoPrizeWeight(scenario.activityId, -1),
+    ).rejects.toThrow('INVALID_NO_PRIZE_WEIGHT');
   });
   it('creates a new draft from an immutable published snapshot before start', async () => {
     const activities = new ActivitiesService(database.dataSource);
@@ -112,6 +133,7 @@ describe('admin operations', () => {
       redeemEndsAt: '2099-10-04T00:00:00Z',
     });
     await prizes.create(activity.id, {
+      prizeLevel: '一等奖',
       name: 'Published prize',
       totalStock: 1,
       weight: 1,
@@ -125,6 +147,7 @@ describe('admin operations', () => {
       published_version_id: string;
     };
     await prizes.create(activity.id, {
+      prizeLevel: '二等奖',
       name: 'Next prize',
       totalStock: 1,
       weight: 1,

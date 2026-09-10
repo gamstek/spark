@@ -7,10 +7,16 @@ test('creates staff inside a dialog and retains input on failure', async ({
     r.fulfill({ json: { csrfToken: 'csrf' } }),
   );
   let attempts = 0;
-  await page.route('**/api/admin/staff', (r) =>
-    r.request().method() === 'POST'
-      ? r.fulfill({ status: ++attempts === 1 ? 400 : 200, json: {} })
-      : r.fulfill({ json: [] }),
+  let submittedActivityIds: string[] = [];
+  await page.route('**/api/admin/staff', (r) => {
+    if (r.request().method() !== 'POST') return r.fulfill({ json: [] });
+    submittedActivityIds = r.request().postDataJSON().activityIds;
+    return r.fulfill({ status: ++attempts === 1 ? 400 : 200, json: {} });
+  });
+  await page.route('**/api/admin/activities', (r) =>
+    r.fulfill({
+      json: [{ id: 'activity-1', name: '上海展会抽奖' }],
+    }),
   );
   await page.goto('/admin/staff');
   await expect(page.getByLabel('登录名', { exact: true })).toBeHidden();
@@ -20,13 +26,17 @@ test('creates staff inside a dialog and retains input on failure', async ({
   await dialog.getByLabel('登录名', { exact: true }).fill('expo');
   await dialog.getByLabel('显示名称', { exact: true }).fill('展会核销组');
   await dialog.getByLabel('初始密码', { exact: true }).fill('password12345');
+  await dialog.getByRole('button', { name: '可操作活动' }).click();
+  await page.getByRole('menuitemcheckbox', { name: '上海展会抽奖' }).click();
+  await page.keyboard.press('Escape');
   await dialog.getByRole('button', { name: '创建并授权' }).click();
   await expect(
-    dialog.getByText('工作人员创建失败，请检查登录名、密码和活动 ID。'),
+    dialog.getByText('工作人员创建失败，请检查登录名、密码和活动授权。'),
   ).toBeVisible();
   await expect(dialog.getByLabel('登录名', { exact: true })).toHaveValue(
     'expo',
   );
+  expect(submittedActivityIds).toEqual(['activity-1']);
   await page.screenshot({ path: 'test-results/staff-dialog.png' });
   await dialog.getByRole('button', { name: '创建并授权' }).click();
   await expect(dialog).toBeHidden();

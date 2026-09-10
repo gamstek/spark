@@ -56,10 +56,12 @@ test('logs in and creates the only supported activity template', async ({
   await page.getByRole('link', { name: '新建活动' }).click();
   await expect(page.locator('.required-field-mark')).toHaveCount(10);
   await page.getByPlaceholder('活动名称').fill('展会活动');
-  await page.getByPlaceholder('钉钉表单 ID').fill('form-id');
   await page
-    .getByPlaceholder('已验证的钉钉预填链接')
-    .fill('https://alidocs.dingtalk.com/notable/share/form/test?participant=');
+    .getByPlaceholder('钉钉表单 HTTPS 分享链接')
+    .fill(
+      'https://alidocs.dingtalk.com/notable/share/form/form-id?source=link',
+    );
+  await expect(page.getByPlaceholder('钉钉表单 ID')).toHaveValue('form-id');
   await page.getByPlaceholder('主图资源 ID').fill('hero');
   await page.getByPlaceholder('活动规则').fill('数量有限，先到先得');
   await page.locator('[name="startsAt"]').fill('2026-09-17T10:49');
@@ -76,7 +78,21 @@ test('logs in and creates the only supported activity template', async ({
   await expect(page).toHaveURL(/\/admin\/activities\/created$/);
   await expect(page.getByText('活动地址：/activity/generated1')).toBeVisible();
 
+  await page.getByRole('navigation', { name: '活动功能' }).evaluate((node) => {
+    (window as typeof window & { activityNavNode?: Element }).activityNavNode =
+      node;
+  });
   await page.getByRole('link', { name: '奖品与库存' }).click();
+  expect(
+    await page
+      .getByRole('navigation', { name: '活动功能' })
+      .evaluate(
+        (node) =>
+          (window as typeof window & { activityNavNode?: Element })
+            .activityNavNode === node,
+      ),
+  ).toBe(true);
+  await page.getByLabel('奖项等级').fill('一等奖');
   await page.getByLabel('奖品名称').fill('展会礼盒');
   await page.getByLabel('初始库存').fill('20');
   await page.getByLabel('抽奖权重').fill('1');

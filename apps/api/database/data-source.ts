@@ -9,6 +9,7 @@ import { DingTalkSubmissions1788739203000 } from './migrations/1788739203000-Din
 import { LotteryRedemptionCodes1788739204000 } from './migrations/1788739204000-LotteryRedemptionCodes.js';
 import { ExportMetadata1788739205000 } from './migrations/1788739205000-ExportMetadata.js';
 import { ActivityVersionPrizes1788739206000 } from './migrations/1788739206000-ActivityVersionPrizes.js';
+import { LotteryNoPrizeOutcome1788739207000 } from './migrations/1788739207000-LotteryNoPrizeOutcome.js';
 
 export function createDataSource(
   options: { url?: string; schema?: string } = {},
@@ -33,6 +34,7 @@ export function createDataSource(
       LotteryRedemptionCodes1788739204000,
       ExportMetadata1788739205000,
       ActivityVersionPrizes1788739206000,
+      LotteryNoPrizeOutcome1788739207000,
     ],
     entities: databaseEntities,
     synchronize: false,

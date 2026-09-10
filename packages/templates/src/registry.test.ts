@@ -12,6 +12,7 @@ const validConfig = {
     phone: '手机号',
   },
   requireSubscribe: true,
+  noPrizeWeight: 1,
   heroAssetId: 'asset-hero-001',
   rulesText: '填写信息后参与抽奖，每人每场活动限一次。',
 };
@@ -19,7 +20,9 @@ const validConfig = {
 describe('template registry', () => {
   it('resolves a template by its exact id and version', () => {
     expect(getTemplate('exhibition-lottery', 1).version).toBe(1);
-    expect(() => getTemplate('exhibition-lottery', 99)).toThrow('UNSUPPORTED_TEMPLATE');
+    expect(() => getTemplate('exhibition-lottery', 99)).toThrow(
+      'UNSUPPORTED_TEMPLATE',
+    );
   });
 
   it('accepts a complete exhibition lottery configuration', () => {
@@ -27,10 +30,19 @@ describe('template registry', () => {
   });
 
   it.each([
-    [{ ...validConfig, fieldMapping: { name: '姓名', phone: '手机号' } }, 'missing participation mapping'],
+    [
+      { ...validConfig, fieldMapping: { name: '姓名', phone: '手机号' } },
+      'missing participation mapping',
+    ],
     [{ ...validConfig, formUrl: 'javascript:alert(1)' }, 'script URL'],
-    [{ ...validConfig, formUrl: 'https://example.com/form' }, 'non-DingTalk host'],
-    [{ ...validConfig, callbackSecret: 'must-not-be-configurable' }, 'unknown secret field'],
+    [
+      { ...validConfig, formUrl: 'https://example.com/form' },
+      'non-DingTalk host',
+    ],
+    [
+      { ...validConfig, callbackSecret: 'must-not-be-configurable' },
+      'unknown secret field',
+    ],
   ])('rejects invalid configuration: %s', (config, reason) => {
     expect(reason).toBeTruthy();
     expect(LotteryConfigSchema.safeParse(config).success).toBe(false);

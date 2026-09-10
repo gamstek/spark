@@ -23,9 +23,22 @@ export class StaffController {
 
   @Get('activities')
   async listActivities(@Req() request: { session: { subjectId: string } }) {
-    return this.dataSource.query<{ id: string; code: string; name: string }[]>(
-      `SELECT activity.id, activity.code, activity.name FROM activity
+    return this.dataSource.query<
+      {
+        id: string;
+        code: string;
+        name: string;
+        startsAt: Date;
+        endsAt: Date;
+        rulesText: string;
+      }[]
+    >(
+      `SELECT activity.id, activity.code, activity.name,
+         version.starts_at AS "startsAt", version.ends_at AS "endsAt",
+         COALESCE(version.config->>'rulesText','') AS "rulesText"
+       FROM activity
        JOIN staff_activity_permission permission ON permission.activity_id=activity.id
+       JOIN activity_version version ON version.id=activity.published_version_id
        WHERE permission.staff_account_id=$1 ORDER BY activity.name`,
       [request.session.subjectId],
     );
@@ -46,12 +59,14 @@ export class StaffController {
         activityId,
       });
     if (!permitted) throw new ForbiddenException('FORBIDDEN');
-    return this.dataSource.query<{
-      id: string;
-      name: string;
-      totalStock: number;
-      awardedStock: number;
-    }[]>(
+    return this.dataSource.query<
+      {
+        id: string;
+        name: string;
+        totalStock: number;
+        awardedStock: number;
+      }[]
+    >(
       `SELECT ap.id,ap.prize_name AS "name",ap.total_stock AS "totalStock",ap.awarded_stock AS "awardedStock"
        FROM activity_prize ap WHERE ap.activity_id=$1 ORDER BY ap.created_at,ap.id`,
       [activityId],

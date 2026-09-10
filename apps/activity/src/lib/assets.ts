@@ -11,22 +11,12 @@ export interface SliceAssets {
   // 扫码关注
   subscribeQr: string;
   subscribeBg: string;
-  // 关注成功 / 提交成功
-  followSuccessIcon: string;
-  followSuccessBg: string;
+  // 提交成功
   submitSuccessIcon: string;
   submitSuccessBg: string;
-  // 抽奖中：整页背景 + 转盘盘面 + 转盘中心
+  // 抽奖中：整页背景 + 转盘盘面
   lotteryBg: string;
   lotteryWheelFace: string;
-  lotteryWheelCenter: string;
-  // 恭喜中奖：整页背景 + 祝贺标题 + 奖品礼盒
-  prizeBg: string;
-  prizeCongratsTitle: string;
-  prizeGiftBox: string;
-  // 核销成功
-  redeemedSuccessIcon: string;
-  redeemedSuccessBg: string;
 }
 
 const slices: Record<string, string> = import.meta.glob(
@@ -55,16 +45,8 @@ export const SLICES: SliceAssets = {
   ],
   subscribeQr: pick('subscribe', 'qr'),
   subscribeBg: pick('subscribe', 'bg'),
-  followSuccessIcon: pick('follow-success', 'icon'),
-  followSuccessBg: pick('follow-success', 'bg'),
   submitSuccessIcon: pick('submit-success', 'icon'),
   submitSuccessBg: pick('submit-success', 'bg'),
   lotteryBg: pick('lottery', 'bg'),
   lotteryWheelFace: pick('lottery', 'wheel-face'),
-  lotteryWheelCenter: pick('lottery', 'wheel-center'),
-  prizeBg: pick('prize', 'bg'),
-  prizeCongratsTitle: pick('prize', 'congrats-title'),
-  prizeGiftBox: pick('prize', 'gift-box'),
-  redeemedSuccessIcon: pick('redeemed-success', 'icon'),
-  redeemedSuccessBg: pick('redeemed-success', 'bg'),
 };

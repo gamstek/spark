@@ -4,6 +4,7 @@ import {
   Get,
   Inject,
   Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -21,9 +22,23 @@ export class PrizesController {
   }
   @Post('activities/:activityId') @UseGuards(CsrfGuard) create(
     @Param('activityId') activityId: string,
-    @Body() body: { name: string; totalStock: number; weight: number },
+    @Body()
+    body: {
+      prizeLevel: string;
+      name: string;
+      totalStock: number;
+      weight: number;
+    },
   ) {
     return this.prizes.create(activityId, body);
+  }
+  @Patch('activities/:activityId/no-prize-weight')
+  @UseGuards(CsrfGuard)
+  updateNoPrizeWeight(
+    @Param('activityId') activityId: string,
+    @Body() body: { noPrizeWeight: number },
+  ) {
+    return this.prizes.updateNoPrizeWeight(activityId, body.noPrizeWeight);
   }
   @Post('activity-prizes/:id/stock') @UseGuards(CsrfGuard) async addStock(
     @Param('id') id: string,

@@ -12,7 +12,7 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { AccountsService } from './accounts.service.js';
-import { allowedOrigins, CsrfGuard, validateOrigin } from './csrf.guard.js';
+import { CsrfGuard } from './csrf.guard.js';
 import {
   cookieNames,
   readCookie,
@@ -49,7 +49,6 @@ abstract class RoleAuthController {
     request: FastifyRequest,
     reply: FastifyReply,
   ) {
-    validateOrigin(request.headers.origin, allowedOrigins());
     const account = await this.accounts.authenticate(
       this.role,
       body.username ?? '',

@@ -2,11 +2,9 @@ import { Card, Table, Text } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
-import { ActivityNav } from '../../components/activity-nav';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
 import { LoadingState } from '../../components/loading-state';
-import { PageHeader } from '../../components/page-header';
 import { StatusBadge } from '../../components/status-badge';
 
 type Participant = {
@@ -43,13 +41,6 @@ export function ParticipantsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="活动运营"
-        title="参与者"
-        description="查看参与记录、首次有效线索和中奖核销状态。"
-      />
-      <ActivityNav activityId={id} />
-
       {error && (
         <FeedbackCallout
           message={error}

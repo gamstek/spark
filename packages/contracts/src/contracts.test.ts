@@ -59,6 +59,7 @@ describe('shared API contracts', () => {
           phone: '手机号',
         },
         requireSubscribe: true,
+        noPrizeWeight: 1,
         heroAssetId: 'hero',
         rulesText: '活动规则',
       },

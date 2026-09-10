@@ -17,10 +17,9 @@
    设置数据库、微信公众号凭据、钉钉回调密钥和兑奖码密钥，并执行
    `chmod 600 /opt/spark/.env.production`。容器内数据库主机名使用
    `postgres`，密码中的特殊字符必须进行 URL 编码。
-2. 设置 `PUBLIC_ORIGIN=https://spark.gamstek.com`，不能带路径或结尾斜杠。
-3. 安装 Docker Engine、Docker Compose 插件、系统 Nginx 和 Certbot。
-4. 使用具有 `read:packages` 权限的 GitHub Token，以部署账户登录 GHCR。
-5. 将仓库中的 `nginx/sites-available/spark.gamstek.com.conf`
+2. 安装 Docker Engine、Docker Compose 插件、系统 Nginx 和 Certbot。
+3. 使用具有 `read:packages` 权限的 GitHub Token，以部署账户登录 GHCR。
+4. 将仓库中的 `nginx/sites-available/spark.gamstek.com.conf`
    安装到系统 Nginx，创建 `sites-enabled` 软链接；只有 `nginx -t`
    成功后才能 reload。
 

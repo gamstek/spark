@@ -39,7 +39,11 @@ describe('development API proxies', () => {
 
     const resolved = await resolveConfig(config);
 
-    expect(resolved.server?.proxy?.['/api']).toBe('http://127.0.0.1:43129');
+    expect(resolved.server?.proxy?.['/api']).toMatchObject({
+      target: 'http://127.0.0.1:43129',
+      changeOrigin: true,
+      xfwd: true,
+    });
   });
 
   it('loads the root env file and lets shell settings override it', async () => {

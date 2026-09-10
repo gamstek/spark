@@ -11,10 +11,12 @@ export function EnterCodePage() {
   const [error, setError] = useState('');
 
   const next = () => {
-    if (!code.trim()) {
+    const normalizedCode = code.replace(/[\s-]/g, '').toUpperCase();
+    if (!normalizedCode) {
       setError('请输入兑奖码');
       return;
     }
+    setCode(normalizedCode);
     setError('');
     navigate('/redeem/confirm');
   };
@@ -36,11 +38,20 @@ export function EnterCodePage() {
       <div className="flex flex-1 flex-col items-center justify-center px-6">
         <input
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={(e) =>
+            setCode(
+              e.target.value
+                .replace(/[^a-zA-Z0-9]/g, '')
+                .toUpperCase()
+                .slice(0, 8),
+            )
+          }
           onKeyDown={(e) => {
             if (e.key === 'Enter') next();
           }}
           placeholder="请输入兑奖码"
+          autoCapitalize="characters"
+          maxLength={8}
           className="h-[50px] w-full rounded-[10px] bg-white px-4 text-[18px] text-ink outline-none placeholder:text-[15px] placeholder:text-sub"
         />
         {error && <p className="mt-2 text-[13px] text-[#FFD07F]">{error}</p>}

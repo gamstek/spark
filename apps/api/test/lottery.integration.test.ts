@@ -85,10 +85,39 @@ describe('atomic lottery and inventory', () => {
       service().draw(scenario.userIds[0], 'expo-2026'),
       service().draw(scenario.userIds[0], 'expo-2026'),
     ]);
-    expect(first.id).toBe(second.id);
+    expect(first?.id).toBe(second?.id);
     expect(
       await database.dataSource.query(`SELECT id FROM lottery_record`),
     ).toHaveLength(1);
+  });
+
+  it('records a no-prize result and does not allow another draw', async () => {
+    await database.dataSource.query(
+      `UPDATE activity_version SET config=config || '{"noPrizeWeight":1000}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId],
+    );
+    const noPrizeService = new LotteryService(
+      database.dataSource,
+      codes,
+      () => scenario.now,
+      (maxExclusive) => maxExclusive - 1,
+    );
+
+    await expect(
+      noPrizeService.draw(scenario.userIds[0], 'expo-2026'),
+    ).resolves.toBeNull();
+    await expect(
+      noPrizeService.draw(scenario.userIds[0], 'expo-2026'),
+    ).resolves.toBeNull();
+    expect(
+      await database.dataSource.query(`SELECT id FROM lottery_record`),
+    ).toHaveLength(0);
+    const participation = await database.dataSource.query<
+      { drawn_at: Date | null }[]
+    >(`SELECT drawn_at FROM activity_participation WHERE user_id=$1`, [
+      scenario.userIds[0],
+    ]);
+    expect(participation[0]?.drawn_at).toBeInstanceOf(Date);
   });
 
   it('does not consume eligibility when empty and succeeds after stock is added', async () => {
@@ -190,8 +219,8 @@ describe('atomic lottery and inventory', () => {
 
   it('encrypts a random redemption code with authentication', () => {
     const created = codes.create();
-    expect(codes.restore(created.encryptedCode, created.keyId)).toHaveLength(
-      24,
+    expect(codes.restore(created.encryptedCode, created.keyId)).toMatch(
+      /^[A-HJ-NP-Z2-9]{8}$/,
     );
     const damagedBytes = Buffer.from(created.encryptedCode, 'base64url');
     const last = damagedBytes.length - 1;

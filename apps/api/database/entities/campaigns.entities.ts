@@ -73,6 +73,8 @@ export class ActivityVersionPrize {
   activityPrizeId!: string;
   @Column({ name: 'prize_name', type: 'varchar', length: 120 })
   prizeName!: string;
+  @Column({ name: 'prize_level', type: 'varchar', length: 40 })
+  prizeLevel!: string;
   @Column({ name: 'prize_image_url', type: 'text', nullable: true })
   prizeImageUrl!: string | null;
   @Column({ type: 'numeric', precision: 12, scale: 6 }) weight!: string;

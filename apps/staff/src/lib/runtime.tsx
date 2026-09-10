@@ -21,6 +21,9 @@ export interface StaffActivity {
   id: string;
   code: string;
   name: string;
+  startsAt: string;
+  endsAt: string;
+  rulesText: string;
 }
 
 interface StaffContextValue {
@@ -109,7 +112,8 @@ export function StaffRuntimeProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (username: string, password: string) => {
       await staffApi.login(username, password);
-      await queryClient.invalidateQueries({ queryKey: ['staff-me'] });
+      const me = await staffApi.me();
+      queryClient.setQueryData(['staff-me'], me);
     },
     [queryClient],
   );
@@ -158,7 +162,9 @@ export function StaffRuntimeProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  return <StaffContext.Provider value={value}>{children}</StaffContext.Provider>;
+  return (
+    <StaffContext.Provider value={value}>{children}</StaffContext.Provider>
+  );
 }
 
 export function useStaff(): StaffContextValue {

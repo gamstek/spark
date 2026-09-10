@@ -35,8 +35,6 @@ export class DingTalkPrefillService {
       activity.id,
     );
     const url = new URL(activity.config.formUrl);
-    if (!url.searchParams.has(activity.config.prefillField))
-      throw new Error('FORM_PREFILL_SAMPLE_INVALID');
     url.searchParams.set(activity.config.prefillField, participation.id);
     return { url: url.toString() };
   }

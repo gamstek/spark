@@ -54,11 +54,9 @@ export function LoginPage() {
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : '';
       setError(
-        message.includes('ORIGIN_INVALID')
-          ? '当前访问地址未获授权，请联系管理员检查后台访问地址配置。'
-          : /INVALID_CREDENTIALS|UNAUTHORIZED|Unauthorized|401/.test(message)
-            ? '账号或密码错误，请重试'
-            : '登录暂时失败，请检查网络连接后重试。',
+        /INVALID_CREDENTIALS|UNAUTHORIZED|Unauthorized|401/.test(message)
+          ? '账号或密码错误，请重试'
+          : '登录暂时失败，请检查网络连接后重试。',
       );
     } finally {
       pending.current = false;

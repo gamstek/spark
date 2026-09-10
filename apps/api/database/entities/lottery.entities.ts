@@ -18,6 +18,8 @@ export class ActivityPrize {
   @Column({ name: 'prize_id', type: 'uuid' }) prizeId!: string;
   @Column({ name: 'prize_name', type: 'varchar', length: 120 })
   prizeName!: string;
+  @Column({ name: 'prize_level', type: 'varchar', length: 40 })
+  prizeLevel!: string;
   @Column({ name: 'prize_image_url', type: 'text', nullable: true })
   prizeImageUrl!: string | null;
   @Column({ name: 'total_stock', type: 'integer' }) totalStock!: number;
@@ -40,6 +42,8 @@ export class LotteryRecord {
   activityPrizeId!: string;
   @Column({ name: 'prize_name', type: 'varchar', length: 120, nullable: true })
   prizeName!: string | null;
+  @Column({ name: 'prize_level', type: 'varchar', length: 40, nullable: true })
+  prizeLevel!: string | null;
   @Column({ name: 'prize_image_url', type: 'text', nullable: true })
   prizeImageUrl!: string | null;
   @Column({ name: 'redeem_end_at', type: 'timestamptz', nullable: true })

@@ -33,19 +33,32 @@ export function HomePage() {
     0,
   );
   const stats = [
-    { label: '今日核销', value: String(todayRedeemed), img: SLICES.home.statToday },
-    { label: '待兑奖', value: String(pending), img: SLICES.home.statPending },
-    { label: '剩余奖品', value: String(remaining), img: SLICES.home.statStock },
+    {
+      label: '今日核销',
+      value: String(todayRedeemed),
+      unit: '笔',
+      img: SLICES.home.statToday,
+    },
+    {
+      label: '待兑奖',
+      value: String(pending),
+      unit: '份',
+      img: SLICES.home.statPending,
+    },
+    {
+      label: '剩余奖品',
+      value: String(remaining),
+      unit: '份',
+      img: SLICES.home.statStock,
+    },
   ];
-  const recentRecords = records.slice(0, 3);
+  const recentRecords = records
+    .filter((record) => record.status === 'REDEEMED')
+    .slice(0, 3);
 
   return (
     <AppShell>
-      <div className="px-3 pb-4">
-        <header className="py-3 text-center text-[18px] text-ink">
-          工作人员工作台
-        </header>
-
+      <div className="px-4 pt-3 pb-5">
         {/* 当前活动卡（点击切换活动） */}
         <button
           onClick={() => setSheetOpen(true)}
@@ -60,55 +73,53 @@ export function HomePage() {
         </div>
 
         {/* 核销入口 */}
-        <div className="mt-3 grid gap-3">
+        <div className="mt-3 grid gap-3.5">
           <button
             onClick={() => navigate('/scan')}
-            className="flex items-center gap-4 rounded-[14px] bg-gradient-to-b from-[#4360D1] to-[#3a4fb0] px-4 py-3 text-left text-white"
+            className="flex h-[96px] items-center gap-4 rounded-[14px] bg-gradient-to-r from-[#687ff2] to-[#4561d5] px-8 text-left text-white shadow-[0_8px_18px_rgba(69,97,213,0.16)]"
           >
             <img
               src={SLICES.home.scan}
               alt=""
-              className="h-12 w-12 shrink-0 object-contain"
+              className="h-14 w-14 shrink-0 object-contain"
             />
             <span>
-              <span className="block text-[24px] leading-none">扫一扫兑奖</span>
-              <span className="mt-2 block text-[12px] text-white/85">
-                扫描用户兑奖二维码
+              <span className="block text-[23px] leading-none">扫一扫兑奖</span>
+              <span className="mt-2 block text-[13px] text-white/85">
+                扫描用户兑奖码，快速核销兑奖
               </span>
             </span>
-            <span className="ml-auto text-[22px] text-white/70">›</span>
           </button>
 
           <button
             onClick={() => navigate('/enter')}
-            className="flex items-center gap-4 rounded-[14px] border border-line bg-white px-4 py-3 text-left text-blue"
+            className="flex h-[96px] items-center gap-4 rounded-[14px] bg-white px-8 text-left text-blue shadow-[0_4px_14px_rgba(28,40,82,0.04)]"
           >
             <img
               src={SLICES.home.manual}
               alt=""
-              className="h-12 w-12 shrink-0 object-contain"
+              className="h-14 w-14 shrink-0 object-contain"
             />
             <span>
-              <span className="block text-[24px] leading-none">
+              <span className="block text-[23px] leading-none">
                 手动输入兑奖码
               </span>
-              <span className="mt-2 block text-[12px] text-blue/75">
-                手工录入兑奖码核销
+              <span className="mt-2 block text-[13px] text-blue/75">
+                输入兑奖码，手动核销兑奖
               </span>
             </span>
-            <span className="ml-auto text-[22px] text-blue">›</span>
           </button>
         </div>
 
         {/* 最近核销记录 */}
-        <div className="mt-3 rounded-[14px] bg-white p-3 shadow-sm">
+        <section className="mt-3 rounded-[14px] bg-white px-4 py-4 shadow-[0_4px_14px_rgba(28,40,82,0.04)]">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[12px] text-ink">最近记录</span>
+            <h2 className="text-[13px] font-medium text-ink">最近核销记录</h2>
             <button
               onClick={() => navigate('/todos')}
               className="text-[12px] text-sub"
             >
-              查看全部 &gt;
+              查看全部&nbsp; &gt;
             </button>
           </div>
           <div className="divide-y divide-line/60">
@@ -126,7 +137,7 @@ export function HomePage() {
               </p>
             )}
           </div>
-        </div>
+        </section>
       </div>
 
       <SelectActivity

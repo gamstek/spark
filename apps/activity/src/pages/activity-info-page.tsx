@@ -1,66 +1,124 @@
-import { useRuntime } from '../lib/runtime';
-import { PageShell } from '../components/page-shell';
+import { useRuntime } from '../hooks/use-runtime';
+import { PageHeader } from '../components/page-header';
+import { useDocumentTitle } from '../hooks/use-document-title';
 
-/** 活动说明（首页「活动说明」入口子页）。坐标 @1x（375×769）。背景浅灰。 */
+const PRIZE_BADGE_COLORS = [
+  'bg-[#ff5a70]',
+  'bg-[#ffc51b]',
+  'bg-[#a9c1d1]',
+  'bg-[#62b4e6]',
+];
+
+function parseCalendarDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() + 1 !== month ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day };
+}
+
+export function formatChineseDateRange(
+  startsAt: string,
+  endsAt: string,
+  fallback: string,
+) {
+  const start = parseCalendarDate(startsAt);
+  const end = parseCalendarDate(endsAt);
+  if (!start || !end) return fallback;
+
+  const startLabel = `${start.year}年${start.month}月${start.day}日`;
+  const endLabel =
+    start.year === end.year
+      ? `${end.month}月${end.day}日`
+      : `${end.year}年${end.month}月${end.day}日`;
+  return `${startLabel} — ${endLabel}`;
+}
+
 export function ActivityInfoPage() {
   const { activity, closeView } = useRuntime();
-  // 行卡 y 起点（每行 57 高、6px 间距，最多 6 行）
-  const ROW_TOP = [152, 217, 282, 347, 412, 477];
+  useDocumentTitle(activity.title, '活动说明');
 
   return (
-    <PageShell className="bg-canvas">
-      {/* 头部：标题 + 关闭 */}
-      <div className="absolute inset-x-0 top-[53px] flex items-center justify-between px-2">
-        <span className="mx-auto text-[18px] text-ink">活动说明</span>
-        <button
-          type="button"
-          onClick={closeView}
-          className="-ml-8 text-[14px] text-ink"
-          aria-label="返回"
+    <main className="mx-auto min-h-dvh w-full max-w-[430px] bg-[#f5f6fa] text-ink">
+      <PageHeader
+        title="活动说明"
+        onBack={closeView}
+        position="sticky"
+      />
+
+      <div className="px-[18px] pt-6 pb-12">
+        <section aria-labelledby="prize-introduction-title">
+          <h2
+            id="prize-introduction-title"
+            className="text-[20px] leading-7 font-medium"
+          >
+            奖品介绍
+          </h2>
+          <ol className="mt-4 space-y-2.5">
+            {activity.prizes.map((prize, index) => (
+              <li
+                key={`${prize.name}-${index}`}
+                className="flex min-h-[70px] items-center gap-2.5 rounded-xl bg-white px-[18px] py-3 shadow-[0_1px_2px_rgba(20,38,63,0.02)]"
+              >
+                <span
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-medium text-white ${PRIZE_BADGE_COLORS[Math.min(index, PRIZE_BADGE_COLORS.length - 1)]}`}
+                >
+                  {index + 1}
+                </span>
+                <span className="text-[16px]">奖品</span>
+                <span className="ml-auto min-w-0 pl-4 text-right text-[16px] leading-6">
+                  {prize.name}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section
+          className="mt-6"
+          aria-labelledby="activity-time-title"
         >
-          ✕
-        </button>
+          <h2
+            id="activity-time-title"
+            className="text-[20px] leading-7 font-medium"
+          >
+            活动时间
+          </h2>
+          <p className="mt-4 text-[16px] leading-7">
+            {formatChineseDateRange(
+              activity.startsAt,
+              activity.endsAt,
+              activity.dates,
+            )}
+          </p>
+        </section>
+
+        <section
+          className="mt-6"
+          aria-labelledby="activity-rules-title"
+        >
+          <h2
+            id="activity-rules-title"
+            className="text-[20px] leading-7 font-medium"
+          >
+            活动规则
+          </h2>
+          <p className="mt-4 whitespace-pre-wrap text-[16px] leading-7">
+            {activity.rulesText}
+          </p>
+        </section>
       </div>
-
-      {/* 奖品介绍标题 */}
-      <h2 className="absolute left-[16px] top-[118px] text-[18px] text-ink">
-        奖品介绍
-      </h2>
-
-      {/* 奖品行卡（服务端下发，最多展示 6 行） */}
-      {activity.prizes.slice(0, ROW_TOP.length).map((prize, i) => (
-        <div
-          key={`${prize.name}-${i}`}
-          className="absolute left-[16px] h-[57px] w-[343px] rounded-[8px] bg-white"
-          style={{ top: ROW_TOP[i] }}
-        >
-          <span className="absolute left-[31px] top-[18px] flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[12px] text-white">
-            {i + 1}
-          </span>
-          <span className="absolute left-[56px] top-[21px] text-[15px] text-ink">
-            奖品
-          </span>
-          <span className="absolute right-[30px] top-[21px] text-right text-[15px] text-ink">
-            {prize.name}
-          </span>
-        </div>
-      ))}
-
-      {/* 活动时间 */}
-      <h2 className="absolute left-[15px] top-[556px] text-[18px] text-ink">
-        活动时间
-      </h2>
-      <p className="absolute left-[17px] top-[596px] text-[15px] text-ink">
-        {activity.dates}
-      </p>
-
-      {/* 活动规则 / 提示 */}
-      <h2 className="absolute left-[16px] top-[641px] text-[18px] text-ink">
-        活动规则
-      </h2>
-      <p className="absolute left-[16px] top-[681px] w-[343px] text-[15px] text-ink">
-        {activity.rulesText}
-      </p>
-    </PageShell>
+    </main>
   );
 }

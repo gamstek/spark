@@ -17,12 +17,17 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const response = await fetch(path, {
     method: options.method ?? 'GET',
     credentials: 'same-origin',
     headers: {
-      ...(options.method === 'POST' ? { 'content-type': 'application/json' } : {}),
+      ...(options.method === 'POST'
+        ? { 'content-type': 'application/json' }
+        : {}),
       ...options.headers,
     },
     body: options.method === 'POST' ? JSON.stringify({}) : undefined,
@@ -31,7 +36,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     let code = 'INTERNAL_ERROR';
     let message = `HTTP ${response.status}`;
     try {
-      const body = (await response.json()) as { code?: string; message?: string };
+      const body = (await response.json()) as {
+        code?: string;
+        message?: string;
+      };
       if (body.code) code = body.code;
       if (body.message) message = body.message;
     } catch {
@@ -49,18 +57,26 @@ export interface RuntimeResponse extends ActivityRuntime {
 /** 用户参与端（activity H5）用到的全部后端接口。 */
 export const activityApi = {
   runtime: (code: string) =>
-    request<RuntimeResponse>(`/api/activity/${encodeURIComponent(code)}/runtime?channel=direct`),
+    request<RuntimeResponse>(
+      `/api/activity/${encodeURIComponent(code)}/runtime?channel=direct`,
+    ),
   info: (code: string) =>
     request<ActivityInfo>(`/api/activity/${encodeURIComponent(code)}/info`),
   draw: (code: string, csrfToken: string) =>
-    request<{ win: WinView }>(`/api/activity/${encodeURIComponent(code)}/lottery`, {
-      method: 'POST',
-      headers: { 'x-csrf-token': csrfToken },
-    }),
+    request<{ win: WinView | null }>(
+      `/api/activity/${encodeURIComponent(code)}/lottery`,
+      {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrfToken },
+      },
+    ),
   formLink: (code: string) =>
-    request<{ url: string }>(`/api/activity/${encodeURIComponent(code)}/form-link`, {
-      method: 'POST',
-    }),
+    request<{ url: string }>(
+      `/api/activity/${encodeURIComponent(code)}/form-link`,
+      {
+        method: 'POST',
+      },
+    ),
   prizeCode: (code: string) =>
     request<{ code: string; qrUrl: string }>(
       `/api/activity/${encodeURIComponent(code)}/prize-code`,
@@ -69,4 +85,8 @@ export const activityApi = {
   oauthStartUrl(returnPath: string): string {
     return `/api/wechat/oauth/start?returnPath=${encodeURIComponent(returnPath)}`;
   },
+  createSimulatedWechatSession: () =>
+    request<{ authenticated: true }>('/api/wechat/oauth/simulate', {
+      method: 'POST',
+    }),
 };

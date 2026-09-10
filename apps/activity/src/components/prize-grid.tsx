@@ -1,4 +1,7 @@
-import type { PrizeItem } from '../lib/prizes';
+interface PrizeItem {
+  name: string;
+  imageUrl?: string;
+}
 
 export function PrizeGrid({ prizes }: { prizes: PrizeItem[] }) {
   return (

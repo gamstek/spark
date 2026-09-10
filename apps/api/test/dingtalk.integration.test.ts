@@ -62,7 +62,7 @@ describe('DingTalk form integration', () => {
     fields: { name: '测试用户', phone: '13800000000' },
   });
 
-  it('only replaces the configured pre-existing prefill field', async () => {
+  it('adds or replaces the configured prefill field', async () => {
     const service = new DingTalkPrefillService(
       database.dataSource,
       new ParticipantsService(database.dataSource),
@@ -76,12 +76,26 @@ describe('DingTalk form integration', () => {
       scenario.participationIds[0],
     );
     await database.dataSource.query(
-      `UPDATE activity_version SET config=jsonb_set(config,'{prefillField}',$2::jsonb) WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
-      [scenario.activityId, JSON.stringify('unknown')],
+      `UPDATE activity_version
+       SET config=jsonb_set(jsonb_set(config,'{formUrl}',$2::jsonb),'{prefillField}',$3::jsonb)
+       WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [
+        scenario.activityId,
+        JSON.stringify(
+          'https://alidocs.dingtalk.com/notable/share/form/test?source=link',
+        ),
+        JSON.stringify('participant'),
+      ],
     );
-    await expect(
-      service.createFormUrl(scenario.userIds[0], 'expo-2026'),
-    ).rejects.toThrow('FORM_PREFILL_SAMPLE_INVALID');
+    const appended = await service.createFormUrl(
+      scenario.userIds[0],
+      'expo-2026',
+    );
+    const appendedUrl = new URL(appended.url);
+    expect(appendedUrl.searchParams.get('source')).toBe('link');
+    expect(appendedUrl.searchParams.get('participant')).toBe(
+      scenario.participationIds[0],
+    );
   });
 
   it('rejects invalid secrets, malicious ids and cross-form submissions', async () => {

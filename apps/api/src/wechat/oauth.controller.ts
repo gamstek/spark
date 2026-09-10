@@ -1,8 +1,19 @@
-import { Controller, Get, Inject, Query, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Inject,
+  NotFoundException,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { cookieNames, readCookie } from '../auth/session.guard.js';
 import { SessionService } from '../auth/session.service.js';
+import { requestOrigin } from '../common/request-origin.js';
+import { DEVELOPMENT_WECHAT_OPENID } from './development-identity.js';
 import { OAuthStateService } from './oauth-state.service.js';
 import { WechatGateway } from './wechat.gateway.js';
 import { WechatIdentityService } from './wechat-identity.service.js';
@@ -21,9 +32,25 @@ export class OAuthController {
     @Inject(SessionService) private readonly sessions: SessionService,
   ) {}
 
+  @Post('simulate')
+  async simulate(@Res() reply: FastifyReply) {
+    if (process.env.NODE_ENV !== 'development')
+      throw new NotFoundException('NOT_FOUND');
+    const openid = DEVELOPMENT_WECHAT_OPENID;
+    const { userId } = await this.identities.getOrCreateUser(openid);
+    await this.identities.markSubscribed(openid);
+    const session = await this.sessions.create('ACTIVITY', userId);
+    reply.header(
+      'Set-Cookie',
+      `${cookieNames.ACTIVITY}=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`,
+    );
+    return reply.send({ authenticated: true });
+  }
+
   @Get('start')
   async start(
     @Query('returnPath') returnPath: string,
+    @Req() request: FastifyRequest,
     @Res() reply: FastifyReply,
   ) {
     const issued = await this.states.issue(returnPath);
@@ -31,7 +58,7 @@ export class OAuthController {
       'Set-Cookie',
       `spark_oauth_nonce=${issued.browserNonce}; Path=/api/wechat/oauth; HttpOnly; SameSite=Lax; Max-Age=600${secureSuffix()}`,
     );
-    const callback = `${process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173'}/api/wechat/oauth/callback`;
+    const callback = `${requestOrigin(request)}/api/wechat/oauth/callback`;
     const authorize = new URL(
       'https://open.weixin.qq.com/connect/oauth2/authorize',
     );

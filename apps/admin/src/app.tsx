@@ -5,6 +5,7 @@ import { AppShell } from './components';
 import { LoginPage } from './features/auth/login-page';
 import { ActivitiesListPage } from './features/activities/list-page';
 import { ActivityEditPage } from './features/activities/edit-page';
+import { ActivityLayout } from './features/activities/activity-layout';
 import { JobsPage } from './features/jobs/jobs-page';
 import { ParticipantsPage } from './features/participants/participants-page';
 import { PrizesPage } from './features/prizes/prizes-page';
@@ -46,29 +47,38 @@ function Shell() {
           element={<ActivitiesListPage />}
         />
         <Route
-          path="activities/:id"
+          path="activities/new"
           element={<ActivityEditPage />}
         />
         <Route
-          path="activities/:id/prizes"
-          element={<PrizesPage />}
-        />
-        <Route
-          path="activities/:id/participants"
-          element={<ParticipantsPage />}
-        />
-        <Route
-          path="activities/:id/report"
-          element={<ReportsOverviewPage />}
-        />
-        <Route
-          path="activities/:id/redemptions"
-          element={<RedemptionsListPage />}
-        />
-        <Route
-          path="activities/:id/exports"
-          element={<ExportsPage />}
-        />
+          path="activities/:id"
+          element={<ActivityLayout />}
+        >
+          <Route
+            index
+            element={<ActivityEditPage />}
+          />
+          <Route
+            path="prizes"
+            element={<PrizesPage />}
+          />
+          <Route
+            path="participants"
+            element={<ParticipantsPage />}
+          />
+          <Route
+            path="report"
+            element={<ReportsOverviewPage />}
+          />
+          <Route
+            path="redemptions"
+            element={<RedemptionsListPage />}
+          />
+          <Route
+            path="exports"
+            element={<ExportsPage />}
+          />
+        </Route>
         <Route
           path="staff"
           element={<StaffPage />}

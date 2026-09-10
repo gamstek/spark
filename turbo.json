@@ -22,7 +22,6 @@
         "NODE_ENV",
         "OAUTH_STATE_SECRET",
         "PRIVATE_EXPORT_ROOT",
-        "PUBLIC_ORIGIN",
         "REDEEM_CODE_ACTIVE_KEY_ID",
         "REDEEM_CODE_KEYS",
         "TRUST_PROXY",

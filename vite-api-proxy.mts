@@ -24,3 +24,11 @@ export function apiProxyTarget(envDirectory = repositoryEnvDirectory): string {
       : connectHost;
   return `http://${urlHost}:${env.API_PORT || '3000'}`;
 }
+
+export function apiProxyOptions() {
+  return {
+    target: apiProxyTarget(),
+    changeOrigin: true,
+    xfwd: true,
+  };
+}

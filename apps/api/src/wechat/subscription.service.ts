@@ -5,6 +5,7 @@ import { WechatIdentity } from '../../database/entities/accounts.entities.js';
 
 import { WechatGateway } from './wechat.gateway.js';
 import { WechatTokenService } from './token.service.js';
+import { isDevelopmentWechatIdentity } from './development-identity.js';
 
 @Injectable()
 export class SubscriptionService {
@@ -15,6 +16,8 @@ export class SubscriptionService {
   ) {}
 
   async isSubscribed(openid: string): Promise<boolean> {
+    if (isDevelopmentWechatIdentity(openid)) return true;
+
     const appId = process.env.WECHAT_APP_ID ?? '';
     const identities = this.dataSource.getRepository(WechatIdentity);
     const identity = await identities.findOne({

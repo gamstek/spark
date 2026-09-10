@@ -18,12 +18,17 @@ type RequestOptions = {
   body?: unknown;
 };
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const response = await fetch(path, {
     method: options.method ?? 'GET',
     credentials: 'same-origin',
     headers: {
-      ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
+      ...(options.body !== undefined
+        ? { 'content-type': 'application/json' }
+        : {}),
       ...options.headers,
     },
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
@@ -32,7 +37,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     let code = 'INTERNAL_ERROR';
     let message = `HTTP ${response.status}`;
     try {
-      const body = (await response.json()) as { code?: string; message?: string };
+      const body = (await response.json()) as {
+        code?: string;
+        message?: string;
+      };
       if (body.code) code = body.code;
       if (body.message) message = body.message;
     } catch {
@@ -77,7 +85,16 @@ export const staffApi = {
       body: {},
     }),
   activities: () =>
-    request<{ id: string; code: string; name: string }[]>('/api/staff/activities'),
+    request<
+      {
+        id: string;
+        code: string;
+        name: string;
+        startsAt: string;
+        endsAt: string;
+        rulesText: string;
+      }[]
+    >('/api/staff/activities'),
   prizes: (activityId: string) =>
     request<StaffPrizeView[]>(
       `/api/staff/activities/${encodeURIComponent(activityId)}/prizes`,
@@ -99,6 +116,13 @@ export const staffApi = {
       headers: { 'x-csrf-token': csrfToken },
       body: { code },
     }),
+  wechatJsSdkConfig: (url: string) =>
+    request<{
+      appId: string;
+      timestamp: number;
+      nonceStr: string;
+      signature: string;
+    }>(`/api/staff/wechat/js-sdk-config?url=${encodeURIComponent(url)}`),
 };
 
 export type RedemptionStatus = StaffRecordView['status'];

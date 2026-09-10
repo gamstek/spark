@@ -3,40 +3,52 @@
 本项目只服务一个公司和一个微信公众号。生产配置保存在服务器的 `.env.production`
 中，不提交到 Git。可以复制 `.env.example` 后替换占位值。
 
-正式环境固定使用 `PUBLIC_ORIGIN=https://spark.gamstek.com`。生产配置文件保存在
-`/opt/spark/.env.production`，并设置为仅部署账户可读。
+生产配置文件保存在 `/opt/spark/.env.production`，并设置为仅部署账户可读。
 
 ## 外部平台提供的信息
 
-| 配置                | 具体含义                                                                                                                                           | 从哪里获取                    | 是否保密             |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | -------------------- |
-| `WECHAT_APP_ID`     | 当前微信公众号的开发者 ID，通常以 `wx` 开头。OAuth 得到的 OpenID 归属于这个 AppID。它不是公众号原始 ID `gh_xxx`。                                  | 微信公众号后台的开发/基本配置 | 否，但只配置在服务端 |
-| `WECHAT_APP_SECRET` | 与公众号 AppID 配套的开发密钥。服务端用它交换 OAuth code，并获取查询关注状态所需的 access token。                                                  | 微信公众号后台生成或重置      | 是                   |
-| `PUBLIC_ORIGIN`     | 用户访问系统的唯一 HTTPS 源，本项目生产值为 `https://spark.gamstek.com`。OAuth 回调、CSRF 校验、兑奖和下载链接都基于它生成。不能带路径或结尾斜杠。 | 项目的正式域名                | 否                   |
+| 配置                | 具体含义                                                                                                          | 从哪里获取                    | 是否保密             |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------- | -------------------- |
+| `WECHAT_APP_ID`     | 当前微信公众号的开发者 ID，通常以 `wx` 开头。OAuth 得到的 OpenID 归属于这个 AppID。它不是公众号原始 ID `gh_xxx`。 | 微信公众号后台的开发/基本配置 | 否，但只配置在服务端 |
+| `WECHAT_APP_SECRET` | 与公众号 AppID 配套的开发密钥。服务端用它交换 OAuth code，并获取查询关注状态所需的 access token。                 | 微信公众号后台生成或重置      | 是                   |
 
 微信公众号后台还要配置网页授权回调域名，并把生产服务器的固定出口 IP 加入接口 IP 白名单。固定 OAuth 回调地址为：
 
 ```text
-<PUBLIC_ORIGIN>/api/wechat/oauth/callback
+https://spark.gamstek.com/api/wechat/oauth/callback
 ```
 
 当前系统不使用公众号原始 ID、微信支付商户号、消息回调 Token、EncodingAESKey、UnionID 或钉钉 AppKey/AppSecret。
+
+## 本地模拟微信浏览器
+
+本地使用普通浏览器联调 Activity 时，在根目录 `.env` 设置：
+
+```ini
+VITE_WECHAT_MODE=simulate
+```
+
+然后重新启动 `pnpm dev`。Activity 会调用仅在 `NODE_ENV=development`
+可用的模拟登录接口，创建固定的已关注微信用户会话；活动、奖品和流程仍读取真实数据库。删除该变量或留空可检查“请使用微信打开”提示。生产构建会忽略此模式，生产 API 也不会开放模拟登录接口。
+
+服务端根据每次请求的协议与 Host 自动生成回调、兑奖和下载链接。本地三个 Vite 端口无需额外配置；生产反向代理必须保留
+`Host` 并正确设置 `X-Forwarded-Proto`。
 
 ## 钉钉表单提供的信息
 
 这些值由运营人员在管理后台为每个活动填写，不属于服务器环境变量：
 
-| 字段           | 具体含义                                                                                                    |
-| -------------- | ----------------------------------------------------------------------------------------------------------- |
-| `formId`       | 钉钉表单的稳定标识。回调 Body 必须发送同一个值。                                                            |
-| `formUrl`      | 表单 HTTPS 分享地址，必须属于 `alidocs.dingtalk.com`，并预先包含空的参与编号参数，例如 `...?participant=`。 |
-| `prefillField` | URL 中保存参与编号的参数名，例如 `participant`。打开表单前，系统会把它替换为内部 `participationId`。        |
-| `fieldMapping` | 回调中参与编号、姓名、手机号对应的表单字段。第一版后台使用固定映射。                                        |
+| 字段           | 具体含义                                                                                                          |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `formId`       | 钉钉表单的稳定标识。回调 Body 必须发送同一个值。                                                                  |
+| `formUrl`      | 表单 HTTPS 分享地址，必须属于 `alidocs.dingtalk.com`。系统会保留原有参数并自动追加参与编号。                      |
+| `prefillField` | URL 中保存参与编号的参数名，默认为 `prefill_participant`。打开表单前，系统会将内部 `participationId` 写入该参数。 |
+| `fieldMapping` | 回调中参与编号、姓名、手机号对应的表单字段。第一版后台使用固定映射。                                              |
 
 钉钉自动化向以下地址发送 POST：
 
 ```text
-<PUBLIC_ORIGIN>/api/integrations/dingtalk/form-submissions
+https://spark.gamstek.com/api/integrations/dingtalk/form-submissions
 ```
 
 `DINGTALK_CALLBACK_SECRET`

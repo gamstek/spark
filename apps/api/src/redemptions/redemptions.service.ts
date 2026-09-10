@@ -56,6 +56,7 @@ export class RedemptionsService {
   async getOwnCode(
     userId: string,
     activityCode: string,
+    origin = 'http://localhost',
   ): Promise<{ code: string; qrUrl: string }> {
     await this.dataSource.query(
       `UPDATE redemption r SET status='EXPIRED' FROM lottery_record l,activity a
@@ -79,7 +80,6 @@ export class RedemptionsService {
     if (row.status !== 'WAIT_REDEEM')
       throw new Error('PRIZE_CODE_NOT_AVAILABLE');
     const code = this.codes.restore(row.encrypted_code, row.encryption_key_id);
-    const origin = process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173';
     return {
       code,
       qrUrl: new URL(
@@ -183,7 +183,9 @@ export class RedemptionsService {
   }
 
   private hash(code: string): string {
-    return createHash('sha256').update(code.trim()).digest('hex');
+    return createHash('sha256')
+      .update(code.replace(/[\s-]/g, '').toUpperCase())
+      .digest('hex');
   }
   private async expire(code: string, staffId: string): Promise<void> {
     await this.dataSource.query(

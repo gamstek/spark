@@ -9,6 +9,7 @@ export type RedemptionStatus = z.infer<typeof RedemptionStatusSchema>;
 export const WinViewSchema = z
   .object({
     id: z.uuid(),
+    prizeLevel: z.string().trim().min(1).max(40),
     prizeName: z.string().trim().min(1).max(120),
     prizeImageUrl: z.url().nullable(),
     redeemEndAt: z.iso.datetime(),

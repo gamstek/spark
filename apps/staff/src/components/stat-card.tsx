@@ -1,6 +1,7 @@
 interface StatItem {
   label: string;
   value: string;
+  unit: string;
   /** 45×45 图标切图 URL */
   img: string;
 }
@@ -19,7 +20,10 @@ export function StatCard({ items }: { items: StatItem[] }) {
             className="h-[45px] w-[45px] object-contain"
           />
           <span className="text-[14px] text-ink">{it.label}</span>
-          <span className="text-[24px] leading-none text-blue">{it.value}</span>
+          <span className="leading-none text-blue">
+            <strong className="text-[25px] font-normal">{it.value}</strong>
+            <span className="ml-0.5 text-[13px]">{it.unit}</span>
+          </span>
           {i < items.length - 1 && (
             <div className="absolute right-0 top-1/2 h-[92px] w-px -translate-y-1/2 bg-[#ADADAD]" />
           )}

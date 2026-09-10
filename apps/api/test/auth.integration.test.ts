@@ -94,12 +94,10 @@ describe('administrator and staff authentication', () => {
     });
   });
 
-  it('rejects missing CSRF and forged origins', async () => {
+  it('requires a CSRF token bound to the current session', async () => {
     const session = await sessions.create('ADMIN', scenario.adminId);
     expect(() =>
       validateCsrf({
-        origin: 'https://spark.example.com',
-        expectedOrigin: 'https://spark.example.com',
         suppliedToken: undefined,
         sessionToken: session.token,
         secret: 'test-csrf-secret',
@@ -107,17 +105,6 @@ describe('administrator and staff authentication', () => {
     ).toThrow('CSRF_INVALID');
     expect(() =>
       validateCsrf({
-        origin: 'https://evil.example',
-        expectedOrigin: 'https://spark.example.com',
-        suppliedToken: session.csrfToken,
-        sessionToken: session.token,
-        secret: 'test-csrf-secret',
-      }),
-    ).toThrow('ORIGIN_INVALID');
-    expect(() =>
-      validateCsrf({
-        origin: 'https://spark.example.com',
-        expectedOrigin: 'https://spark.example.com',
         suppliedToken: session.csrfToken,
         sessionToken: session.token,
         secret: 'test-csrf-secret',
@@ -173,13 +160,17 @@ describe('administrator and staff authentication', () => {
       },
     };
     const previousEnvironment = process.env.NODE_ENV;
-    const previousOrigin = process.env.PUBLIC_ORIGIN;
     process.env.NODE_ENV = 'production';
-    process.env.PUBLIC_ORIGIN = 'https://spark.example.com';
     try {
       const firstBody = await controller.loginRoute(
         { username: 'admin-fixture', password: 'Correct Horse Battery 42' },
-        { headers: { origin: 'https://spark.example.com' } } as never,
+        {
+          protocol: 'https',
+          headers: {
+            host: 'spark.example.com',
+            origin: 'https://spark.example.com',
+          },
+        } as never,
         reply as never,
       );
       expect(firstBody).not.toHaveProperty('token');
@@ -194,7 +185,9 @@ describe('administrator and staff authentication', () => {
       await controller.loginRoute(
         { username: 'admin-fixture', password: 'Correct Horse Battery 42' },
         {
+          protocol: 'https',
           headers: {
+            host: 'spark.example.com',
             origin: 'https://spark.example.com',
             cookie: `spark_admin=${firstToken}`,
           },
@@ -213,8 +206,6 @@ describe('administrator and staff authentication', () => {
     } finally {
       if (previousEnvironment === undefined) delete process.env.NODE_ENV;
       else process.env.NODE_ENV = previousEnvironment;
-      if (previousOrigin === undefined) delete process.env.PUBLIC_ORIGIN;
-      else process.env.PUBLIC_ORIGIN = previousOrigin;
     }
   });
 });

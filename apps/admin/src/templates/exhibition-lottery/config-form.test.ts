@@ -18,6 +18,23 @@ describe('lottery activity configuration validation', () => {
     expect(exports.getLotteryConfigError).toBeTypeOf('function');
   });
 
+  it('extracts the form id from a DingTalk share link', () => {
+    expect(
+      configForm.extractDingTalkFormId(
+        'https://alidocs.dingtalk.com/notable/share/form/v01J9LnW6jPBp11rlvD_dv19yqvsgs3oebp3pcjys_1qX0QQ0?source=link',
+      ),
+    ).toBe('v01J9LnW6jPBp11rlvD_dv19yqvsgs3oebp3pcjys_1qX0QQ0');
+    expect(
+      configForm.extractDingTalkFormId('https://example.com/form/not-allowed'),
+    ).toBe('');
+  });
+
+  it('uses prefill_participant as the default participation parameter', () => {
+    const html = renderToStaticMarkup(createElement(configForm.ConfigForm));
+
+    expect(html).toContain('value="prefill_participant"');
+  });
+
   it('explains that a main image is required', () => {
     expect(
       configForm.getLotteryConfigError({

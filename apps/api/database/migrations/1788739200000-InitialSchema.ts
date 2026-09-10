@@ -92,7 +92,8 @@ export class InitialSchema1788739200000 implements MigrationInterface {
       );
       CREATE TABLE activity_prize (
         id uuid PRIMARY KEY, activity_id uuid NOT NULL REFERENCES activity(id) ON DELETE RESTRICT,
-        prize_id uuid NOT NULL REFERENCES prize(id) ON DELETE RESTRICT, total_stock integer NOT NULL, awarded_stock integer NOT NULL DEFAULT 0,
+        prize_id uuid NOT NULL REFERENCES prize(id) ON DELETE RESTRICT, prize_level varchar(40) NOT NULL,
+        total_stock integer NOT NULL, awarded_stock integer NOT NULL DEFAULT 0,
         weight numeric(14,6) NOT NULL CHECK (weight > 0), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE (activity_id, prize_id),
         CHECK (total_stock >= 0 AND awarded_stock >= 0 AND awarded_stock <= total_stock)
       );

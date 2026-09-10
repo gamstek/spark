@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 
+import { ChildPageHeader } from '../components/child-page-header';
 import { ListRow } from '../components/list-row';
 import { PageShell } from '../components/page-shell';
-import { SLICES } from '../lib/assets';
 import type { RedemptionStatus } from '../lib/api';
 import { useStaff } from '../lib/runtime';
 
@@ -15,74 +15,67 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'WAIT_REDEEM', label: '待核销' },
 ];
 
+function initialFilter(state: unknown): Filter {
+  if (!state || typeof state !== 'object' || !('filter' in state)) return 'ALL';
+  const filter = state.filter;
+  return filter === 'REDEEMED' || filter === 'WAIT_REDEEM' ? filter : 'ALL';
+}
+
 export function TodosPage() {
-  const navigate = useNavigate();
   const { records } = useStaff();
-  const [filter, setFilter] = useState<Filter>('ALL');
+  const location = useLocation();
+  const [filter, setFilter] = useState<Filter>(() =>
+    initialFilter(location.state),
+  );
   const list = records.filter(
-    (r) => filter === 'ALL' || r.status === filter,
+    (record) => filter === 'ALL' || record.status === filter,
   );
 
   return (
-    <PageShell className="relative flex min-h-screen flex-col">
-      {/* 页面背景图 */}
-      <img
-        src={SLICES.todos.bg}
-        alt=""
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-      />
+    <PageShell className="flex min-h-dvh flex-col bg-canvas">
+      <ChildPageHeader title="我的待办" />
 
-      <div className="relative flex min-h-screen flex-col">
-        <header className="flex items-center justify-between px-3 py-3">
-          <button
-            onClick={() => navigate('/')}
-            className="h-6 w-6 text-ink/60"
-            aria-label="返回"
-          >
-            ←
-          </button>
-          <span className="text-[18px] text-ink">我的待办</span>
-          <span className="w-6" />
-        </header>
-
-        {/* 筛选 tab */}
-        <div className="mx-3 flex h-[57px] items-center rounded-[12px] bg-[#E3E4E8] p-1">
-          {FILTERS.map((f) => {
-            const active = filter === f.key;
-            return (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={`flex-1 rounded-[10px] text-[18px] leading-none transition ${
-                  active ? 'bg-white text-blue shadow-sm' : 'text-ink'
-                }`}
-              >
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 记录列表 */}
-        <div className="flex-1 overflow-y-auto px-3 pb-6 pt-3">
-          <div className="divide-y divide-line/60 rounded-[14px] bg-white p-2 shadow-sm">
-            {list.map((record) => (
-              <div
-                key={record.id}
-                className="py-2.5"
-              >
-                <ListRow record={record} />
-              </div>
-            ))}
-            {list.length === 0 && (
-              <p className="py-8 text-center text-[13px] text-sub">
-                暂无记录
-              </p>
-            )}
-          </div>
-        </div>
+      <div
+        role="tablist"
+        aria-label="核销记录筛选"
+        className="mx-4 mt-3 flex h-[54px] shrink-0 items-center rounded-[12px] bg-[#e5e6eb] p-1"
+      >
+        {FILTERS.map((item) => {
+          const active = filter === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setFilter(item.key)}
+              className={`h-full flex-1 rounded-[10px] text-[17px] transition ${
+                active ? 'bg-white font-medium text-blue shadow-sm' : 'text-ink'
+              }`}
+            >
+              {item.label}
+            </button>
+          );
+        })}
       </div>
+
+      <main className="mx-4 mt-3 mb-4 min-h-0 flex-1 overflow-y-auto rounded-[14px] bg-white px-2 py-2">
+        <div className="divide-y divide-black/5">
+          {list.map((record) => (
+            <div
+              key={record.id}
+              className="py-2"
+            >
+              <ListRow record={record} />
+            </div>
+          ))}
+        </div>
+        {list.length === 0 && (
+          <div className="flex min-h-48 items-center justify-center text-[14px] text-weak">
+            暂无记录
+          </div>
+        )}
+      </main>
     </PageShell>
   );
 }

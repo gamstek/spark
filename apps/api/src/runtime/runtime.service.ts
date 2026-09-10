@@ -17,7 +17,11 @@ type RuntimeRow = {
   id: string;
   template_id: string;
   template_version: number;
-  config: { requireSubscribe?: boolean };
+  config: {
+    requireSubscribe?: boolean;
+    noPrizeWeight?: number;
+    rulesText?: string;
+  };
   starts_at: Date;
   draw_ends_at: Date;
   ends_at: Date;
@@ -39,6 +43,7 @@ export class RuntimeService {
     activityCode: string,
     channel = 'direct',
     recordVisit = true,
+    origin = 'http://localhost',
   ): Promise<ActivityRuntime> {
     const rows = await this.dataSource.query<RuntimeRow[]>(
       `SELECT a.id,v.template_id,v.template_version,v.config,v.starts_at,v.draw_ends_at,v.ends_at
@@ -70,7 +75,7 @@ export class RuntimeService {
     if (now < new Date(activity.starts_at)) {
       nextStep = 'NOT_STARTED';
     } else {
-      win = await this.getWin(activity.id, userId, now);
+      win = await this.getWin(activity.id, userId, now, origin);
       if (win) {
         nextStep =
           win.redemptionStatus === 'REDEEMED'
@@ -78,6 +83,8 @@ export class RuntimeService {
             : win.redemptionStatus === 'EXPIRED'
               ? 'EXPIRED'
               : 'PRIZE';
+      } else if (participation.drawnAt) {
+        nextStep = 'NO_PRIZE';
       } else if (
         now >= new Date(activity.ends_at) ||
         now >= new Date(activity.draw_ends_at)
@@ -102,7 +109,9 @@ export class RuntimeService {
         nextStep = !state[0]?.lead_completed
           ? 'FORM'
           : (state[0]?.available ?? 0) <= 0
-            ? 'OUT_OF_STOCK'
+            ? Number(activity.config.noPrizeWeight ?? 0) > 0
+              ? 'LOTTERY'
+              : 'OUT_OF_STOCK'
             : 'LOTTERY';
       }
     }
@@ -117,16 +126,15 @@ export class RuntimeService {
     };
   }
 
-  private origin(): string {
-    return process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173';
-  }
-
-  private absoluteUrl(url: string | null): string | null {
-    return url ? new URL(url, this.origin()).toString() : null;
+  private absoluteUrl(url: string | null, origin: string): string | null {
+    return url ? new URL(url, origin).toString() : null;
   }
 
   /** Display data for the participant H5: name, time window, rules, prize wall. */
-  async getInfo(activityCode: string): Promise<ActivityInfo> {
+  async getInfo(
+    activityCode: string,
+    origin = 'http://localhost',
+  ): Promise<ActivityInfo> {
     const rows = await this.dataSource.query<
       {
         code: string;
@@ -134,7 +142,7 @@ export class RuntimeService {
         starts_at: Date;
         ends_at: Date;
         draw_ends_at: Date;
-        config: { rulesText?: string };
+        config: { rulesText?: string; noPrizeWeight?: number };
       }[]
     >(
       `SELECT a.code,a.name,v.starts_at,v.ends_at,v.draw_ends_at,v.config
@@ -144,9 +152,13 @@ export class RuntimeService {
     const activity = rows[0];
     if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
     const prizes = await this.dataSource.query<
-      { prize_name: string; prize_image_url: string | null }[]
+      {
+        prize_level: string;
+        prize_name: string;
+        prize_image_url: string | null;
+      }[]
     >(
-      `SELECT vp.prize_name,COALESCE(vp.prize_image_url,ap.prize_image_url) AS prize_image_url
+      `SELECT vp.prize_level,vp.prize_name,COALESCE(vp.prize_image_url,ap.prize_image_url) AS prize_image_url
        FROM activity_version_prize vp JOIN activity_prize ap ON ap.id=vp.activity_prize_id
        WHERE vp.activity_version_id=(SELECT published_version_id FROM activity WHERE code=$1)
        ORDER BY ap.created_at,ap.id`,
@@ -159,9 +171,11 @@ export class RuntimeService {
       endsAt: new Date(activity.ends_at).toISOString(),
       drawEndsAt: new Date(activity.draw_ends_at).toISOString(),
       rulesText: activity.config.rulesText ?? '',
+      noPrizeWeight: Number(activity.config.noPrizeWeight ?? 0),
       prizes: prizes.map((prize) => ({
+        prizeLevel: prize.prize_level,
         name: prize.prize_name,
-        imageUrl: this.absoluteUrl(prize.prize_image_url),
+        imageUrl: this.absoluteUrl(prize.prize_image_url, origin),
       })),
     };
   }
@@ -180,6 +194,7 @@ export class RuntimeService {
     activityId: string,
     userId: string,
     now: Date,
+    origin: string,
   ): Promise<WinView | null> {
     await this.dataSource.query(
       `UPDATE redemption r SET status='EXPIRED' FROM lottery_record l
@@ -190,13 +205,15 @@ export class RuntimeService {
     const rows = await this.dataSource.query<
       {
         id: string;
+        prize_level: string;
         prize_name: string;
         prize_image_url: string | null;
         redeem_end_at: Date;
         status: WinView['redemptionStatus'];
       }[]
     >(
-      `SELECT l.id,COALESCE(l.prize_name,ap.prize_name) AS prize_name,
+      `SELECT l.id,COALESCE(l.prize_level,ap.prize_level) AS prize_level,
+         COALESCE(l.prize_name,ap.prize_name) AS prize_name,
          COALESCE(l.prize_image_url,ap.prize_image_url) AS prize_image_url,
          r.redeem_end_at,r.status
        FROM lottery_record l JOIN activity_prize ap ON ap.id=l.activity_prize_id
@@ -208,8 +225,9 @@ export class RuntimeService {
     return row
       ? {
           id: row.id,
+          prizeLevel: row.prize_level,
           prizeName: row.prize_name,
-          prizeImageUrl: this.absoluteUrl(row.prize_image_url),
+          prizeImageUrl: this.absoluteUrl(row.prize_image_url, origin),
           redeemEndAt: new Date(row.redeem_end_at).toISOString(),
           redemptionStatus: row.status,
         }

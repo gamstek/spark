@@ -1,7 +1,10 @@
-import { useRuntime } from '../lib/runtime';
+import { useNavigate } from 'react-router-dom';
+import { useRuntime } from '../hooks/use-runtime';
 import { SLICES } from '../lib/assets';
 import { PageShell } from '../components/page-shell';
 import { ActionButton } from '../components/action-button';
+import { PageHeader } from '../components/page-header';
+import { useDocumentTitle } from '../hooks/use-document-title';
 
 /**
  * 扫码关注（关注公众号·未关注）。
@@ -13,7 +16,9 @@ import { ActionButton } from '../components/action-button';
  *   按钮   (43,658) 293×58
  */
 export function SubscribePage() {
-  const { activity, openView } = useRuntime();
+  const { activity, verifySubscribe } = useRuntime();
+  const navigate = useNavigate();
+  useDocumentTitle(activity.title, '关注公众号');
 
   return (
     <PageShell className="bg-canvas">
@@ -24,12 +29,10 @@ export function SubscribePage() {
         aria-hidden="true"
         className="absolute left-0 top-0 h-full w-full object-cover"
       />
-      {/* 顶部标题条：浅色底 + 深色标语 #333 */}
-      <header className="absolute inset-x-0 top-[40px] text-center text-[18px] text-ink">
-        <span className="inline-block rounded-full bg-white/80 px-4 py-1">
-          {activity.slug}
-        </span>
-      </header>
+      <PageHeader
+        title="关注公众号"
+        onBack={() => navigate(-1)}
+      />
 
       {/* 大字标题 */}
       <h1 className="absolute left-[80px] top-[141px] w-[217px] text-center font-display text-[40px] font-bold leading-[1.35] text-white">
@@ -58,7 +61,7 @@ export function SubscribePage() {
 
       {/* 按钮 */}
       <div className="absolute left-[43px] top-[658px] w-[293px]">
-        <ActionButton onClick={() => openView('follow-success')}>
+        <ActionButton onClick={() => void verifySubscribe()}>
           我已关注，立即验证
         </ActionButton>
       </div>
