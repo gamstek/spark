@@ -5,7 +5,7 @@ import type { CanActivate, ExecutionContext } from '@nestjs/common';
 
 export interface CsrfInput {
   origin?: string;
-  expectedOrigin: string;
+  expectedOrigin: string | string[];
   suppliedToken?: string;
   sessionToken: string;
   secret: string;
@@ -13,9 +13,27 @@ export interface CsrfInput {
 
 export function validateOrigin(
   origin: string | undefined,
-  expectedOrigin: string,
+  expectedOrigin: string | string[],
 ): void {
-  if (origin !== expectedOrigin) throw new ForbiddenException('ORIGIN_INVALID');
+  const allowed = Array.isArray(expectedOrigin)
+    ? expectedOrigin
+    : [expectedOrigin];
+  if (!origin || !allowed.includes(origin))
+    throw new ForbiddenException('ORIGIN_INVALID');
+}
+
+/**
+ * 本地/多前端联调时，除 PUBLIC_ORIGIN 外还允许的来源
+ * （逗号分隔的 PUBLIC_ORIGIN_EXTRA，例如三个 Vite dev server 同时运行）。
+ * 仅用于 Origin 校验；URL 构造仍以 PUBLIC_ORIGIN 为准。
+ */
+export function allowedOrigins(): string[] {
+  const primary = process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173';
+  const extra = (process.env.PUBLIC_ORIGIN_EXTRA ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return [primary, ...extra];
 }
 
 export function validateCsrf(input: CsrfInput): void {
@@ -44,7 +62,7 @@ export class CsrfGuard implements CanActivate {
       }>();
     validateCsrf({
       origin: request.headers.origin,
-      expectedOrigin: process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173',
+      expectedOrigin: allowedOrigins(),
       suppliedToken: request.headers['x-csrf-token'],
       sessionToken: request.sessionToken ?? '',
       secret: process.env.CSRF_SECRET ?? 'development-only-change-me',

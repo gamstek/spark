@@ -1,4 +1,25 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import '@radix-ui/themes/styles.css';
 
-body { margin: 0; min-width: 320px; }
-main { padding: 1.5rem; }
+@theme {
+  --color-brand: #cf102c;
+  --color-prize: #f53c3c;
+  --color-wait: #f28e52;
+  --color-win: #af4bc2;
+  --color-win2: #4664d4;
+  --color-ink: #333333;
+  --color-sub: #666666;
+  --color-line: #cbcbcb;
+  --color-canvas: #f4f5f9;
+
+  --font-display:
+    'Alibaba PuHuiTi 3.0', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-body: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--color-canvas);
+  font-family: var(--font-body);
+}

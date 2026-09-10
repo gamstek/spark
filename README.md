@@ -9,6 +9,24 @@ monorepo.
 - pnpm 10.15.1
 - PostgreSQL (required by API features added after the initial workspace task)
 
+## Test database
+
+Integration tests and local API development need a PostgreSQL instance on
+`127.0.0.1:54329` (database `spark_test`, user `spark`). Two supported options:
+
+```bash
+pnpm db:test:start   # embedded PostgreSQL (keep-alive foreground process)
+docker compose up -d postgres   # or the postgres:18-alpine container
+```
+
+`pnpm db:test:start` runs `scripts/start-test-postgres.mjs`. It detects an
+existing data cluster (`node_modules/.cache/spark-pg`) via `PG_VERSION` and
+skips `initdb` and database creation on restart, so it is safe to stop and
+rerun. The port must stay free of a second instance — starting both the
+embedded server and the container on `54329` fails with an explicit port
+conflict error. Point `DATABASE_URL`/`TEST_DATABASE_URL` in `.env` at this
+instance and apply migrations with `pnpm --filter @spark/api db:migrate`.
+
 ## Applications
 
 - `apps/activity`: participant experience under `/activity/:activityCode`
@@ -21,6 +39,7 @@ monorepo.
 ```text
 pnpm install       Install the locked workspace dependencies
 pnpm dev           Run all applications in development mode
+pnpm --filter @spark/activity dev   Run only the activity frontend (Vite on port 5173)
 pnpm typecheck     Check TypeScript across the workspace
 pnpm lint          Run ESLint across the workspace
 pnpm test          Run automated tests
@@ -29,8 +48,26 @@ pnpm build         Build every application and package
 pnpm verify        Run lint, typecheck, unit tests, builds, and integration tests
 ```
 
+Stop a running development server with `Ctrl+C` in the terminal that started it.
+The activity demo opens at `http://localhost:5173/activity/<activityCode>` and
+supports a `?step=` query parameter for direct preview.
+
+The activity H5 reads its state machine from `GET /api/activity/:code/runtime`
+and establishes its session through WeChat silent OAuth. In development, when no
+WeChat session is available (the runtime call returns 401), the page falls back
+to the static demo preview with the step toolbar; production builds redirect to
+`/api/wechat/oauth/start?returnPath=…` instead. `POST /api/activity/:code/lottery`
+is protected by a CSRF check, so while testing the draw locally set
+`PUBLIC_ORIGIN` in `.env` to the exact activity origin (for example
+`http://localhost:5173`) and restart `pnpm dev`.
+
 Copy `.env.example` to `.env` for local development. Secrets must not be
 committed.
+
+`PUBLIC_ORIGIN` is the canonical origin used to build URLs (OAuth callback,
+redemption QR codes). Origin/CSRF validation also accepts the comma-separated
+`PUBLIC_ORIGIN_EXTRA` list, so several frontend dev servers (activity, staff,
+admin) can run against one API during local integration testing.
 
 Every environment variable, its source, secrecy requirement, and rotation impact
 is documented in `docs/project-spark-configuration.md`.

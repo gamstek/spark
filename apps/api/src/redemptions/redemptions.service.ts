@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
+import type { StaffRecordView } from '@spark/contracts';
 import { DataSource } from 'typeorm';
 
 import { CodeService } from './code.service.js';
@@ -14,6 +15,22 @@ export interface RedemptionView {
   redeemEndAt: string;
   redeemedAt: string | null;
   userHint: string;
+}
+
+/** Mask participant PII before it leaves the API. */
+export function maskName(name: unknown): string {
+  const trimmed = String(name ?? '').trim();
+  if (!trimmed) return '匿名';
+  if (trimmed.length === 1) return trimmed;
+  if (trimmed.length === 2) return `${trimmed[0]}*`;
+  return `${trimmed[0]}${'*'.repeat(trimmed.length - 2)}${trimmed[trimmed.length - 1]}`;
+}
+
+export function maskPhone(phone: unknown): string {
+  const trimmed = String(phone ?? '').trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length >= 7) return `${digits.slice(0, 3)}****${digits.slice(-4)}`;
+  return trimmed ? `${trimmed.slice(0, 2)}****` : '';
 }
 
 type RedemptionRow = {
@@ -80,6 +97,56 @@ export class RedemptionsService {
     );
     if (!rows[0]) throw new Error('REDEMPTION_NOT_FOUND');
     return this.toView(rows[0]);
+  }
+
+  /** Redemption history for the staff to-do list (masked PII, newest first). */
+  async listRecords(
+    staffId: string,
+    activityId: string | null,
+  ): Promise<StaffRecordView[]> {
+    const rows = await this.dataSource.query<
+      {
+        redemption_id: string;
+        activity_id: string;
+        activity_code: string;
+        activity_name: string;
+        prize_name: string;
+        prize_image_url: string | null;
+        status: StaffRecordView['status'];
+        won_at: Date;
+        redeemed_at: Date | null;
+        lead_fields: { name?: unknown; phone?: unknown } | null;
+      }[]
+    >(
+      `SELECT r.id AS redemption_id,l.activity_id,a.code AS activity_code,a.name AS activity_name,
+         l.prize_name,l.prize_image_url,r.status,l.created_at AS won_at,r.redeemed_at,
+         lead.fields AS lead_fields
+       FROM redemption r
+       JOIN lottery_record l ON l.id=r.lottery_record_id
+       JOIN activity a ON a.id=l.activity_id
+       JOIN staff_activity_permission p ON p.activity_id=l.activity_id AND p.staff_account_id=$1
+       LEFT JOIN activity_participation ap ON ap.id=l.participation_id
+       LEFT JOIN dingtalk_form_submission lead ON lead.id=ap.adopted_submission_id
+       WHERE ($2::uuid IS NULL OR l.activity_id=$2)
+       ORDER BY COALESCE(r.redeemed_at,l.created_at) DESC
+       LIMIT 500`,
+      [staffId, activityId],
+    );
+    return rows.map((row) => ({
+      id: row.redemption_id,
+      activityId: row.activity_id,
+      activityCode: row.activity_code,
+      activityName: row.activity_name,
+      name: maskName(row.lead_fields?.name),
+      phone: maskPhone(row.lead_fields?.phone),
+      prizeName: row.prize_name,
+      prizeImageUrl: row.prize_image_url,
+      status: row.status,
+      wonAt: new Date(row.won_at).toISOString(),
+      redeemedAt: row.redeemed_at
+        ? new Date(row.redeemed_at).toISOString()
+        : null,
+    }));
   }
 
   async confirm(code: string, staffId: string): Promise<RedemptionView> {

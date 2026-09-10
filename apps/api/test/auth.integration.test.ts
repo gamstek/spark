@@ -3,7 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AccountsService, hashPassword } from '../src/auth/accounts.service.js';
-import { AdminAuthController } from '../src/auth/auth.controller.js';
+import {
+  AdminAuthController,
+  StaffAuthController,
+} from '../src/auth/auth.controller.js';
 import { validateCsrf } from '../src/auth/csrf.guard.js';
 import { SessionService } from '../src/auth/session.service.js';
 import { StaffService } from '../src/staff/staff.service.js';
@@ -138,8 +141,30 @@ describe('administrator and staff authentication', () => {
     expect(first).not.toBe(second);
   });
 
+  it('exposes the display name on the staff me endpoint', async () => {
+    const controller = new StaffAuthController(
+      accounts,
+      sessions,
+      database.dataSource,
+    );
+    const session = await sessions.create('STAFF', scenario.staffId);
+    await expect(
+      controller.meRoute({
+        session: { subjectId: scenario.staffId, csrfToken: session.csrfToken },
+      } as never),
+    ).resolves.toMatchObject({
+      id: scenario.staffId,
+      role: 'STAFF',
+      displayName: '测试工作人员',
+    });
+  });
+
   it('sets a production host-only cookie without returning secrets, rotates login, and logs out', async () => {
-    const controller = new AdminAuthController(accounts, sessions);
+    const controller = new AdminAuthController(
+      accounts,
+      sessions,
+      database.dataSource,
+    );
     const headers = new Map<string, string>();
     const reply = {
       header(name: string, value: string) {

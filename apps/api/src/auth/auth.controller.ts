@@ -12,7 +12,7 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { AccountsService } from './accounts.service.js';
-import { CsrfGuard, validateOrigin } from './csrf.guard.js';
+import { allowedOrigins, CsrfGuard, validateOrigin } from './csrf.guard.js';
 import {
   cookieNames,
   readCookie,
@@ -20,6 +20,7 @@ import {
   SessionGuard,
 } from './session.guard.js';
 import { SessionService, type SessionRole } from './session.service.js';
+import { DataSource } from 'typeorm';
 
 type AuthRequest = FastifyRequest & {
   session?: { subjectId: string; csrfToken: string };
@@ -40,6 +41,7 @@ abstract class RoleAuthController {
   constructor(
     protected readonly accounts: AccountsService,
     protected readonly sessions: SessionService,
+    protected readonly dataSource: DataSource,
   ) {}
 
   protected async login(
@@ -47,10 +49,7 @@ abstract class RoleAuthController {
     request: FastifyRequest,
     reply: FastifyReply,
   ) {
-    validateOrigin(
-      request.headers.origin,
-      process.env.PUBLIC_ORIGIN ?? 'http://localhost:4173',
-    );
+    validateOrigin(request.headers.origin, allowedOrigins());
     const account = await this.accounts.authenticate(
       this.role,
       body.username ?? '',
@@ -79,6 +78,16 @@ abstract class RoleAuthController {
     };
   }
 
+  /** me() enriched with the account display name (for the staff H5 header). */
+  protected async meWithDisplayName(request: AuthRequest) {
+    const table = this.role === 'ADMIN' ? 'admin_account' : 'staff_account';
+    const rows = await this.dataSource.query<{ display_name: string }[]>(
+      `SELECT display_name FROM ${table} WHERE id=$1`,
+      [request.session?.subjectId],
+    );
+    return { ...this.me(request), displayName: rows[0]?.display_name ?? '' };
+  }
+
   protected async logout(request: AuthRequest, reply: FastifyReply) {
     if (request.sessionToken) await this.sessions.revoke(request.sessionToken);
     reply.header('Set-Cookie', cookieHeader(this.role, '', 0));
@@ -92,8 +101,9 @@ export class AdminAuthController extends RoleAuthController {
   constructor(
     @Inject(AccountsService) accounts: AccountsService,
     @Inject(SessionService) sessions: SessionService,
+    @Inject(DataSource) dataSource: DataSource,
   ) {
-    super(accounts, sessions);
+    super(accounts, sessions, dataSource);
   }
 
   @Post('login') loginRoute(
@@ -128,8 +138,9 @@ export class StaffAuthController extends RoleAuthController {
   constructor(
     @Inject(AccountsService) accounts: AccountsService,
     @Inject(SessionService) sessions: SessionService,
+    @Inject(DataSource) dataSource: DataSource,
   ) {
-    super(accounts, sessions);
+    super(accounts, sessions, dataSource);
   }
 
   @Post('login') loginRoute(
@@ -144,7 +155,7 @@ export class StaffAuthController extends RoleAuthController {
   @RequireSession('STAFF')
   @UseGuards(SessionGuard)
   meRoute(@Req() request: AuthRequest) {
-    return this.me(request);
+    return this.meWithDisplayName(request);
   }
 
   @Post('logout')

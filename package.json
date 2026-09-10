@@ -13,17 +13,20 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "test:integration": "pnpm --filter @spark/api test:integration",
+    "db:test:start": "node scripts/start-test-postgres.mjs",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:integration"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "embedded-postgres"
     ]
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "^1.63.0",
     "@types/node": "26.4.1",
+    "embedded-postgres": "18.4.0-beta.17",
     "eslint": "10.0.1",
     "prettier": "3.9.6",
     "turbo": "2.10.12",

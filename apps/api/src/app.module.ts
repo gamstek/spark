@@ -48,7 +48,10 @@ import { ExportsHandler } from './exports/exports.handler.js';
 import { ExportsCleanupService } from './exports/exports-cleanup.service.js';
 import { JobsWorker } from './jobs/jobs.worker.js';
 import { JOB_POLL_INTERVAL_MS, JobsRunner } from './jobs/jobs.runner.js';
-import { RuntimeController } from './runtime/runtime.controller.js';
+import {
+  RuntimeController,
+  ActivityInfoController,
+} from './runtime/runtime.controller.js';
 import { RuntimeService } from './runtime/runtime.service.js';
 import {
   MAINTENANCE_INTERVAL_MS,
@@ -74,6 +77,7 @@ import {
     ReportsController,
     ExportsController,
     RuntimeController,
+    ActivityInfoController,
   ],
   providers: [
     {

@@ -157,6 +157,18 @@ describe('admin operations', () => {
       },
       scenario.adminId,
     );
+    // 用户名重复时返回业务冲突，而不是未处理唯一约束导致 500
+    await expect(
+      service.create(
+        {
+          username: 'operator-new',
+          displayName: '重复账号',
+          password: 'temporary-password',
+          activityIds: [],
+        },
+        scenario.adminId,
+      ),
+    ).rejects.toThrow('RECORD_CONFLICT');
     const rows = (await service.list()) as {
       id: string;
       activity_ids: string[];
