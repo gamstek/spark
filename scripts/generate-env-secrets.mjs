@@ -8,7 +8,6 @@ const secrets = {
   CSRF_SECRET: labeledSecret('csrf'),
   OAUTH_STATE_SECRET: labeledSecret('oauth'),
   WECHAT_TOKEN_ENCRYPTION_KEY: labeledSecret('wechat-token'),
-  WECHAT_CALLBACK_TOKEN: randomBytes(16).toString('hex'),
   DINGTALK_CALLBACK_SECRET: labeledSecret('dingtalk'),
   REDEEM_CODE_ACTIVE_KEY_ID: 'v1',
   REDEEM_CODE_KEYS: JSON.stringify({ v1: redemptionKey }),

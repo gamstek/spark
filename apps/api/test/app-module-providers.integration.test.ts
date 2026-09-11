@@ -69,6 +69,8 @@ function appProvider(service: Type): Provider {
 
 describe('production module providers', () => {
   it('boots registered routes without callback entry services and retains OAuth', async () => {
+    const originalIdentityMode = process.env.ACTIVITY_IDENTITY_MODE;
+    delete process.env.ACTIVITY_IDENTITY_MODE;
     const database = await createTestDatabase();
     const providers = Reflect.getMetadata(
       MODULE_METADATA.PROVIDERS,
@@ -98,6 +100,7 @@ describe('production module providers', () => {
       app.setGlobalPrefix('api');
       await app.init();
       await app.getHttpAdapter().getInstance().ready();
+      expect(app.get(ACTIVITY_IDENTITY_MODE)).toBe('anonymous');
       for (const [method, url] of [
         ['GET', '/api/wechat/callback'],
         ['POST', '/api/wechat/callback'],
@@ -140,6 +143,9 @@ describe('production module providers', () => {
     } finally {
       await app?.close();
       await database.close();
+      if (originalIdentityMode === undefined)
+        delete process.env.ACTIVITY_IDENTITY_MODE;
+      else process.env.ACTIVITY_IDENTITY_MODE = originalIdentityMode;
     }
   });
 

@@ -19,23 +19,36 @@ test('generates labeled application secrets without modifying environment files'
     [fileURLToPath(new URL('./generate-env-secrets.mjs', import.meta.url))],
     { encoding: 'utf8' },
   );
+  const lines = output.trim().split(/\r?\n/);
+  const keys = lines.map((line) => {
+    const separator = line.indexOf('=');
+    assert.ok(separator > 0, `expected KEY=VALUE output, received ${line}`);
+    return line.slice(0, separator);
+  });
   const values = Object.fromEntries(
-    output
-      .trim()
-      .split(/\r?\n/)
-      .map((line) => {
-        const separator = line.indexOf('=');
-        return [line.slice(0, separator), line.slice(separator + 1)];
-      }),
+    lines.map((line) => {
+      const separator = line.indexOf('=');
+      return [line.slice(0, separator), line.slice(separator + 1)];
+    }),
   );
 
+  assert.equal(new Set(keys).size, keys.length);
+  assert.deepEqual(keys.sort(), [
+    'CSRF_SECRET',
+    'DINGTALK_CALLBACK_SECRET',
+    'OAUTH_STATE_SECRET',
+    'REDEEM_CODE_ACTIVE_KEY_ID',
+    'REDEEM_CODE_KEYS',
+    'WECHAT_TOKEN_ENCRYPTION_KEY',
+  ]);
+  assert.equal('WECHAT_CALLBACK_TOKEN' in values, false);
+  assert.equal('PUBLIC_BASE_URL' in values, false);
   assert.match(values.CSRF_SECRET, /^csrf-[A-Za-z0-9_-]{43}$/);
   assert.match(values.OAUTH_STATE_SECRET, /^oauth-[A-Za-z0-9_-]{43}$/);
   assert.match(
     values.WECHAT_TOKEN_ENCRYPTION_KEY,
     /^wechat-token-[A-Za-z0-9_-]{43}$/,
   );
-  assert.match(values.WECHAT_CALLBACK_TOKEN, /^[a-f0-9]{32}$/);
   assert.match(values.DINGTALK_CALLBACK_SECRET, /^dingtalk-[A-Za-z0-9_-]{43}$/);
   assert.equal(values.REDEEM_CODE_ACTIVE_KEY_ID, 'v1');
 
