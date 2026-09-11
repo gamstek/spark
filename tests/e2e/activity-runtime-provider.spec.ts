@@ -67,6 +67,45 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
     }
   });
 
+  test('unblocks the same production provider when a recovered runtime query refetches', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'official-account');
+    let runtimeAuthorized = false;
+    let runtimeRequests = 0;
+
+    await page.route('**/api/activity/demo/runtime**', (route) => {
+      runtimeRequests += 1;
+      return route.fulfill(
+        runtimeAuthorized
+          ? { json: runtime }
+          : { status: 401, json: { code: 'UNAUTHORIZED' } },
+      );
+    });
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({ json: info }),
+    );
+
+    await page.goto('/activity/demo');
+    await expect(
+      page.getByText('请从公众号欢迎消息或“活动抽奖”菜单重新进入'),
+    ).toBeVisible();
+    await expect(page.getByText('加载中…')).toHaveCount(0);
+
+    runtimeAuthorized = true;
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('offline'));
+      window.dispatchEvent(new Event('online'));
+    });
+
+    await expect.poll(() => runtimeRequests).toBe(2);
+    await expect(
+      page.getByText('请从公众号欢迎消息或“活动抽奖”菜单重新进入'),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '立即参与' })).toBeVisible();
+    await expect(page.getByText('加载中…')).toHaveCount(0);
+  });
+
   test('removes stale invalid-entry guidance when the URL rerenders with successful runtime data', async ({
     page,
   }, testInfo) => {
