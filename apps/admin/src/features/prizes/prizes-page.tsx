@@ -27,6 +27,7 @@ type Prize = {
   id: string;
   prize_level: string;
   prize_name: string;
+  prize_image_url: string | null;
   total_stock: number;
   awarded_stock: number;
   weight: string;
@@ -46,6 +47,14 @@ type ActivityDetail = {
 
 const MAX_PRIZE_COUNT = 3;
 
+const readBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.readAsDataURL(file);
+  });
+
 export function PrizesPage() {
   const { id = '' } = useParams();
   const [rows, setRows] = useState<Prize[]>([]);
@@ -56,6 +65,8 @@ export function PrizesPage() {
   const [activity, setActivity] = useState<ActivityDetail | null>(null);
   const [noPrizeWeight, setNoPrizeWeight] = useState('1');
   const [savingNoPrizeWeight, setSavingNoPrizeWeight] = useState(false);
+  const [creatingPrize, setCreatingPrize] = useState(false);
+  const creatingPrizeRef = useRef(false);
   const [stockPrize, setStockPrize] = useState<Prize | null>(null);
   const [stockAttempts, setStockAttempts] = useState<
     Record<string, StockAttempt>
@@ -132,19 +143,38 @@ export function PrizesPage() {
 
   async function create(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (creatingPrizeRef.current) return;
     if (rows.length >= MAX_PRIZE_COUNT) {
       setError(`当前模板最多配置 ${MAX_PRIZE_COUNT} 个奖项。`);
       return;
     }
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const image = form.get('image');
+    if (!(image instanceof File) || image.size === 0) {
+      setError('请选择奖品图片。');
+      return;
+    }
+    creatingPrizeRef.current = true;
+    setCreatingPrize(true);
     setError('');
+    setMessage('');
+    let uploadingImage = true;
     try {
+      const uploaded = await api<{ id: string }>('admin/media', {
+        method: 'POST',
+        body: JSON.stringify({
+          fileName: image.name,
+          contentBase64: await readBase64(image),
+        }),
+      });
+      uploadingImage = false;
       await api(`admin/prizes/activities/${id}`, {
         method: 'POST',
         body: JSON.stringify({
           prizeLevel: form.get('prizeLevel'),
           name: form.get('name'),
+          imageAssetId: uploaded.id,
           totalStock: Number(form.get('stock')),
           weight: Number(form.get('weight')),
         }),
@@ -153,7 +183,14 @@ export function PrizesPage() {
       setMessage('奖项已新增');
       await load();
     } catch {
-      setError('新增奖项失败，请检查名称、库存和权重。');
+      setError(
+        uploadingImage
+          ? '奖品图片上传失败，请使用不超过 5 MB 的 JPEG、PNG 或 WebP 图片。'
+          : '新增奖项失败，请检查名称、图片、库存和权重。',
+      );
+    } finally {
+      creatingPrizeRef.current = false;
+      setCreatingPrize(false);
     }
   }
 
@@ -338,7 +375,19 @@ export function PrizesPage() {
                 >
                   <Table.Cell>{row.prize_level}</Table.Cell>
                   <Table.RowHeaderCell>
-                    <Text weight="medium">{row.prize_name}</Text>
+                    <Flex
+                      align="center"
+                      gap="3"
+                    >
+                      {row.prize_image_url && (
+                        <img
+                          className="prize-table-image"
+                          src={row.prize_image_url}
+                          alt=""
+                        />
+                      )}
+                      <Text weight="medium">{row.prize_name}</Text>
+                    </Flex>
                   </Table.RowHeaderCell>
                   <Table.Cell
                     justify="end"
@@ -436,7 +485,7 @@ export function PrizesPage() {
                   placeholder="例如：三等奖"
                   maxLength={40}
                   required
-                  disabled={prizeLimitReached}
+                  disabled={prizeLimitReached || creatingPrize}
                 />
               </Flex>
               <Flex
@@ -462,7 +511,38 @@ export function PrizesPage() {
                   name="name"
                   placeholder="奖品名称"
                   required
-                  disabled={prizeLimitReached}
+                  disabled={prizeLimitReached || creatingPrize}
+                />
+              </Flex>
+              <Flex
+                direction="column"
+                gap="2"
+              >
+                <label
+                  className="field-label"
+                  htmlFor="prize-image"
+                >
+                  <Text
+                    size="2"
+                    weight="medium"
+                  >
+                    奖品图片 <RequiredFieldMark />
+                  </Text>
+                  <Text
+                    size="1"
+                    color="gray"
+                  >
+                    JPEG、PNG 或 WebP，最大 5 MB
+                  </Text>
+                </label>
+                <input
+                  id="prize-image"
+                  className="file-input"
+                  name="image"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  required
+                  disabled={prizeLimitReached || creatingPrize}
                 />
               </Flex>
               <Flex
@@ -490,7 +570,7 @@ export function PrizesPage() {
                   min="0"
                   placeholder="初始库存"
                   required
-                  disabled={prizeLimitReached}
+                  disabled={prizeLimitReached || creatingPrize}
                 />
               </Flex>
               <Flex
@@ -519,14 +599,15 @@ export function PrizesPage() {
                   step="any"
                   placeholder="权重"
                   required
-                  disabled={prizeLimitReached}
+                  disabled={prizeLimitReached || creatingPrize}
                 />
               </Flex>
               <Flex align="end">
                 <Button
                   variant="solid"
                   type="submit"
-                  disabled={prizeLimitReached}
+                  disabled={prizeLimitReached || creatingPrize}
+                  loading={creatingPrize}
                 >
                   <PlusIcon />
                   新增奖项

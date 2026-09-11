@@ -275,7 +275,7 @@ start/callback 位于规范指定路径。gateway 的生产实现依据官方接
 - [x] 实现 10 分钟 state、浏览器 nonce、签名、数据库原子消费和站内返回路径白名单；活动 Session
       7 天。
 - [x] 实现公众号 access
-      token 的 PostgreSQL 共享刷新、关注结果最长 60 秒缓存、外部失败可重试；所有远程请求在抽奖事务外进行。
+      token 的 PostgreSQL 共享刷新、关注状态实时查询、外部失败可重试。
 - [x] 测试过期 state、开放重定向、不同浏览器 nonce、并发首次登录、微信超时；文档写真实域名配置和测试账号步骤。通过后提交
       `Add WeChat identity and participation recovery`。
 

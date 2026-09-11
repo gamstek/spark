@@ -15,6 +15,7 @@ export class PrizesService {
     input: {
       prizeLevel: string;
       name: string;
+      imageAssetId?: string | null;
       totalStock: number;
       weight: number;
     },
@@ -38,12 +39,21 @@ export class PrizesService {
         [activityId],
       );
       if (started[0]) throw new Error('ACTIVITY_STARTED');
-      await manager.query(`INSERT INTO prize (id,name) VALUES ($1,$2)`, [
-        prizeId,
-        input.name.trim(),
-      ]);
+      let prizeImageUrl: string | null = null;
+      if (input.imageAssetId) {
+        const media = await manager.query<{ storage_key: string }[]>(
+          `SELECT storage_key FROM media_asset WHERE id=$1`,
+          [input.imageAssetId],
+        );
+        if (!media[0]) throw new Error('INVALID_PRIZE');
+        prizeImageUrl = `/media/${media[0].storage_key}`;
+      }
       await manager.query(
-        `INSERT INTO activity_prize (id,activity_id,prize_id,total_stock,weight,prize_level,prize_name) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        `INSERT INTO prize (id,name,image_asset_id) VALUES ($1,$2,$3)`,
+        [prizeId, input.name.trim(), input.imageAssetId ?? null],
+      );
+      await manager.query(
+        `INSERT INTO activity_prize (id,activity_id,prize_id,total_stock,weight,prize_level,prize_name,prize_image_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           id,
           activityId,
@@ -52,6 +62,7 @@ export class PrizesService {
           input.weight,
           input.prizeLevel.trim(),
           input.name.trim(),
+          prizeImageUrl,
         ],
       );
     });

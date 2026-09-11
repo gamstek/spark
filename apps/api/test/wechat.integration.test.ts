@@ -103,7 +103,7 @@ describe('WeChat identity and participation recovery', () => {
     );
   });
 
-  it('shares an encrypted access token and caches subscription for at most 60 seconds', async () => {
+  it('shares an encrypted access token and checks subscription every time', async () => {
     const previousAppId = process.env.WECHAT_APP_ID;
     process.env.WECHAT_APP_ID = 'wx-cache-app';
     try {
@@ -137,7 +137,7 @@ describe('WeChat identity and participation recovery', () => {
         true,
       );
       expect(tokenCalls).toBe(1);
-      expect(subscriptionCalls).toBe(1);
+      expect(subscriptionCalls).toBe(2);
       const stored = await database.dataSource.query<
         { access_token_ciphertext: string }[]
       >(
@@ -145,10 +145,6 @@ describe('WeChat identity and participation recovery', () => {
       );
       expect(stored[0]?.access_token_ciphertext).not.toContain('remote-token');
 
-      await database.dataSource.query(
-        `UPDATE wechat_identity SET subscription_checked_at=now() - interval '61 seconds' WHERE app_id=$1 AND openid=$2`,
-        ['wx-cache-app', 'openid-cache'],
-      );
       remoteSubscribed = false;
       await expect(subscriptions.isSubscribed('openid-cache')).resolves.toBe(
         false,
@@ -156,8 +152,16 @@ describe('WeChat identity and participation recovery', () => {
       await expect(subscriptions.isSubscribed('openid-cache')).resolves.toBe(
         false,
       );
-      expect(subscriptionCalls).toBe(2);
+      expect(subscriptionCalls).toBe(4);
       expect(tokenCalls).toBe(1);
+      const identities = await database.dataSource.query<
+        { subscribed: boolean; subscription_checked_at: Date | null }[]
+      >(
+        `SELECT subscribed,subscription_checked_at FROM wechat_identity WHERE app_id=$1 AND openid=$2`,
+        ['wx-cache-app', 'openid-cache'],
+      );
+      expect(identities[0]?.subscribed).toBe(false);
+      expect(identities[0]?.subscription_checked_at).not.toBeNull();
     } finally {
       if (previousAppId === undefined) delete process.env.WECHAT_APP_ID;
       else process.env.WECHAT_APP_ID = previousAppId;

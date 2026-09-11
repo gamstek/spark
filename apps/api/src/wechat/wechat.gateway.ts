@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 interface GatewayOptions {
   appId?: string;
@@ -9,6 +9,7 @@ interface GatewayOptions {
 
 @Injectable()
 export class WechatGateway {
+  private readonly logger = new Logger(WechatGateway.name);
   private readonly appId: string;
   private readonly appSecret: string;
   private readonly fetchImplementation: typeof fetch;
@@ -21,7 +22,12 @@ export class WechatGateway {
     this.timeoutMs = options.timeoutMs ?? 5_000;
   }
 
-  private async requestJson<T>(url: URL, init?: RequestInit): Promise<T> {
+  private async requestJson<T>(
+    operation: string,
+    url: URL,
+    init?: RequestInit,
+  ): Promise<T> {
+    const startedAt = Date.now();
     try {
       const response = await this.fetchImplementation(url, {
         ...init,
@@ -32,6 +38,12 @@ export class WechatGateway {
       if (body.errcode) throw new Error(`WECHAT_${body.errcode}`);
       return body;
     } catch (error) {
+      this.logger.warn({
+        event: 'wechat.api.failed',
+        operation,
+        durationMs: Date.now() - startedAt,
+        reason: error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+      });
       throw new Error('WECHAT_REQUEST_FAILED', { cause: error });
     }
   }
@@ -44,7 +56,10 @@ export class WechatGateway {
       code,
       grant_type: 'authorization_code',
     }).toString();
-    const body = await this.requestJson<{ openid: string }>(url);
+    const body = await this.requestJson<{ openid: string }>(
+      'oauth.exchange_code',
+      url,
+    );
     if (!body.openid) throw new Error('WECHAT_RESPONSE_INVALID');
     return { openid: body.openid };
   }
@@ -56,16 +71,20 @@ export class WechatGateway {
     const body = await this.requestJson<{
       access_token: string;
       expires_in: number;
-    }>(new URL('https://api.weixin.qq.com/cgi-bin/stable_token'), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'client_credential',
-        appid: this.appId,
-        secret: this.appSecret,
-        force_refresh: false,
-      }),
-    });
+    }>(
+      'token.fetch_stable',
+      new URL('https://api.weixin.qq.com/cgi-bin/stable_token'),
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'client_credential',
+          appid: this.appId,
+          secret: this.appSecret,
+          force_refresh: false,
+        }),
+      },
+    );
     return { accessToken: body.access_token, expiresIn: body.expires_in };
   }
 
@@ -76,7 +95,10 @@ export class WechatGateway {
       openid,
       lang: 'zh_CN',
     }).toString();
-    const body = await this.requestJson<{ subscribe: number }>(url);
+    const body = await this.requestJson<{ subscribe: number }>(
+      'subscription.get_user_info',
+      url,
+    );
     return body.subscribe === 1;
   }
 
@@ -91,7 +113,7 @@ export class WechatGateway {
     const body = await this.requestJson<{
       ticket: string;
       expires_in: number;
-    }>(url);
+    }>('js_sdk.fetch_ticket', url);
     if (!body.ticket) throw new Error('WECHAT_RESPONSE_INVALID');
     return { ticket: body.ticket, expiresIn: body.expires_in };
   }

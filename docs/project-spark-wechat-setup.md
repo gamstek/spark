@@ -32,5 +32,33 @@ https://<正式域名>/api/wechat/oauth/callback
 6. 使用工作人员账号在微信内打开
    `/staff/scan`，确认微信原生扫一扫能够返回兑奖码；取消扫码后应留在当前页，并可改用手动输入。
 
-access
-token 由 PostgreSQL 共享缓存和刷新租约协调，关注状态最多缓存 60 秒。部署多个 API 实例前需验证各实例使用同一数据库和同一加密密钥。
+Access
+Token 由 PostgreSQL 共享缓存和刷新租约协调。关注状态每次向微信实时查询，查询结果同步写入数据库。部署多个 API 实例前需验证各实例使用同一数据库和同一加密密钥。
+
+## 线上日志验证
+
+在 ECS 上跟踪 API 容器日志：
+
+```bash
+docker compose -f compose.production.yaml logs -f --tail=200 api
+```
+
+一次正常的首次访问应依次出现：
+
+```text
+wechat.oauth.started
+wechat.oauth.callback_received
+wechat.oauth.state_verified
+wechat.oauth.succeeded
+wechat.subscription.check_started
+wechat.subscription.check_succeeded
+```
+
+`wechat.subscription.check_succeeded` 中的 `subscribed`
+是微信实时返回的关注状态，`identityUpdated`
+表示结果是否写入了对应身份。首次获取或刷新公众号 Access Token 时还会出现
+`wechat.token.refresh_started` 和 `wechat.token.refresh_succeeded`。
+
+微信请求失败时查看 `wechat.api.failed` 的 `operation` 和
+`reason`。日志不会输出 AppSecret、授权 code、Access
+Token、Cookie 或完整 OpenID；`identityFingerprint` 仅用于关联同一次用户验证。

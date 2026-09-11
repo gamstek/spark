@@ -12,6 +12,9 @@ test('logs in and creates the only supported activity template', async ({
   await page.route('**/api/admin/auth/me', (r) =>
     r.fulfill({ json: { csrfToken: 'csrf' } }),
   );
+  await page.route('**/api/admin/media', (route) =>
+    route.fulfill({ json: { id: 'prize-image' } }),
+  );
   await page.route('**/api/admin/activities', async (r) =>
     r.request().method() === 'POST'
       ? r.fulfill({ json: { id: 'created' } })
@@ -124,6 +127,14 @@ test('logs in and creates the only supported activity template', async ({
   ).toBe(true);
   await page.getByLabel('奖项等级').fill('一等奖');
   await page.getByLabel('奖品名称').fill('展会礼盒');
+  await page.getByLabel('奖品图片').setInputFiles({
+    name: 'prize.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
   await page.getByLabel('初始库存').fill('20');
   await page.getByLabel('抽奖权重').fill('1');
   await page.getByRole('button', { name: '新增奖项' }).click();

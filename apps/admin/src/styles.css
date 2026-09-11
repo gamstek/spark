@@ -1036,6 +1036,14 @@ a {
   outline: 2px solid var(--accent-8);
   outline-offset: 2px;
 }
+.prize-table-image {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid var(--gray-a5);
+  border-radius: 8px;
+  object-fit: cover;
+}
 .editor-action-bar {
   position: sticky;
   top: 24px;

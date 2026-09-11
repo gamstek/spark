@@ -70,9 +70,15 @@ describe('admin operations', () => {
       redeemEndsAt: '2099-09-11T00:00:00Z',
     });
     const service = new PrizesService(database.dataSource);
+    const imageAssetId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO media_asset (id,storage_key,mime_type,byte_size) VALUES ($1,$2,'image/png',128)`,
+      [imageAssetId, 'prizes/sample.png'],
+    );
     const prize = await service.create(activity.id, {
       prizeLevel: '纪念奖',
       name: '纪念奖',
+      imageAssetId,
       totalStock: 0,
       weight: 1,
     });
@@ -84,9 +90,13 @@ describe('admin operations', () => {
         (await service.list(activity.id)) as {
           id: string;
           total_stock: number;
+          prize_image_url: string | null;
         }[]
-      ).find((x) => x.id === prize.id)?.total_stock,
-    ).toBe(2);
+      ).find((x) => x.id === prize.id),
+    ).toMatchObject({
+      total_stock: 2,
+      prize_image_url: '/media/prizes/sample.png',
+    });
     await expect(
       service.addStock(prize.id, -1, randomUUID(), scenario.adminId),
     ).rejects.toThrow('INVALID_STOCK_QUANTITY');

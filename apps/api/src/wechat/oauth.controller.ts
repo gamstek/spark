@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Inject,
+  Logger,
   NotFoundException,
   Post,
   Query,
@@ -24,6 +25,7 @@ function secureSuffix(): string {
 
 @Controller('wechat/oauth')
 export class OAuthController {
+  private readonly logger = new Logger(OAuthController.name);
   constructor(
     @Inject(OAuthStateService) private readonly states: OAuthStateService,
     @Inject(WechatGateway) private readonly gateway: WechatGateway,
@@ -59,6 +61,12 @@ export class OAuthController {
       `spark_oauth_nonce=${issued.browserNonce}; Path=/api/wechat/oauth; HttpOnly; SameSite=Lax; Max-Age=600${secureSuffix()}`,
     );
     const callback = `${requestOrigin(request)}/api/wechat/oauth/callback`;
+    this.logger.log({
+      event: 'wechat.oauth.started',
+      requestId: request.id,
+      returnPath,
+      callbackOrigin: new URL(callback).origin,
+    });
     const authorize = new URL(
       'https://open.weixin.qq.com/connect/oauth2/authorize',
     );
@@ -80,15 +88,42 @@ export class OAuthController {
     @Res() reply: FastifyReply,
   ) {
     const nonce = readCookie(request.headers.cookie, 'spark_oauth_nonce');
-    if (!nonce) throw new Error('OAUTH_STATE_INVALID');
-    const returnPath = await this.states.consume(state, nonce);
-    const { openid } = await this.gateway.exchangeCode(code);
-    const { userId } = await this.identities.getOrCreateUser(openid);
-    const session = await this.sessions.create('ACTIVITY', userId);
-    reply.header(
-      'Set-Cookie',
-      `${cookieNames.ACTIVITY}=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${secureSuffix()}`,
-    );
-    return reply.redirect(returnPath);
+    this.logger.log({
+      event: 'wechat.oauth.callback_received',
+      requestId: request.id,
+      hasCode: Boolean(code),
+      hasState: Boolean(state),
+      hasNonce: Boolean(nonce),
+    });
+    try {
+      if (!nonce) throw new Error('OAUTH_STATE_INVALID');
+      const returnPath = await this.states.consume(state, nonce);
+      this.logger.log({
+        event: 'wechat.oauth.state_verified',
+        requestId: request.id,
+        returnPath,
+      });
+      const { openid } = await this.gateway.exchangeCode(code);
+      const { userId } = await this.identities.getOrCreateUser(openid);
+      const session = await this.sessions.create('ACTIVITY', userId);
+      reply.header(
+        'Set-Cookie',
+        `${cookieNames.ACTIVITY}=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${secureSuffix()}`,
+      );
+      this.logger.log({
+        event: 'wechat.oauth.succeeded',
+        requestId: request.id,
+        userId,
+        returnPath,
+      });
+      return reply.redirect(returnPath);
+    } catch (error) {
+      this.logger.error({
+        event: 'wechat.oauth.failed',
+        requestId: request.id,
+        reason: error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+      });
+      throw error;
+    }
   }
 }

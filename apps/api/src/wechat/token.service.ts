@@ -5,7 +5,7 @@ import {
   randomBytes,
 } from 'node:crypto';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { WechatCredentialCache } from '../../database/entities/accounts.entities.js';
@@ -14,6 +14,7 @@ import { WechatGateway } from './wechat.gateway.js';
 
 @Injectable()
 export class WechatTokenService {
+  private readonly logger = new Logger(WechatTokenService.name);
   private readonly encryptionKey: Buffer;
 
   constructor(
@@ -61,8 +62,13 @@ export class WechatTokenService {
       select: { accessTokenCiphertext: true, expiresAt: true },
       where: { appId },
     });
-    if (cached && cached.expiresAt.getTime() > Date.now() + 60_000)
+    if (cached && cached.expiresAt.getTime() > Date.now() + 60_000) {
+      this.logger.debug({
+        event: 'wechat.token.cache_hit',
+        expiresAt: cached.expiresAt.toISOString(),
+      });
       return this.decrypt(cached.accessTokenCiphertext);
+    }
 
     await credentials
       .createQueryBuilder()
@@ -81,9 +87,13 @@ export class WechatTokenService {
        WHERE app_id=$1 AND (refresh_lease_until IS NULL OR refresh_lease_until < now()) RETURNING app_id`,
       [appId],
     );
-    if (!leaseResult[0][0]) throw new Error('WECHAT_TOKEN_REFRESH_BUSY');
+    if (!leaseResult[0][0]) {
+      this.logger.warn({ event: 'wechat.token.refresh_busy' });
+      throw new Error('WECHAT_TOKEN_REFRESH_BUSY');
+    }
 
     try {
+      this.logger.log({ event: 'wechat.token.refresh_started' });
       const fresh = await this.gateway.fetchStableAccessToken();
       const expiresAt = new Date(
         Date.now() + Math.max(60, fresh.expiresIn - 120) * 1000,
@@ -97,9 +107,17 @@ export class WechatTokenService {
           updatedAt: () => 'now()',
         },
       );
+      this.logger.log({
+        event: 'wechat.token.refresh_succeeded',
+        expiresAt: expiresAt.toISOString(),
+      });
       return fresh.accessToken;
     } catch (error) {
       await credentials.update({ appId }, { refreshLeaseUntil: null });
+      this.logger.error({
+        event: 'wechat.token.refresh_failed',
+        reason: error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+      });
       throw error;
     }
   }

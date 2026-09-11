@@ -26,6 +26,7 @@ export class PrizesController {
     body: {
       prizeLevel: string;
       name: string;
+      imageAssetId?: string | null;
       totalStock: number;
       weight: number;
     },
