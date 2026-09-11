@@ -9,6 +9,14 @@ const now = new Date('2026-09-11T08:00:00.000Z');
 const entryToken = 'plain-entry-token';
 const entryHash = createHash('sha256').update(entryToken).digest('hex');
 
+function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function createIssueService(activities: { id: string; code: string }[]) {
   const insert = vi.fn();
   const repository = { insert };
@@ -249,32 +257,60 @@ describe('WechatActivityEntryService.exchange', () => {
     expect(clock).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects the second exchange after the first transaction consumes the token', async () => {
-    let consumedAt: Date | null = null;
-    const row = {
-      id: 'entry-id',
-      user_id: 'user-id',
-      activity_code: 'expo-2026',
-      expires_at: new Date('2026-09-11T08:10:00.000Z'),
-      get consumed_at() {
-        return consumedAt;
-      },
-    };
-    const query = vi.fn(async (sql: string) => {
-      if (sql.includes('SELECT')) return [row];
-      consumedAt = now;
-      return [];
-    });
-    const manager = { query };
+  it('allows exactly one overlapping exchange after the first transaction commits', async () => {
+    const firstSessionStarted = deferred();
+    const releaseFirstSession = deferred();
+    const secondTransactionQueued = deferred();
+    let committedConsumedAt: Date | null = null;
+    let transactionTail = Promise.resolve();
+    let transactionCount = 0;
     const dataSource = {
       transaction: vi.fn(
         async (
-          work: (transactionManager: { query: typeof query }) => unknown,
-        ) => work(manager),
+          work: (transactionManager: {
+            query: (sql: string, parameters?: unknown[]) => Promise<unknown[]>;
+          }) => Promise<unknown>,
+        ) => {
+          transactionCount += 1;
+          if (transactionCount === 2) secondTransactionQueued.resolve();
+          const previousTransaction = transactionTail;
+          const releaseTransaction = deferred();
+          transactionTail = releaseTransaction.promise;
+          await previousTransaction;
+
+          let pendingConsumedAt: Date | null = null;
+          const manager = {
+            query: vi.fn(async (sql: string, parameters?: unknown[]) => {
+              if (sql.includes('SELECT'))
+                return [
+                  {
+                    id: 'entry-id',
+                    user_id: 'user-id',
+                    activity_code: 'expo-2026',
+                    expires_at: new Date('2026-09-11T08:10:00.000Z'),
+                    consumed_at: committedConsumedAt,
+                  },
+                ];
+              pendingConsumedAt = parameters?.[1] as Date;
+              return [];
+            }),
+          };
+          try {
+            const result = await work(manager);
+            committedConsumedAt = pendingConsumedAt;
+            return result;
+          } finally {
+            releaseTransaction.resolve();
+          }
+        },
       ),
     };
     const sessions = {
-      create: vi.fn().mockResolvedValue({ token: 'session-token' }),
+      create: vi.fn(async () => {
+        firstSessionStarted.resolve();
+        await releaseFirstSession.promise;
+        return { token: 'session-token' };
+      }),
     };
     const service = new WechatActivityEntryService(
       dataSource as never,
@@ -285,10 +321,16 @@ describe('WechatActivityEntryService.exchange', () => {
       () => entryToken,
     );
 
-    await expect(service.exchange(entryToken)).resolves.toMatchObject({
-      status: 'exchanged',
-    });
-    await expect(service.exchange(entryToken)).resolves.toEqual({
+    const firstExchange = service.exchange(entryToken);
+    await firstSessionStarted.promise;
+    const secondExchange = service.exchange(entryToken);
+    await secondTransactionQueued.promise;
+
+    expect(sessions.create).toHaveBeenCalledTimes(1);
+
+    releaseFirstSession.resolve();
+    await expect(firstExchange).resolves.toMatchObject({ status: 'exchanged' });
+    await expect(secondExchange).resolves.toEqual({
       status: 'invalid',
       activityCode: 'expo-2026',
     });
