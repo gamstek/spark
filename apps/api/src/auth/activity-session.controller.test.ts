@@ -7,6 +7,7 @@ import {
   type ActivityIdentityMode,
 } from './activity-identity-mode.js';
 import { ActivitySessionController } from './activity-session.controller.js';
+import { OAuthStateService } from '../wechat/oauth-state.service.js';
 
 function createController(
   mode: ActivityIdentityMode,
@@ -27,12 +28,7 @@ function createController(
   const sessions = {
     create: vi.fn().mockResolvedValue({ token: 'activity-session-token' }),
   };
-  const states = {
-    validateReturnPath: vi.fn((returnPath: string) => {
-      if (!returnPath.startsWith('/activity/'))
-        throw new Error('RETURN_PATH_INVALID');
-    }),
-  };
+  const states = new OAuthStateService({} as never, 'test-secret');
   const reply = {
     header: vi.fn().mockReturnThis(),
     send: vi.fn((value: unknown) => value),
@@ -59,6 +55,27 @@ describe('readActivityIdentityMode', () => {
   it('rejects an unsupported identity mode', () => {
     expect(() => readActivityIdentityMode('callback')).toThrow(
       'ACTIVITY_IDENTITY_MODE_INVALID',
+    );
+  });
+});
+
+describe('OAuthStateService.validateReturnPath', () => {
+  const states = new OAuthStateService({} as never, 'test-secret');
+
+  it('allows activity child paths with encoded safe query values', () => {
+    expect(() =>
+      states.validateReturnPath(
+        '/activity/expo-2026/rules?source=qr%20code&ref=landing',
+      ),
+    ).not.toThrow();
+  });
+
+  it.each([
+    '/activity/expo-2026/rules?source=qr code',
+    '//example.com/activity/expo-2026',
+  ])('rejects unsafe return paths (%s)', (returnPath) => {
+    expect(() => states.validateReturnPath(returnPath)).toThrow(
+      'RETURN_PATH_INVALID',
     );
   });
 });
@@ -97,14 +114,14 @@ describe('ActivitySessionController', () => {
     await expect(
       controller.create(
         'expo-2026',
-        '/activity/expo-2026?source=qr code',
+        '/activity/expo-2026?source=qr%20code',
         { id: 'request-id' } as never,
         reply as never,
       ),
     ).resolves.toEqual({
       authenticated: false,
       redirectUrl:
-        '/api/wechat/oauth/start?returnPath=%2Factivity%2Fexpo-2026%3Fsource%3Dqr%20code',
+        '/api/wechat/oauth/start?returnPath=%2Factivity%2Fexpo-2026%3Fsource%3Dqr%2520code',
     });
 
     expect(insert).not.toHaveBeenCalled();

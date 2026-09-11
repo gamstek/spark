@@ -38,7 +38,7 @@ export class OAuthStateService {
 
   validateReturnPath(returnPath: string): void {
     if (
-      !/^\/activity\/[a-z0-9-]+(?:\?[A-Za-z0-9_.~!$&'()*+,;=:@%/?-]*)?$/.test(
+      !/^\/activity\/[a-z0-9-]+(?:\/[A-Za-z0-9_.~!$&'()*+,;=:@%/-]*)?(?:\?[A-Za-z0-9_.~!$&'()*+,;=:@%/?-]*)?$/.test(
         returnPath,
       ) ||
       returnPath.startsWith('//')
