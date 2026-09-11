@@ -139,11 +139,16 @@ export function ActivityRuntimeProvider({
   ]);
 
   useEffect(() => {
-    if (runtimeQuery.data && infoQuery.data) {
+    if (
+      runtimeQuery.data &&
+      infoQuery.data &&
+      !runtimeQuery.error &&
+      !infoQuery.error
+    ) {
       setStepOverride(null);
       setSessionBootstrapError(null);
     }
-  }, [infoQuery.data, runtimeQuery.data]);
+  }, [infoQuery.data, infoQuery.error, runtimeQuery.data, runtimeQuery.error]);
 
   const runtime = runtimeQuery.data ?? null;
   const info = infoQuery.data ?? null;

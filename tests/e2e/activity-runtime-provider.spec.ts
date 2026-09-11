@@ -95,6 +95,57 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
     expect(bootstrapRequests).toBe(1);
   });
 
+  test('keeps the bootstrap error when stale runtime data survives a later 401', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'official-account');
+    let runtimeUnauthorized = false;
+    let infoRequests = 0;
+    let bootstrapRequests = 0;
+    let releaseUpdatedInfo!: () => void;
+    const updatedInfo = new Promise<void>((resolve) => {
+      releaseUpdatedInfo = resolve;
+    });
+
+    await page.route('**/api/activity/demo/runtime**', (route) =>
+      route.fulfill(
+        runtimeUnauthorized
+          ? { status: 401, json: { code: 'UNAUTHORIZED' } }
+          : { json: runtime },
+      ),
+    );
+    await page.route('**/api/activity/demo/info', (route) => {
+      infoRequests += 1;
+      if (infoRequests > 1) {
+        return updatedInfo.then(() =>
+          route.fulfill({ json: { ...info, name: '更新后的展会活动' } }),
+        );
+      }
+      return route.fulfill({
+        json: info,
+      });
+    });
+    await page.route('**/api/activity/demo/session**', (route) => {
+      bootstrapRequests += 1;
+      return route.fulfill({ json: { authenticated: true } });
+    });
+
+    await page.goto('/activity/demo');
+    await expect(page.getByText('展会活动')).toBeVisible();
+
+    runtimeUnauthorized = true;
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('offline'));
+      window.dispatchEvent(new Event('online'));
+    });
+
+    await expect(page.getByText('操作失败，请稍后重试')).toBeVisible();
+    releaseUpdatedInfo();
+    await page.waitForTimeout(200);
+    expect(infoRequests).toBeGreaterThan(1);
+    expect(bootstrapRequests).toBe(1);
+  });
+
   test('ignores the deprecated invalid-entry query when activity data is available', async ({
     page,
   }, testInfo) => {
