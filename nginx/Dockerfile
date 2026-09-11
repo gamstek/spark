@@ -10,9 +10,10 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/templates/package.json packages/templates/package.json
 RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm --filter @spark/activity build && \
-    pnpm --filter @spark/staff build && \
-    pnpm --filter @spark/admin build
+RUN pnpm --filter @spark/activity... \
+    --filter @spark/staff... \
+    --filter @spark/admin... \
+    build
 
 FROM nginx:1.29-alpine
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf

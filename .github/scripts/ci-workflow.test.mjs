@@ -14,6 +14,10 @@ const productionCompose = await readFile(
   new URL('../../compose.production.yaml', import.meta.url),
   'utf8',
 );
+const webDockerfile = await readFile(
+  new URL('../../nginx/Dockerfile', import.meta.url),
+  'utf8',
+);
 const deploymentScript = await readFile(
   new URL('./deploy-production.sh', import.meta.url),
   'utf8',
@@ -72,6 +76,13 @@ test('uses the PostgreSQL 18 volume layout and includes database failure logs', 
     /database:\/var\/lib\/postgresql\/data/,
   );
   assert.match(deploymentScript, /logs --tail 100 postgres api web/);
+});
+
+test('builds web applications with their workspace dependencies', () => {
+  assert.match(
+    webDockerfile,
+    /pnpm --filter @spark\/activity\.\.\.\s+\\\s+--filter @spark\/staff\.\.\.\s+\\\s+--filter @spark\/admin\.\.\.\s+\\\s+build/,
+  );
 });
 
 test('routes the host Nginx site through a named upstream', () => {
