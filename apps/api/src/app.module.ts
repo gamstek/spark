@@ -8,6 +8,11 @@ import {
 import { CsrfGuard } from './auth/csrf.guard.js';
 import { SessionGuard } from './auth/session.guard.js';
 import { SessionService } from './auth/session.service.js';
+import { ActivitySessionController } from './auth/activity-session.controller.js';
+import {
+  ACTIVITY_IDENTITY_MODE,
+  readActivityIdentityMode,
+} from './auth/activity-identity-mode.js';
 import { HealthController } from './health/health.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
@@ -88,6 +93,7 @@ import {
     ExportsController,
     RuntimeController,
     ActivityInfoController,
+    ActivitySessionController,
   ],
   providers: [
     {
@@ -123,6 +129,10 @@ import {
         ),
     },
     SessionService,
+    {
+      provide: ACTIVITY_IDENTITY_MODE,
+      useFactory: () => readActivityIdentityMode(),
+    },
     {
       provide: WechatCallbackReplayService,
       inject: [DataSource],
