@@ -12,6 +12,7 @@ import { DataSource } from 'typeorm';
 import { describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
+import { ACTIVITY_IDENTITY_MODE } from '../src/auth/activity-identity-mode.js';
 import { ExportsHandler } from '../src/exports/exports.handler.js';
 import { ExportsService } from '../src/exports/exports.service.js';
 import { JobsService } from '../src/jobs/jobs.service.js';
@@ -23,12 +24,21 @@ import { RedemptionsService } from '../src/redemptions/redemptions.service.js';
 import { RuntimeService } from '../src/runtime/runtime.service.js';
 import { SubscriptionService } from '../src/wechat/subscription.service.js';
 
-const productionParameterTypes = new Map<Type, Type[]>([
-  [LotteryService, [DataSource, CodeService, Function, Function]],
+const productionParameterTypes = new Map<Type, unknown[]>([
+  [
+    LotteryService,
+    [DataSource, CodeService, ACTIVITY_IDENTITY_MODE, Function, Function],
+  ],
   [RedemptionsService, [DataSource, CodeService, Function]],
   [
     RuntimeService,
-    [DataSource, ParticipantsService, SubscriptionService, Function],
+    [
+      DataSource,
+      ParticipantsService,
+      SubscriptionService,
+      ACTIVITY_IDENTITY_MODE,
+      Function,
+    ],
   ],
   [ExportsService, [DataSource, JobsService, Object, Function]],
   [ExportsHandler, [DataSource, JobHandlers, Object]],
@@ -68,6 +78,7 @@ describe('production module providers', () => {
       providers: [
         { provide: DataSource, useValue: {} },
         { provide: CodeService, useValue: new CodeService() },
+        { provide: ACTIVITY_IDENTITY_MODE, useValue: 'anonymous' },
         { provide: ParticipantsService, useValue: {} },
         { provide: SubscriptionService, useValue: {} },
         { provide: JobsService, useValue: {} },
