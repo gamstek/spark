@@ -11,10 +11,6 @@ import type { RuntimeStep } from '@spark/contracts';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { activityApi, ApiError } from './api';
-import {
-  activityEntryRuntimeState,
-  simulateWechatSession,
-} from './activity-entry-state';
 import { activityPath, activityViewFromPath } from './activity-route';
 import {
   ActivityRuntimeContext,
@@ -22,6 +18,7 @@ import {
   type ActivityRuntimeValue,
   type ActivityView,
 } from './runtime-context';
+import { bootstrapActivitySession } from './session-bootstrap';
 
 const NETWORK_ERROR_MESSAGE = '网络异常，请稍后重试';
 
@@ -78,8 +75,10 @@ export function ActivityRuntimeProvider({
   const [message, setMessage] = useState<string | null>(null);
   const [stepOverride, setStepOverride] = useState<RuntimeStep | null>(null);
   const [drawing, setDrawing] = useState(false);
-  const [simulationError, setSimulationError] = useState<string | null>(null);
-  const simulatingSessionRef = useRef(false);
+  const [sessionBootstrapError, setSessionBootstrapError] = useState<
+    string | null
+  >(null);
+  const bootstrappingSessionRef = useRef(false);
 
   const runtimeQuery = useQuery({
     queryKey: ['activity-runtime', code],
@@ -97,29 +96,49 @@ export function ActivityRuntimeProvider({
   const refetchInfo = infoQuery.refetch;
 
   useEffect(() => {
-    if (!simulateWechat || !isUnauthorized(runtimeQuery.error)) return;
-    if (simulatingSessionRef.current) return;
+    if (
+      (!isUnauthorized(runtimeQuery.error) &&
+        !isUnauthorized(infoQuery.error)) ||
+      bootstrappingSessionRef.current
+    ) {
+      return;
+    }
 
-    simulatingSessionRef.current = true;
-    void simulateWechatSession({
-      createSession: activityApi.createSimulatedWechatSession,
-      refetchRuntime,
-      refetchInfo,
+    bootstrappingSessionRef.current = true;
+    void bootstrapActivitySession({
+      simulateWechat,
+      createSimulatedSession: activityApi.createSimulatedWechatSession,
+      createSession: () =>
+        activityApi.bootstrapSession(
+          code,
+          `${window.location.pathname}${window.location.search}`,
+        ),
+      refresh: async () => {
+        await Promise.all([refetchRuntime(), refetchInfo()]);
+      },
+      redirect: (url) => window.location.assign(url),
     })
       .catch((error: unknown) => {
-        setSimulationError(messageForError(error));
+        setSessionBootstrapError(messageForError(error));
       })
       .finally(() => {
-        simulatingSessionRef.current = false;
+        bootstrappingSessionRef.current = false;
       });
-  }, [refetchInfo, refetchRuntime, runtimeQuery.error, simulateWechat]);
+  }, [
+    code,
+    infoQuery.error,
+    refetchInfo,
+    refetchRuntime,
+    runtimeQuery.error,
+    simulateWechat,
+  ]);
 
   useEffect(() => {
-    if (runtimeQuery.data) {
+    if (runtimeQuery.data && infoQuery.data) {
       setStepOverride(null);
-      setSimulationError(null);
+      setSessionBootstrapError(null);
     }
-  }, [runtimeQuery.data]);
+  }, [infoQuery.data, runtimeQuery.data]);
 
   const runtime = runtimeQuery.data ?? null;
   const info = infoQuery.data ?? null;
@@ -247,18 +266,14 @@ export function ActivityRuntimeProvider({
   }, [showPrize, win]);
 
   const initialError = runtimeQuery.error ?? infoQuery.error;
-  const { entryError, awaitingSimulatedSession, loading } =
-    activityEntryRuntimeState({
-      search: location.search,
-      runtimeUnauthorized: isUnauthorized(runtimeQuery.error),
-      simulateWechat,
-      simulationError,
-      runtimePending: runtimeQuery.isPending,
-      infoPending: infoQuery.isPending,
-    });
+  const awaitingSessionBootstrap =
+    !sessionBootstrapError &&
+    (isUnauthorized(runtimeQuery.error) || isUnauthorized(infoQuery.error));
+  const loading =
+    runtimeQuery.isPending || infoQuery.isPending || awaitingSessionBootstrap;
   const loadError =
-    entryError ??
-    (initialError && !awaitingSimulatedSession
+    sessionBootstrapError ??
+    (initialError && !awaitingSessionBootstrap
       ? messageForError(initialError)
       : null);
 
@@ -287,7 +302,6 @@ export function ActivityRuntimeProvider({
       step,
       view,
       loading,
-      entryError,
       loadError,
       activity,
       win,

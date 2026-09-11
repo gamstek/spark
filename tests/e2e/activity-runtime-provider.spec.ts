@@ -31,100 +31,54 @@ async function mockSuccessfulActivity(page: Page) {
 }
 
 test.describe('ActivityRuntimeProvider lifecycle', () => {
-  test('stops loading for a production 401 without starting OAuth navigation', async ({
+  test('bootstraps one anonymous session and refetches both resources after simultaneous 401 responses', async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'official-account');
-    let releaseInfo!: () => void;
-    const pendingInfo = new Promise<void>((resolve) => {
-      releaseInfo = resolve;
-    });
-    const oauthRequests: string[] = [];
-
-    await page.route('**/api/activity/demo/runtime**', (route) =>
-      route.fulfill({ status: 401, json: { code: 'UNAUTHORIZED' } }),
-    );
-    await page.route('**/api/activity/demo/info', async (route) => {
-      await pendingInfo;
-      await route.fulfill({ json: info });
-    });
-    await page.route('**/api/wechat/oauth/**', (route) => {
-      oauthRequests.push(route.request().url());
-      return route.fulfill({ status: 500 });
-    });
-
-    try {
-      await page.goto('/activity/demo');
-
-      await expect(
-        page.getByText('请从公众号欢迎消息或“活动抽奖”菜单重新进入'),
-      ).toBeVisible();
-      await expect(page.getByText('加载中…')).toHaveCount(0);
-      expect(oauthRequests).toEqual([]);
-      await expect(page).toHaveURL(/\/activity\/demo$/);
-    } finally {
-      releaseInfo();
-    }
-  });
-
-  test('unblocks the same production provider when a recovered runtime query refetches', async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== 'official-account');
-    let runtimeAuthorized = false;
     let runtimeRequests = 0;
+    let infoRequests = 0;
+    let bootstrapRequests = 0;
 
     await page.route('**/api/activity/demo/runtime**', (route) => {
       runtimeRequests += 1;
       return route.fulfill(
-        runtimeAuthorized
-          ? { json: runtime }
-          : { status: 401, json: { code: 'UNAUTHORIZED' } },
+        runtimeRequests === 1
+          ? { status: 401, json: { code: 'UNAUTHORIZED' } }
+          : { json: runtime },
       );
     });
-    await page.route('**/api/activity/demo/info', (route) =>
-      route.fulfill({ json: info }),
-    );
-
-    await page.goto('/activity/demo');
-    await expect(
-      page.getByText('请从公众号欢迎消息或“活动抽奖”菜单重新进入'),
-    ).toBeVisible();
-    await expect(page.getByText('加载中…')).toHaveCount(0);
-
-    runtimeAuthorized = true;
-    await page.evaluate(() => {
-      window.dispatchEvent(new Event('offline'));
-      window.dispatchEvent(new Event('online'));
+    await page.route('**/api/activity/demo/info', (route) => {
+      infoRequests += 1;
+      return route.fulfill(
+        infoRequests === 1
+          ? { status: 401, json: { code: 'UNAUTHORIZED' } }
+          : { json: info },
+      );
+    });
+    await page.route('**/api/activity/demo/session**', (route) => {
+      bootstrapRequests += 1;
+      expect(
+        new URL(route.request().url()).searchParams.get('returnPath'),
+      ).toBe('/activity/demo');
+      return route.fulfill({ json: { authenticated: true } });
     });
 
-    await expect.poll(() => runtimeRequests).toBe(2);
-    await expect(
-      page.getByText('请从公众号欢迎消息或“活动抽奖”菜单重新进入'),
-    ).toHaveCount(0);
+    await page.goto('/activity/demo');
+
     await expect(page.getByRole('button', { name: '立即参与' })).toBeVisible();
-    await expect(page.getByText('加载中…')).toHaveCount(0);
+    expect(bootstrapRequests).toBe(1);
+    expect(runtimeRequests).toBe(2);
+    expect(infoRequests).toBe(2);
   });
 
-  test('removes stale invalid-entry guidance when the URL rerenders with successful runtime data', async ({
+  test('ignores the deprecated invalid-entry query when activity data is available', async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'official-account');
     await mockSuccessfulActivity(page);
 
     await page.goto('/activity/demo?entryError=invalid');
-    await expect(
-      page.getByText('活动入口已失效，请从公众号“活动抽奖”菜单获取新链接'),
-    ).toBeVisible();
 
-    await page.evaluate(() => {
-      window.history.replaceState({}, '', '/activity/demo');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
-
-    await expect(
-      page.getByText('活动入口已失效，请从公众号“活动抽奖”菜单获取新链接'),
-    ).toHaveCount(0);
     await expect(page.getByRole('button', { name: '立即参与' })).toBeVisible();
   });
 

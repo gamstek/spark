@@ -1,5 +1,7 @@
 import type { ActivityInfo, ActivityRuntime, WinView } from '@spark/contracts';
 
+import type { ActivitySessionBootstrap } from './session-bootstrap';
+
 /** API 业务错误：code 为契约中的错误码（如 OUT_OF_STOCK）。 */
 export class ApiError extends Error {
   constructor(
@@ -62,6 +64,11 @@ export const activityApi = {
     ),
   info: (code: string) =>
     request<ActivityInfo>(`/api/activity/${encodeURIComponent(code)}/info`),
+  bootstrapSession: (code: string, returnPath: string) =>
+    request<ActivitySessionBootstrap>(
+      `/api/activity/${encodeURIComponent(code)}/session?returnPath=${encodeURIComponent(returnPath)}`,
+      { method: 'POST' },
+    ),
   draw: (code: string, csrfToken: string) =>
     request<{ win: WinView | null }>(
       `/api/activity/${encodeURIComponent(code)}/lottery`,
