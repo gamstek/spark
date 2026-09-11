@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionService } from '../src/auth/session.service.js';
 import { createHttpAdapter } from '../src/http-adapter.js';
+import { MaintenanceService } from '../src/maintenance/maintenance.service.js';
 import { ActivityEntryController } from '../src/wechat/activity-entry.controller.js';
 import { WechatActivityEntryService } from '../src/wechat/activity-entry.service.js';
 import { WechatCallbackController } from '../src/wechat/callback.controller.js';
@@ -398,5 +399,47 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     expect(
       await database.dataSource.query('SELECT id FROM app_session'),
     ).toHaveLength(0);
+  });
+
+  it('cleans expired and old consumed entries while preserving usable entries and active sessions', async () => {
+    await publish();
+    const hashes: string[] = [];
+    for (let index = 0; index < 4; index += 1) {
+      const token = entryToken((await callback()).body);
+      hashes.push(createHash('sha256').update(token).digest('hex'));
+    }
+    const [expiredHash, oldConsumedHash, usableHash, recentConsumedHash] =
+      hashes;
+    await database.dataSource.query(
+      `UPDATE wechat_activity_entry_token
+       SET expires_at=CASE WHEN token_hash=$1 THEN now()-interval '1 second'
+                           ELSE now()+interval '10 minutes' END,
+           consumed_at=CASE WHEN token_hash=$2 THEN now()-interval '2 days'
+                            WHEN token_hash=$3 THEN now()-interval '1 minute'
+                            ELSE NULL END`,
+      [expiredHash, oldConsumedHash, recentConsumedHash],
+    );
+    const userId = (await storedTokens())[0]!.user_id;
+    const session = await sessions.create('ACTIVITY', userId);
+    const beforeSessions = await database.dataSource.query(
+      'SELECT id, session_hash, expires_at FROM app_session',
+    );
+
+    await new MaintenanceService(database.dataSource, 60_000).runOnce();
+
+    expect((await storedTokens()).map((row) => row.token_hash).sort()).toEqual(
+      [usableHash, recentConsumedHash].sort(),
+    );
+    expect(
+      await database.dataSource.query(
+        'SELECT id, session_hash, expires_at FROM app_session',
+      ),
+    ).toEqual(beforeSessions);
+    await expect(
+      sessions.resolve(session.token, 'ACTIVITY'),
+    ).resolves.toMatchObject({
+      role: 'ACTIVITY',
+      subjectId: userId,
+    });
   });
 });
