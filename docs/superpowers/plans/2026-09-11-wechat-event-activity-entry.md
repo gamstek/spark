@@ -806,8 +806,8 @@ rg -n "WECHAT_CALLBACK_TOKEN|PUBLIC_BASE_URL|EventKey=LOTTERY|wechat_activity_en
 Expected: only the approved design and implementation-plan commits are visible
 after `10b4da8`; the six obsolete commits are absent from `main` ancestry; the
 working tree is clean; anonymous-mode implementation/configuration references
-are absent; new callback,
-origin, menu, and token persistence references are present.
+are absent; new callback, origin, menu, and token persistence references are
+present.
 
 - [ ] **Step 8: Review the final diff against the spec**
 

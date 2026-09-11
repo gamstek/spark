@@ -22,11 +22,11 @@ the resulting `main` ancestry. The implementation then builds the event-entry
 flow on the restored WeChat identity and activity-session foundation.
 
 The existing WeChat identity table, OAuth implementation, subscription lookup,
-activity session, DingTalk lead collection, lottery, prize, and redemption
-flows remain. Automatic OAuth bootstrap from an unauthenticated activity page
-is disabled for production. A visitor without a valid activity session is told
-to re-enter through the Official Account welcome message or the activity menu.
-The existing simulated WeChat login remains available in development.
+activity session, DingTalk lead collection, lottery, prize, and redemption flows
+remain. Automatic OAuth bootstrap from an unauthenticated activity page is
+disabled for production. A visitor without a valid activity session is told to
+re-enter through the Official Account welcome message or the activity menu. The
+existing simulated WeChat login remains available in development.
 
 ## Production Configuration
 
@@ -56,8 +56,8 @@ keys do not issue an activity entry.
 `GET /api/wechat/callback` validates WeChat's `signature`, `timestamp`, and
 `nonce`, then returns `echostr` unchanged. `POST /api/wechat/callback` performs
 the same signature validation before parsing the size-limited plaintext XML
-body. Signature comparison is timing-safe. XML parsing does not resolve
-external entities, and all dynamic reply content is XML-escaped.
+body. Signature comparison is timing-safe. XML parsing does not resolve external
+entities, and all dynamic reply content is XML-escaped.
 
 The callback handles these events:
 
@@ -70,10 +70,10 @@ The callback handles these events:
   without a user-facing message.
 - Other messages or events: return `success` without issuing a token.
 
-The text reply welcomes the participant, confirms the follow state, and
-contains a clear activity link. The response reverses `ToUserName` and
-`FromUserName` as required by the passive-reply protocol. The first version
-does not manage image-and-text message assets.
+The text reply welcomes the participant, confirms the follow state, and contains
+a clear activity link. The response reverses `ToUserName` and `FromUserName` as
+required by the passive-reply protocol. The first version does not manage
+image-and-text message assets.
 
 Callback logs contain the request ID, event type, outcome, and a one-way
 identity fingerprint where correlation is useful. They never contain the
@@ -90,9 +90,9 @@ starts_at <= current time < ends_at
 
 The result must contain exactly one activity. If no activity is active, the
 passive reply says that no activity is currently available. If more than one is
-active, the passive reply reports an activity configuration problem and asks
-the visitor to contact on-site staff. The service never guesses which activity
-to use and does not issue a token in either case.
+active, the passive reply reports an activity configuration problem and asks the
+visitor to contact on-site staff. The service never guesses which activity to
+use and does not issue a token in either case.
 
 ## Entry Token
 
@@ -139,10 +139,9 @@ menu.
 ## Subscription State
 
 `subscribe` and qualifying `CLICK` events set `wechat_identity.subscribed=true`
-and refresh `subscription_checked_at`. `unsubscribe` sets `subscribed=false`
-and refreshes the timestamp. Identity creation remains serialized by the
-existing OpenID advisory lock, so repeated callbacks cannot create duplicate
-users.
+and refresh `subscription_checked_at`. `unsubscribe` sets `subscribed=false` and
+refreshes the timestamp. Identity creation remains serialized by the existing
+OpenID advisory lock, so repeated callbacks cannot create duplicate users.
 
 The existing runtime and final draw-time subscription protections remain. The
 entry token is an identity handoff, not a replacement for downstream business
@@ -180,8 +179,8 @@ PostgreSQL integration tests cover:
 - concurrent exchange attempts, with exactly one success;
 - cleanup of expired and sufficiently old consumed tokens.
 
-Activity UI tests verify that a missing session shows the Official Account
-entry instruction instead of starting OAuth, that `entryError=invalid` shows a
+Activity UI tests verify that a missing session shows the Official Account entry
+instruction instead of starting OAuth, that `entryError=invalid` shows a
 fresh-link instruction, and that development simulation still works.
 
 Before completion, run `pnpm lint`, `pnpm typecheck`, `pnpm test`,
