@@ -17,6 +17,18 @@ type Clock = () => Date;
 const sha256 = (value: string) =>
   createHash('sha256').update(value).digest('hex');
 
+function hasTraversalSegment(returnPath: string): boolean {
+  const pathname = returnPath.split('?', 1)[0] ?? '';
+  return pathname.split('/').some((segment) => {
+    try {
+      const decoded = decodeURIComponent(segment);
+      return decoded === '.' || decoded === '..';
+    } catch {
+      return true;
+    }
+  });
+}
+
 @Injectable()
 export class OAuthStateService {
   constructor(
@@ -41,7 +53,8 @@ export class OAuthStateService {
       !/^\/activity\/[a-z0-9-]+(?:\/[A-Za-z0-9_.~!$&'()*+,;=:@%/-]*)?(?:\?[A-Za-z0-9_.~!$&'()*+,;=:@%/?-]*)?$/.test(
         returnPath,
       ) ||
-      returnPath.startsWith('//')
+      returnPath.startsWith('//') ||
+      hasTraversalSegment(returnPath)
     ) {
       throw new Error('RETURN_PATH_INVALID');
     }

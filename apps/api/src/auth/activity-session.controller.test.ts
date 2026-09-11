@@ -73,6 +73,8 @@ describe('OAuthStateService.validateReturnPath', () => {
   it.each([
     '/activity/expo-2026/rules?source=qr code',
     '//example.com/activity/expo-2026',
+    '/activity/expo-2026/../other',
+    '/activity/expo-2026/%2e%2e/other',
   ])('rejects unsafe return paths (%s)', (returnPath) => {
     expect(() => states.validateReturnPath(returnPath)).toThrow(
       'RETURN_PATH_INVALID',
@@ -189,4 +191,26 @@ describe('ActivitySessionController', () => {
     expect(sessions.create).not.toHaveBeenCalled();
     expect(reply.header).not.toHaveBeenCalled();
   });
+
+  it.each(['/activity/expo-2026/../other', '/activity/expo-2026/%2e%2e/other'])(
+    'rejects traversal return paths before creating a session (%s)',
+    async (returnPath) => {
+      const { controller, findOne, insert, reply, sessions } =
+        createController('anonymous');
+
+      await expect(
+        controller.create(
+          'expo-2026',
+          returnPath,
+          { id: 'request-id' } as never,
+          reply as never,
+        ),
+      ).rejects.toThrow('RETURN_PATH_INVALID');
+
+      expect(findOne).not.toHaveBeenCalled();
+      expect(insert).not.toHaveBeenCalled();
+      expect(sessions.create).not.toHaveBeenCalled();
+      expect(reply.header).not.toHaveBeenCalled();
+    },
+  );
 });
