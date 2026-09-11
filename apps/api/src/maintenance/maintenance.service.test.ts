@@ -18,5 +18,10 @@ describe('MaintenanceService', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('DELETE FROM oauth_state'),
     );
+    expect(query).toHaveBeenCalledWith(
+      `DELETE FROM wechat_activity_entry_token
+       WHERE expires_at<=now()
+          OR consumed_at<=now()-interval '1 day'`,
+    );
   });
 });

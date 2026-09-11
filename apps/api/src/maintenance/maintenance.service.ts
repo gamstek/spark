@@ -34,6 +34,11 @@ export class MaintenanceService implements OnModuleInit, OnApplicationShutdown {
     await this.dataSource.query(
       `DELETE FROM oauth_state WHERE expires_at<=now() OR consumed_at IS NOT NULL`,
     );
+    await this.dataSource.query(
+      `DELETE FROM wechat_activity_entry_token
+       WHERE expires_at<=now()
+          OR consumed_at<=now()-interval '1 day'`,
+    );
   }
 
   private async runSafely(): Promise<void> {
