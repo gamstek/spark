@@ -4,6 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { WinView } from '@spark/contracts';
 import { DataSource } from 'typeorm';
 
+import type { ActivityIdentityMode } from '../auth/activity-identity-mode.js';
 import { CodeService } from '../redemptions/code.service.js';
 import { chooseWeightedPrize } from './weighted-draw.js';
 
@@ -12,7 +13,7 @@ type ActivityRow = {
   starts_at: Date;
   draw_ends_at: Date;
   redeem_ends_at: Date;
-  config: { noPrizeWeight?: number };
+  config: { noPrizeWeight?: number; requireSubscribe?: boolean };
 };
 type PrizeRow = {
   id: string;
@@ -39,6 +40,7 @@ export class LotteryService {
   constructor(
     @Inject(DataSource) private readonly dataSource: DataSource,
     @Inject(CodeService) private readonly codes: CodeService,
+    private readonly identityMode: ActivityIdentityMode,
     private readonly now: () => Date = () => new Date(),
     private readonly randomInteger: (
       maxExclusive: number,
@@ -93,11 +95,13 @@ export class LotteryService {
       const participation = participations[0];
       if (!participation?.lead_completed) throw new Error('LEAD_REQUIRED');
       if (participation.drawn_at) return null;
-      const subscribed = await manager.query<{ subscribed: boolean }[]>(
-        `SELECT subscribed FROM wechat_identity WHERE user_id=$1 AND subscribed=true LIMIT 1`,
-        [userId],
-      );
-      if (!subscribed[0]) throw new Error('SUBSCRIPTION_REQUIRED');
+      if (this.identityMode === 'wechat' && activity.config.requireSubscribe) {
+        const subscribed = await manager.query<{ subscribed: boolean }[]>(
+          `SELECT subscribed FROM wechat_identity WHERE user_id=$1 AND subscribed=true LIMIT 1`,
+          [userId],
+        );
+        if (!subscribed[0]) throw new Error('SUBSCRIPTION_REQUIRED');
+      }
       const now = this.now();
       if (
         now < new Date(activity.starts_at) ||

@@ -13,6 +13,7 @@ import {
   ACTIVITY_IDENTITY_MODE,
   readActivityIdentityMode,
 } from './auth/activity-identity-mode.js';
+import type { ActivityIdentityMode } from './auth/activity-identity-mode.js';
 import { HealthController } from './health/health.controller.js';
 import { StaffController } from './staff/staff.controller.js';
 import { StaffService } from './staff/staff.service.js';
@@ -171,9 +172,12 @@ import {
     CodeService,
     {
       provide: LotteryService,
-      inject: [DataSource, CodeService],
-      useFactory: (dataSource: DataSource, codes: CodeService) =>
-        new LotteryService(dataSource, codes),
+      inject: [DataSource, CodeService, ACTIVITY_IDENTITY_MODE],
+      useFactory: (
+        dataSource: DataSource,
+        codes: CodeService,
+        identityMode: ActivityIdentityMode,
+      ) => new LotteryService(dataSource, codes, identityMode),
     },
     {
       provide: RedemptionsService,
@@ -197,12 +201,24 @@ import {
     },
     {
       provide: RuntimeService,
-      inject: [DataSource, ParticipantsService, SubscriptionService],
+      inject: [
+        DataSource,
+        ParticipantsService,
+        SubscriptionService,
+        ACTIVITY_IDENTITY_MODE,
+      ],
       useFactory: (
         dataSource: DataSource,
         participants: ParticipantsService,
         subscriptions: SubscriptionService,
-      ) => new RuntimeService(dataSource, participants, subscriptions),
+        identityMode: ActivityIdentityMode,
+      ) =>
+        new RuntimeService(
+          dataSource,
+          participants,
+          subscriptions,
+          identityMode,
+        ),
     },
     MaintenanceService,
     {

@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 
 import { ChannelVisit, WechatIdentity } from '../../database/entities/index.js';
 
+import type { ActivityIdentityMode } from '../auth/activity-identity-mode.js';
 import { ParticipantsService } from '../participants/participants.service.js';
 import { SubscriptionService } from '../wechat/subscription.service.js';
 
@@ -35,6 +36,7 @@ export class RuntimeService {
     private readonly participants: ParticipantsService,
     @Inject(SubscriptionService)
     private readonly subscriptions: SubscriptionService,
+    private readonly identityMode: ActivityIdentityMode,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
@@ -91,6 +93,7 @@ export class RuntimeService {
       ) {
         nextStep = 'ENDED';
       } else if (
+        this.identityMode === 'wechat' &&
         activity.config.requireSubscribe &&
         !(await this.isSubscribed(userId))
       ) {

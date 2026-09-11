@@ -1,12 +1,44 @@
 import { randomUUID } from 'node:crypto';
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
+import type { DataSource } from 'typeorm';
 
 import { LotteryService } from '../src/lottery/lottery.service.js';
 import { chooseWeightedPrize } from '../src/lottery/weighted-draw.js';
 import { CodeService } from '../src/redemptions/code.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
+
+function forbidWechatIdentityAccess(dataSource: DataSource): () => void {
+  const createQueryRunner = dataSource.createQueryRunner.bind(dataSource);
+  const spy = vi
+    .spyOn(dataSource, 'createQueryRunner')
+    .mockImplementation((mode) => {
+      const queryRunner = createQueryRunner(mode);
+      const query = queryRunner.query.bind(queryRunner);
+      queryRunner.query = (async (
+        queryText: string,
+        parameters?: unknown,
+        useStructuredResult?: boolean,
+      ) => {
+        if (/\bwechat_identity\b/i.test(queryText))
+          throw new Error('UNEXPECTED_WECHAT_IDENTITY_ACCESS');
+        return useStructuredResult
+          ? query(queryText, parameters as never, true)
+          : query(queryText, parameters as never);
+      }) as typeof queryRunner.query;
+      return queryRunner;
+    });
+  return () => spy.mockRestore();
+}
 
 describe('atomic lottery and inventory', () => {
   let database: TestDatabase;
@@ -44,10 +76,15 @@ describe('atomic lottery and inventory', () => {
     await database.close();
   });
 
-  const service = (now = scenario.now, codeService = codes) =>
+  const service = (
+    now = scenario.now,
+    codeService = codes,
+    identityMode: 'anonymous' | 'wechat' = 'wechat',
+  ) =>
     new LotteryService(
       database.dataSource,
       codeService,
+      identityMode,
       () => now,
       () => 0,
     );
@@ -99,6 +136,7 @@ describe('atomic lottery and inventory', () => {
     const noPrizeService = new LotteryService(
       database.dataSource,
       codes,
+      'wechat',
       () => scenario.now,
       (maxExclusive) => maxExclusive - 1,
     );
@@ -137,7 +175,30 @@ describe('atomic lottery and inventory', () => {
     ).resolves.toMatchObject({ prizeName: '一等奖' });
   });
 
+  it('skips WeChat identity access for anonymous draw when subscription is required', async () => {
+    await database.dataSource.query(
+      `UPDATE activity_version SET config=config || '{"requireSubscribe":true}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId],
+    );
+    const restore = forbidWechatIdentityAccess(database.dataSource);
+
+    try {
+      await expect(
+        service(scenario.now, codes, 'anonymous').draw(
+          scenario.userIds[0],
+          'expo-2026',
+        ),
+      ).resolves.toBeDefined();
+    } finally {
+      restore();
+    }
+  });
+
   it('requires both completed lead data and a current subscription', async () => {
+    await database.dataSource.query(
+      `UPDATE activity_version SET config=config || '{"requireSubscribe":true}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId],
+    );
     await database.dataSource.query(
       `UPDATE activity_participation SET lead_completed=false WHERE user_id=$1`,
       [scenario.userIds[0]],
