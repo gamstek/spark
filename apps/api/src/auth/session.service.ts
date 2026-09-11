@@ -7,7 +7,7 @@ import {
 } from 'node:crypto';
 
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, type EntityManager } from 'typeorm';
 
 import {
   AdminAccount,
@@ -48,13 +48,14 @@ export class SessionService {
   async create(
     role: SessionRole,
     subjectId: string,
+    manager: EntityManager = this.dataSource.manager,
   ): Promise<{ token: string; csrfToken: string; expiresAt: Date }> {
     const token = randomBytes(32).toString('base64url');
     const csrfToken = csrfForSession(token, this.csrfSecret);
     const expiresAt = new Date(
       Date.now() + (role === 'ACTIVITY' ? 7 * 24 : 8) * 60 * 60 * 1000,
     );
-    await this.dataSource.getRepository(AppSession).insert({
+    await manager.getRepository(AppSession).insert({
       id: randomUUID(),
       sessionHash: tokenHash(token),
       csrfHash: tokenHash(csrfToken),
