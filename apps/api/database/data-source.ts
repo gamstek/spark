@@ -11,6 +11,7 @@ import { ExportMetadata1788739205000 } from './migrations/1788739205000-ExportMe
 import { ActivityVersionPrizes1788739206000 } from './migrations/1788739206000-ActivityVersionPrizes.js';
 import { LotteryNoPrizeOutcome1788739207000 } from './migrations/1788739207000-LotteryNoPrizeOutcome.js';
 import { WechatActivityEntryTokens1788739208000 } from './migrations/1788739208000-WechatActivityEntryTokens.js';
+import { WechatCallbackReceipts1788739209000 } from './migrations/1788739209000-WechatCallbackReceipts.js';
 
 export function createDataSource(
   options: { url?: string; schema?: string } = {},
@@ -37,6 +38,7 @@ export function createDataSource(
       ActivityVersionPrizes1788739206000,
       LotteryNoPrizeOutcome1788739207000,
       WechatActivityEntryTokens1788739208000,
+      WechatCallbackReceipts1788739209000,
     ],
     entities: databaseEntities,
     synchronize: false,

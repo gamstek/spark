@@ -24,7 +24,15 @@ function setup() {
       activityCode: 'expo',
     }),
   };
-  const identities = { markUnsubscribed: vi.fn().mockResolvedValue(undefined) };
+  const identities = {
+    applySubscriptionEvent: vi.fn().mockResolvedValue({ applied: true }),
+  };
+  const replays = {
+    execute: vi.fn(
+      (_input, work: (manager: unknown, signal: AbortSignal) => unknown) =>
+        work({}, new AbortController().signal),
+    ),
+  };
   const reply = {
     header: vi.fn().mockReturnThis(),
     send: vi.fn((body: string) => body),
@@ -32,6 +40,7 @@ function setup() {
   const controller = new WechatCallbackController(
     entries as never,
     identities as never,
+    replays as never,
   );
   const post = (body: unknown, query: unknown = signed) =>
     controller.callback(
@@ -40,10 +49,15 @@ function setup() {
       { id: 'request-1' } as never,
       reply as never,
     );
-  return { controller, entries, identities, reply, post };
+  return { controller, entries, identities, replays, reply, post };
 }
 
 describe('WechatCallbackController', () => {
+  beforeEach(() => {
+    vi.stubEnv('WECHAT_CALLBACK_TOKEN', 'callback-secret');
+    vi.setSystemTime(1_789_123_456_000);
+  });
+
   it.each([
     [
       'event',
@@ -71,7 +85,12 @@ describe('WechatCallbackController', () => {
         `<xml><ToUserName>official-account</ToUserName><FromUserName>private-openid</FromUserName><CreateTime>1789123456</CreateTime><MsgType>${type}</MsgType>${fields}</xml>`,
       );
       if (issues) {
-        expect(entries.issue).toHaveBeenCalledExactlyOnceWith('private-openid');
+        expect(entries.issue).toHaveBeenCalledWith(
+          'private-openid',
+          new Date(1_789_123_456_000),
+          expect.anything(),
+          expect.any(AbortSignal),
+        );
         expect(body).toContain(
           'https://spark.example/api/activity/entry?t=private-token',
         );
@@ -94,8 +113,8 @@ describe('WechatCallbackController', () => {
     },
   );
 
-  beforeEach(() => vi.stubEnv('WECHAT_CALLBACK_TOKEN', 'callback-secret'));
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
@@ -122,7 +141,26 @@ describe('WechatCallbackController', () => {
         'WECHAT_SIGNATURE_INVALID',
       );
       expect(entries.issue).not.toHaveBeenCalled();
-      expect(identities.markUnsubscribed).not.toHaveBeenCalled();
+      expect(identities.applySubscriptionEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['1789123095', '1789123817', 'not-a-time'])(
+    'rejects callback timestamps outside the five-minute freshness window: %s',
+    async (timestamp) => {
+      const query = {
+        timestamp,
+        nonce: 'nonce-value',
+        signature: createHash('sha1')
+          .update(['callback-secret', timestamp, 'nonce-value'].sort().join(''))
+          .digest('hex'),
+      };
+      const { entries, identities, post } = setup();
+      await expect(post(xml('subscribe'), query)).rejects.toThrow(
+        'WECHAT_SIGNATURE_INVALID',
+      );
+      expect(entries.issue).not.toHaveBeenCalled();
+      expect(identities.applySubscriptionEvent).not.toHaveBeenCalled();
     },
   );
 
@@ -150,7 +188,12 @@ describe('WechatCallbackController', () => {
   ])('issues a welcome reply for %s/%s', async (event, key) => {
     const { entries, reply, post } = setup();
     const body = await post(xml(event!, key));
-    expect(entries.issue).toHaveBeenCalledExactlyOnceWith('private-openid');
+    expect(entries.issue).toHaveBeenCalledWith(
+      'private-openid',
+      new Date(1_789_123_456_000),
+      expect.anything(),
+      expect.any(AbortSignal),
+    );
     expect(reply.header).toHaveBeenCalledWith(
       'Content-Type',
       'text/xml; charset=utf-8',
@@ -182,8 +225,12 @@ describe('WechatCallbackController', () => {
   it('marks unsubscribe and acknowledges it as plain text', async () => {
     const { entries, identities, reply, post } = setup();
     expect(await post(xml('unsubscribe'))).toBe('success');
-    expect(identities.markUnsubscribed).toHaveBeenCalledExactlyOnceWith(
+    expect(identities.applySubscriptionEvent).toHaveBeenCalledExactlyOnceWith(
       'private-openid',
+      false,
+      new Date(1_789_123_456_000),
+      expect.anything(),
+      expect.any(AbortSignal),
     );
     expect(entries.issue).not.toHaveBeenCalled();
     expect(reply.header).toHaveBeenCalledWith(
@@ -200,7 +247,7 @@ describe('WechatCallbackController', () => {
     const { entries, identities, post } = setup();
     expect(await post(xml(event!, key, type))).toBe('success');
     expect(entries.issue).not.toHaveBeenCalled();
-    expect(identities.markUnsubscribed).not.toHaveBeenCalled();
+    expect(identities.applySubscriptionEvent).not.toHaveBeenCalled();
   });
 
   it.each(['<xml>invalid</xml>', { Event: 'subscribe' }])(
@@ -223,7 +270,7 @@ describe('WechatCallbackController', () => {
         'SQL private-openid private-token callback-secret',
       );
       entries.issue.mockRejectedValue(error);
-      identities.markUnsubscribed.mockRejectedValue(error);
+      identities.applySubscriptionEvent.mockRejectedValue(error);
       expect(await post(xml(event))).toBe('success');
       expect(errorLog).toHaveBeenCalledWith(
         expect.objectContaining({

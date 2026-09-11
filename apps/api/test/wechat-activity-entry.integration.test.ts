@@ -12,20 +12,13 @@ import { MaintenanceService } from '../src/maintenance/maintenance.service.js';
 import { ActivityEntryController } from '../src/wechat/activity-entry.controller.js';
 import { WechatActivityEntryService } from '../src/wechat/activity-entry.service.js';
 import { WechatCallbackController } from '../src/wechat/callback.controller.js';
+import { WechatCallbackReplayService } from '../src/wechat/callback-replay.service.js';
 import { WechatIdentityService } from '../src/wechat/wechat-identity.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createTimedPublishedActivity } from './support/fixtures.js';
 
 const initialTime = new Date('2026-09-11T04:00:00.000Z');
 const openid = 'entry-private-openid';
-const signedQuery = new URLSearchParams({
-  timestamp: '1789099200',
-  nonce: 'entry-nonce',
-  signature: createHash('sha1')
-    .update('1789099200entry-callback-secretentry-nonce')
-    .digest('hex'),
-}).toString();
-
 function entryToken(body: string): string {
   const url = body.match(
     /https:\/\/spark\.example\/api\/activity\/entry\?t=([A-Za-z0-9_-]+)/,
@@ -43,6 +36,7 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
 
   beforeEach(async () => {
     vi.stubEnv('WECHAT_CALLBACK_TOKEN', 'entry-callback-secret');
+    vi.setSystemTime(initialTime);
     database = await createTestDatabase();
     now = new Date(initialTime);
     const identities = new WechatIdentityService(
@@ -63,6 +57,10 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
       providers: [
         { provide: WechatActivityEntryService, useValue: entries },
         { provide: WechatIdentityService, useValue: identities },
+        {
+          provide: WechatCallbackReplayService,
+          useValue: new WechatCallbackReplayService(database.dataSource),
+        },
       ],
     })(EntryTestModule);
     app = await NestFactory.create<NestFastifyApplication>(
@@ -79,6 +77,7 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     await app?.close();
     await database?.close();
     vi.unstubAllEnvs();
+    vi.useRealTimers();
   });
 
   function publish(
@@ -93,12 +92,21 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     });
   }
 
-  function callback(event = 'subscribe', eventKey = '') {
+  function callback(
+    event = 'subscribe',
+    eventKey = '',
+    createTime = Math.floor(initialTime.getTime() / 1000),
+    nonce = `entry-nonce-${createTime}-${event}-${eventKey}`,
+  ) {
+    const timestamp = String(createTime);
+    const signature = createHash('sha1')
+      .update(['entry-callback-secret', timestamp, nonce].sort().join(''))
+      .digest('hex');
     return app.inject({
       method: 'POST',
-      url: `/api/wechat/callback?${signedQuery}`,
+      url: `/api/wechat/callback?${new URLSearchParams({ timestamp, nonce, signature })}`,
       headers: { 'content-type': 'text/xml' },
-      payload: `<xml><ToUserName><![CDATA[official-account]]></ToUserName><FromUserName><![CDATA[${openid}]]></FromUserName><CreateTime>1789099200</CreateTime><MsgType>event</MsgType><Event>${event}</Event><EventKey>${eventKey}</EventKey></xml>`,
+      payload: `<xml><ToUserName><![CDATA[official-account]]></ToUserName><FromUserName><![CDATA[${openid}]]></FromUserName><CreateTime>${createTime}</CreateTime><MsgType>event</MsgType><Event>${event}</Event><EventKey>${eventKey}</EventKey></xml>`,
     });
   }
 
@@ -152,7 +160,7 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     );
   });
 
-  it('keeps one user and identity across simultaneous repeated subscribe callbacks', async () => {
+  it('returns the same response and side effects for simultaneous exact provider retries', async () => {
     await publish();
     const responses = await Promise.all(
       Array.from({ length: 4 }, () => callback()),
@@ -161,7 +169,7 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
       expect(response.statusCode).toBe(200);
       return entryToken(response.body);
     });
-    expect(new Set(tokens).size).toBe(4);
+    expect(new Set(tokens).size).toBe(1);
     expect(
       await database.dataSource.query('SELECT id FROM user_account'),
     ).toHaveLength(1);
@@ -171,10 +179,67 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     expect(identities).toHaveLength(1);
     expect(identities[0].subscribed).toBe(true);
     const stored = await storedTokens();
-    expect(stored).toHaveLength(4);
+    expect(stored).toHaveLength(1);
     expect(stored.every((row) => row.user_id === identities[0].user_id)).toBe(
       true,
     );
+  });
+
+  it('rejects a different body replayed with a captured signed timestamp and nonce', async () => {
+    await publish();
+    expect(
+      (await callback('subscribe', '', undefined, 'captured-nonce')).statusCode,
+    ).toBe(200);
+    const replay = await callback(
+      'unsubscribe',
+      '',
+      undefined,
+      'captured-nonce',
+    );
+    expect(replay.statusCode).toBe(403);
+    expect(
+      await database.dataSource.query('SELECT subscribed FROM wechat_identity'),
+    ).toEqual([{ subscribed: true }]);
+  });
+
+  it('returns success before the provider deadline and rolls back stalled callback work', async () => {
+    const replays = new WechatCallbackReplayService(database.dataSource, 50);
+    const startedAt = performance.now();
+    const response = await replays.execute(
+      {
+        method: 'POST',
+        timestamp: '1789099200',
+        nonce: 'stalled',
+        body: '<xml>stalled</xml>',
+      },
+      async (manager) => {
+        await manager.query(`SELECT pg_sleep(0.2)`);
+        await manager.query(`INSERT INTO user_account (id) VALUES ($1)`, [
+          '00000000-0000-4000-8000-000000000001',
+        ]);
+        return {
+          body: '<xml>late</xml>',
+          contentType: 'text/xml; charset=utf-8',
+        };
+      },
+    );
+    expect(performance.now() - startedAt).toBeLessThan(150);
+    expect(response).toEqual({
+      body: 'success',
+      contentType: 'text/plain; charset=utf-8',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(
+      await database.dataSource.query(
+        `SELECT request_key FROM wechat_callback_receipt`,
+      ),
+    ).toHaveLength(0);
+    expect(
+      await database.dataSource.query(
+        `SELECT id FROM user_account WHERE id=$1`,
+        ['00000000-0000-4000-8000-000000000001'],
+      ),
+    ).toHaveLength(0);
   });
 
   it('issues an entry for CLICK/LOTTERY and ignores other menu keys', async () => {
@@ -202,7 +267,11 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     await publish();
     entryToken((await callback()).body);
     const before = await storedTokens();
-    const response = await callback('unsubscribe');
+    const response = await callback(
+      'unsubscribe',
+      '',
+      Math.floor(initialTime.getTime() / 1000) + 1,
+    );
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('text/plain');
     expect(response.body).toBe('success');
@@ -213,6 +282,55 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     expect(
       await database.dataSource.query('SELECT subscribed FROM wechat_identity'),
     ).toEqual([{ subscribed: false }]);
+  });
+
+  it('does not let a delayed subscribe overwrite a newer unsubscribe state', async () => {
+    await publish();
+    const base = Math.floor(initialTime.getTime() / 1000);
+    await callback('subscribe', '', base, 'subscribe-initial');
+    await callback('unsubscribe', '', base + 2, 'unsubscribe-newer');
+    const delayed = await callback(
+      'subscribe',
+      '',
+      base + 1,
+      'subscribe-stale',
+    );
+    expect(delayed.body).toBe('success');
+    expect(
+      await database.dataSource.query(
+        'SELECT subscribed,subscription_checked_at FROM wechat_identity',
+      ),
+    ).toEqual([
+      {
+        subscribed: false,
+        subscription_checked_at: new Date((base + 2) * 1000),
+      },
+    ]);
+    expect(await storedTokens()).toHaveLength(1);
+  });
+
+  it('preserves a newer unsubscribe that arrives before the delayed subscribe', async () => {
+    await publish();
+    const base = Math.floor(initialTime.getTime() / 1000);
+    await callback('unsubscribe', '', base + 2, 'unsubscribe-first');
+    const delayed = await callback(
+      'subscribe',
+      '',
+      base + 1,
+      'subscribe-delayed',
+    );
+    expect(delayed.body).toBe('success');
+    expect(
+      await database.dataSource.query(
+        'SELECT subscribed,subscription_checked_at FROM wechat_identity',
+      ),
+    ).toEqual([
+      {
+        subscribed: false,
+        subscription_checked_at: new Date((base + 2) * 1000),
+      },
+    ]);
+    expect(await storedTokens()).toHaveLength(0);
   });
 
   it.each(['none', 'future', 'ended'] as const)(
@@ -273,7 +391,9 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
 
   it('exchanges the issued HTTP link into a persisted ACTIVITY session and rejects replay', async () => {
     await publish();
-    const token = entryToken((await callback()).body);
+    const token = entryToken(
+      (await callback('subscribe', '', undefined, 'second-entry')).body,
+    );
     const response = await app.inject({
       method: 'GET',
       url: `/api/activity/entry?t=${token}`,
@@ -335,7 +455,9 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     const before = await database.dataSource.query(
       'SELECT id FROM app_session',
     );
-    const token = entryToken((await callback()).body);
+    const token = entryToken(
+      (await callback('subscribe', '', undefined, 'parallel-entry')).body,
+    );
     const results = await Promise.all([
       entries.exchange(token),
       entries.exchange(token),
@@ -405,7 +527,9 @@ describe('WeChat callback to activity session with PostgreSQL', () => {
     await publish();
     const hashes: string[] = [];
     for (let index = 0; index < 4; index += 1) {
-      const token = entryToken((await callback()).body);
+      const token = entryToken(
+        (await callback('subscribe', '', undefined, `cleanup-${index}`)).body,
+      );
       hashes.push(createHash('sha256').update(token).digest('hex'));
     }
     const [expiredHash, oldConsumedHash, usableHash, recentConsumedHash] =

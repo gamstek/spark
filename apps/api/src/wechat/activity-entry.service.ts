@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, type EntityManager } from 'typeorm';
 
 import { WechatActivityEntryToken } from '../../database/entities/index.js';
 import { SessionService } from '../auth/session.service.js';
@@ -10,13 +10,15 @@ import { WechatIdentityService } from './wechat-identity.service.js';
 export type EntryIssueResult =
   | { status: 'issued'; url: string; activityCode: string }
   | { status: 'no-active-activity' }
-  | { status: 'multiple-active-activities' };
+  | { status: 'multiple-active-activities' }
+  | { status: 'stale-event' };
 
 export type EntryExchangeResult =
   | { status: 'exchanged'; activityCode: string; sessionToken: string }
   | { status: 'invalid'; activityCode: string | null };
 
 type ActiveActivity = { id: string; code: string };
+type QueryContext = Pick<EntityManager, 'query' | 'getRepository'>;
 type EntryTokenRow = {
   id: string;
   user_id: string;
@@ -42,11 +44,38 @@ export class WechatActivityEntryService {
       randomBytes(32).toString('base64url'),
   ) {}
 
-  async issue(openid: string): Promise<EntryIssueResult> {
+  async issue(
+    openid: string,
+    eventTime?: Date,
+    manager?: EntityManager,
+    signal?: AbortSignal,
+  ): Promise<EntryIssueResult> {
+    if (eventTime && manager) {
+      this.assertActive(signal);
+      const subscription = await this.identities.applySubscriptionEvent(
+        openid,
+        true,
+        eventTime,
+        manager,
+        signal,
+      );
+      if (!subscription.applied || !subscription.userId)
+        return { status: 'stale-event' };
+      return this.issueForUser(subscription.userId, manager, signal);
+    }
     const { userId } = await this.identities.getOrCreateUser(openid);
     await this.identities.markSubscribed(openid);
+    return this.issueForUser(userId, this.dataSource);
+  }
+
+  private async issueForUser(
+    userId: string,
+    manager: QueryContext,
+    signal?: AbortSignal,
+  ): Promise<EntryIssueResult> {
+    this.assertActive(signal);
     const now = this.now();
-    const activities = await this.dataSource.query<ActiveActivity[]>(
+    const activities = await manager.query<ActiveActivity[]>(
       `SELECT activity.id,activity.code
        FROM activity
        JOIN activity_version version ON version.id=activity.published_version_id
@@ -59,7 +88,8 @@ export class WechatActivityEntryService {
 
     const activity = activities[0]!;
     const token = this.randomToken();
-    await this.dataSource.getRepository(WechatActivityEntryToken).insert({
+    this.assertActive(signal);
+    await manager.getRepository(WechatActivityEntryToken).insert({
       id: randomUUID(),
       tokenHash: tokenHash(token),
       userId,
@@ -71,6 +101,10 @@ export class WechatActivityEntryService {
       activityCode: activity.code,
       url: `${this.publicBaseUrl}/api/activity/entry?t=${token}`,
     };
+  }
+
+  private assertActive(signal?: AbortSignal): void {
+    if (signal?.aborted) throw new Error('WECHAT_CALLBACK_DEADLINE');
   }
 
   async exchange(token: string): Promise<EntryExchangeResult> {

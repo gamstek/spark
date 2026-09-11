@@ -39,6 +39,10 @@ export class MaintenanceService implements OnModuleInit, OnApplicationShutdown {
        WHERE expires_at<=now()
           OR consumed_at<=now()-interval '1 day'`,
     );
+    await this.dataSource.query(
+      `DELETE FROM wechat_callback_receipt
+       WHERE created_at<=now()-interval '10 minutes'`,
+    );
   }
 
   private async runSafely(): Promise<void> {

@@ -12,6 +12,7 @@ import { ExportMetadata1788739205000 } from '../../database/migrations/178873920
 import { ActivityVersionPrizes1788739206000 } from '../../database/migrations/1788739206000-ActivityVersionPrizes.js';
 import { LotteryNoPrizeOutcome1788739207000 } from '../../database/migrations/1788739207000-LotteryNoPrizeOutcome.js';
 import { WechatActivityEntryTokens1788739208000 } from '../../database/migrations/1788739208000-WechatActivityEntryTokens.js';
+import { WechatCallbackReceipts1788739209000 } from '../../database/migrations/1788739209000-WechatCallbackReceipts.js';
 
 export interface TestDatabase {
   dataSource: DataSource;
@@ -55,6 +56,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       ActivityVersionPrizes1788739206000,
       LotteryNoPrizeOutcome1788739207000,
       WechatActivityEntryTokens1788739208000,
+      WechatCallbackReceipts1788739209000,
     ],
     entities: databaseEntities,
     synchronize: false,

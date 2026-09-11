@@ -9,11 +9,13 @@ import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { ActivityEntryController } from './wechat/activity-entry.controller.js';
 import { WechatActivityEntryService } from './wechat/activity-entry.service.js';
 import { WechatCallbackController } from './wechat/callback.controller.js';
+import { WechatCallbackReplayService } from './wechat/callback-replay.service.js';
 import { WechatIdentityService } from './wechat/wechat-identity.service.js';
 
 describe('HTTP XML boundary', () => {
   it('serves signed callback XML with HTTP 200 and entry redirects under the API prefix', async () => {
     vi.stubEnv('WECHAT_CALLBACK_TOKEN', 'callback-secret');
+    vi.setSystemTime(1_789_123_456_000);
     const entries = {
       issue: vi.fn().mockResolvedValue({
         status: 'issued',
@@ -32,7 +34,16 @@ describe('HTTP XML boundary', () => {
         { provide: WechatActivityEntryService, useValue: entries },
         {
           provide: WechatIdentityService,
-          useValue: { markUnsubscribed: vi.fn() },
+          useValue: { applySubscriptionEvent: vi.fn() },
+        },
+        {
+          provide: WechatCallbackReplayService,
+          useValue: {
+            execute: (
+              _input: unknown,
+              work: (manager: unknown, signal: AbortSignal) => unknown,
+            ) => work({}, new AbortController().signal),
+          },
         },
       ],
     })
@@ -103,7 +114,12 @@ describe('HTTP XML boundary', () => {
           expect(realistic.body).toContain(
             'https://spark.example/api/activity/entry?t=opaque-token',
           );
-          expect(entries.issue).toHaveBeenCalledExactlyOnceWith('openid');
+          expect(entries.issue).toHaveBeenCalledWith(
+            'openid',
+            new Date(1_789_123_456_000),
+            expect.anything(),
+            expect.any(AbortSignal),
+          );
         } else {
           expect(realistic.headers['content-type']).toBe(
             'text/plain; charset=utf-8',
@@ -132,6 +148,7 @@ describe('HTTP XML boundary', () => {
     } finally {
       await app.close();
       vi.unstubAllEnvs();
+      vi.useRealTimers();
     }
   });
 

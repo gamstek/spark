@@ -24,6 +24,7 @@ import { WechatIdentityService } from './wechat/wechat-identity.service.js';
 import { WechatActivityEntryService } from './wechat/activity-entry.service.js';
 import { ActivityEntryController } from './wechat/activity-entry.controller.js';
 import { WechatCallbackController } from './wechat/callback.controller.js';
+import { WechatCallbackReplayService } from './wechat/callback-replay.service.js';
 import { resolvePublicBaseUrl } from './wechat/entry-configuration.js';
 import { ActivitiesController } from './activities/activities.controller.js';
 import { ActivitiesService } from './activities/activities.service.js';
@@ -122,6 +123,12 @@ import {
         ),
     },
     SessionService,
+    {
+      provide: WechatCallbackReplayService,
+      inject: [DataSource],
+      useFactory: (dataSource: DataSource) =>
+        new WechatCallbackReplayService(dataSource),
+    },
     SessionGuard,
     CsrfGuard,
     StaffService,
