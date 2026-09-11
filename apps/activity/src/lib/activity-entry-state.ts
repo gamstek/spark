@@ -11,3 +11,49 @@ export function activityEntryError(
   }
   return unauthorized ? UNAUTHORIZED_ENTRY_MESSAGE : null;
 }
+
+export function activityEntryRuntimeState({
+  search,
+  runtimeUnauthorized,
+  simulateWechat,
+  simulationError,
+  runtimePending,
+  infoPending,
+}: {
+  search: string;
+  runtimeUnauthorized: boolean;
+  simulateWechat: boolean;
+  simulationError: string | null;
+  runtimePending: boolean;
+  infoPending: boolean;
+}): {
+  entryError: string | null;
+  awaitingSimulatedSession: boolean;
+  loading: boolean;
+} {
+  const entryError =
+    activityEntryError(search, !simulateWechat && runtimeUnauthorized) ??
+    simulationError;
+  const awaitingSimulatedSession =
+    simulateWechat && runtimeUnauthorized && !simulationError;
+  return {
+    entryError,
+    awaitingSimulatedSession,
+    loading:
+      !entryError &&
+      (runtimePending || infoPending || awaitingSimulatedSession),
+  };
+}
+
+export async function simulateWechatSession({
+  createSession,
+  refetchRuntime,
+  refetchInfo,
+}: {
+  createSession: () => Promise<unknown>;
+  refetchRuntime: () => Promise<unknown>;
+  refetchInfo: () => Promise<unknown>;
+}): Promise<void> {
+  await createSession();
+  await Promise.all([refetchRuntime(), refetchInfo()]);
+}

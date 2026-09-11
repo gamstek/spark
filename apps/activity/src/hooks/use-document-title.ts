@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 export function formatDocumentTitle(
   activityTitle: string,
@@ -7,19 +7,26 @@ export function formatDocumentTitle(
   return pageTitle ? `${pageTitle} - ${activityTitle}` : activityTitle;
 }
 
+export function setTemporaryDocumentTitle(
+  target: Pick<Document, 'title'>,
+  title: string,
+): () => void {
+  const previousTitle = target.title;
+  target.title = title;
+  return () => {
+    target.title = previousTitle;
+  };
+}
+
 export function useDocumentTitle(
   activityTitle: string,
   pageTitle: string | null,
 ): void {
-  const defaultTitle = useRef(
-    typeof document === 'undefined' ? '' : document.title,
-  );
-
   useEffect(() => {
     if (!activityTitle || typeof document === 'undefined') return;
-    document.title = formatDocumentTitle(activityTitle, pageTitle);
-    return () => {
-      document.title = defaultTitle.current;
-    };
+    return setTemporaryDocumentTitle(
+      document,
+      formatDocumentTitle(activityTitle, pageTitle),
+    );
   }, [activityTitle, pageTitle]);
 }

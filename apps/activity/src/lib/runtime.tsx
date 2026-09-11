@@ -11,7 +11,10 @@ import type { RuntimeStep } from '@spark/contracts';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { activityApi, ApiError } from './api';
-import { activityEntryError } from './activity-entry-state';
+import {
+  activityEntryRuntimeState,
+  simulateWechatSession,
+} from './activity-entry-state';
 import { activityPath, activityViewFromPath } from './activity-route';
 import {
   ActivityRuntimeContext,
@@ -75,9 +78,7 @@ export function ActivityRuntimeProvider({
   const [message, setMessage] = useState<string | null>(null);
   const [stepOverride, setStepOverride] = useState<RuntimeStep | null>(null);
   const [drawing, setDrawing] = useState(false);
-  const [authenticationError, setAuthenticationError] = useState<string | null>(
-    null,
-  );
+  const [simulationError, setSimulationError] = useState<string | null>(null);
   const simulatingSessionRef = useRef(false);
 
   const runtimeQuery = useQuery({
@@ -96,39 +97,28 @@ export function ActivityRuntimeProvider({
   const refetchInfo = infoQuery.refetch;
 
   useEffect(() => {
-    const invalidEntryError = activityEntryError(location.search, false);
-    if (invalidEntryError) {
-      setAuthenticationError(invalidEntryError);
-      return;
-    }
-    if (!isUnauthorized(runtimeQuery.error)) return;
-    if (!simulateWechat) {
-      setAuthenticationError(activityEntryError(location.search, true));
-      return;
-    }
+    if (!simulateWechat || !isUnauthorized(runtimeQuery.error)) return;
     if (simulatingSessionRef.current) return;
 
     simulatingSessionRef.current = true;
-    void activityApi
-      .createSimulatedWechatSession()
-      .then(async () => {
-        await Promise.all([refetchRuntime(), refetchInfo()]);
-        simulatingSessionRef.current = false;
-      })
+    void simulateWechatSession({
+      createSession: activityApi.createSimulatedWechatSession,
+      refetchRuntime,
+      refetchInfo,
+    })
       .catch((error: unknown) => {
+        setSimulationError(messageForError(error));
+      })
+      .finally(() => {
         simulatingSessionRef.current = false;
-        setAuthenticationError(messageForError(error));
       });
-  }, [
-    location.search,
-    refetchInfo,
-    refetchRuntime,
-    runtimeQuery.error,
-    simulateWechat,
-  ]);
+  }, [refetchInfo, refetchRuntime, runtimeQuery.error, simulateWechat]);
 
   useEffect(() => {
-    if (runtimeQuery.data) setStepOverride(null);
+    if (runtimeQuery.data) {
+      setStepOverride(null);
+      setSimulationError(null);
+    }
   }, [runtimeQuery.data]);
 
   const runtime = runtimeQuery.data ?? null;
@@ -257,13 +247,15 @@ export function ActivityRuntimeProvider({
   }, [showPrize, win]);
 
   const initialError = runtimeQuery.error ?? infoQuery.error;
-  const configuredEntryError = activityEntryError(
-    location.search,
-    !simulateWechat && isUnauthorized(runtimeQuery.error),
-  );
-  const entryError = configuredEntryError ?? authenticationError;
-  const awaitingSimulatedSession =
-    isUnauthorized(runtimeQuery.error) && !authenticationError;
+  const { entryError, awaitingSimulatedSession, loading } =
+    activityEntryRuntimeState({
+      search: location.search,
+      runtimeUnauthorized: isUnauthorized(runtimeQuery.error),
+      simulateWechat,
+      simulationError,
+      runtimePending: runtimeQuery.isPending,
+      infoPending: infoQuery.isPending,
+    });
   const loadError =
     entryError ??
     (initialError && !awaitingSimulatedSession
@@ -274,11 +266,7 @@ export function ActivityRuntimeProvider({
     () => ({
       step,
       view,
-      loading:
-        !entryError &&
-        (runtimeQuery.isPending ||
-          infoQuery.isPending ||
-          awaitingSimulatedSession),
+      loading,
       loadError,
       activity,
       win,
@@ -298,9 +286,7 @@ export function ActivityRuntimeProvider({
     [
       step,
       view,
-      runtimeQuery.isPending,
-      infoQuery.isPending,
-      awaitingSimulatedSession,
+      loading,
       entryError,
       loadError,
       activity,

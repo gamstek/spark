@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useDocumentTitle } from '../hooks/use-document-title';
 
 const ACTIVITY_ENTRY_ERROR_TITLE = '活动入口无效 - Gamstek 营销活动';
 
@@ -24,9 +24,7 @@ export function ActivityEntryNotice({
 }
 
 export function ActivityEntryErrorPage() {
-  useEffect(() => {
-    document.title = ACTIVITY_ENTRY_ERROR_TITLE;
-  }, []);
+  useDocumentTitle(ACTIVITY_ENTRY_ERROR_TITLE, null);
 
   return (
     <ActivityEntryNotice
