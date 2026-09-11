@@ -189,6 +189,59 @@ run_success_case() {
     'curl --connect-timeout 2 --max-time 5 --fail --silent --show-error --output /dev/null'
 }
 
+run_final_candidate_retry_case() {
+  case_root=$1
+  deploy_root="$case_root/deploy"
+  fake_dir="$case_root/fakes"
+  command_log="$case_root/commands.log"
+  curl_count="$case_root/curl-count"
+
+  mkdir -p "$deploy_root/releases"
+  printf 'production configuration\n' >"$deploy_root/.env.production"
+  chmod 600 "$deploy_root/.env.production"
+  make_release "$deploy_root/releases/new"
+  cp "$deploy_script" "$deploy_root/deploy-production.sh"
+  make_fakes "$fake_dir"
+  : >"$command_log"
+
+  PATH="$fake_dir:$PATH" \
+    TEST_COMMAND_LOG="$command_log" \
+    TEST_CURL_COUNT="$curl_count" \
+    TEST_CURL_MODE=success \
+    bash "$deploy_root/deploy-production.sh" up new
+
+  [ "$(readlink "$deploy_root/current")" = 'releases/new' ] ||
+    fail 'retrying a prepared final candidate did not activate it'
+}
+
+run_active_release_up_case() {
+  case_root=$1
+  deploy_root="$case_root/deploy"
+  fake_dir="$case_root/fakes"
+  command_log="$case_root/commands.log"
+  curl_count="$case_root/curl-count"
+
+  mkdir -p "$deploy_root/releases"
+  printf 'production configuration\n' >"$deploy_root/.env.production"
+  chmod 600 "$deploy_root/.env.production"
+  make_release "$deploy_root/releases/new"
+  ln -s 'releases/new' "$deploy_root/current"
+  cp "$deploy_script" "$deploy_root/deploy-production.sh"
+  make_fakes "$fake_dir"
+  : >"$command_log"
+
+  PATH="$fake_dir:$PATH" \
+    TEST_COMMAND_LOG="$command_log" \
+    TEST_CURL_COUNT="$curl_count" \
+    TEST_CURL_MODE=success \
+    bash "$deploy_root/deploy-production.sh" up new
+
+  [ "$(readlink "$deploy_root/current")" = 'releases/new' ] ||
+    fail 'restarting the active release changed current'
+  assert_file_contains "$command_log" \
+    "$deploy_root/releases/new/compose.production.yaml up -d --no-build --pull never --remove-orphans"
+}
+
 run_rollback_case() {
   case_root=$1
   deploy_root="$case_root/deploy"
@@ -219,6 +272,10 @@ run_rollback_case() {
   [ -L "$deploy_root/current" ] || fail 'rollback removed current symlink'
   [ "$(readlink "$deploy_root/current")" = 'releases/old' ] ||
     fail 'rollback changed current away from releases/old'
+  [ -d "$deploy_root/releases/.incoming-new" ] ||
+    fail 'failed candidate was not restored for retry'
+  [ ! -e "$deploy_root/releases/new" ] ||
+    fail 'failed candidate remained in the final release directory'
   assert_count 1 \
     "--env-file $deploy_root/releases/old/.env.release" "$command_log"
   assert_file_contains "$command_log" \
@@ -272,6 +329,8 @@ if grep -F -- 'Deploy release on ECS' "$workflow_file" >/dev/null; then
 fi
 
 run_success_case "$test_root/success"
+run_final_candidate_retry_case "$test_root/final-candidate-retry"
+run_active_release_up_case "$test_root/active-release-up"
 run_rollback_case "$test_root/rollback"
 run_activation_failure_case "$test_root/activation-failure"
 run_current_release_command_case "$test_root/current-release-commands"

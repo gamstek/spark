@@ -158,22 +158,44 @@ if [ "$action" != up ]; then
   exit 0
 fi
 
-[ -d "$incoming_dir" ] || {
-  echo "incoming release directory is missing: $incoming_dir" >&2
+if [ -d "$final_dir" ] && [ "$previous_dir" = "$final_dir" ]; then
+  echo "Release is already active; ensuring services are running: $release_id" >&2
+  if compose_release "$final_dir" up -d --no-build --pull never --remove-orphans &&
+    wait_for_readiness; then
+    echo 'LOCAL_HEALTH_RESULT=success'
+    echo 'ROLLBACK_RESULT=not-needed'
+    exit 0
+  fi
+  echo 'Active release failed readiness check' >&2
+  diagnose_release "$final_dir"
+  echo 'LOCAL_HEALTH_RESULT=failure'
+  echo 'ROLLBACK_RESULT=not-needed'
+  exit 1
+fi
+
+candidate_dir=
+if [ -d "$incoming_dir" ]; then
+  [ ! -e "$final_dir" ] && [ ! -L "$final_dir" ] || {
+    echo "release already exists: $final_dir" >&2
+    exit 2
+  }
+  candidate_dir=$incoming_dir
+elif [ -d "$final_dir" ] && [ "$previous_dir" != "$final_dir" ]; then
+  candidate_dir=$final_dir
+  echo "Retrying prepared release: $final_dir" >&2
+else
+  echo "release candidate is missing: $incoming_dir" >&2
   exit 2
-}
+fi
 for required_file in compose.production.yaml .env.release release.json; do
-  [ -f "$incoming_dir/$required_file" ] || {
+  [ -f "$candidate_dir/$required_file" ] || {
     echo "incoming release file is missing: $required_file" >&2
     exit 2
   }
 done
-if [ -e "$final_dir" ] || [ -L "$final_dir" ]; then
-  echo "release already exists: $final_dir" >&2
-  exit 2
+if [ "$candidate_dir" = "$incoming_dir" ]; then
+  mv -- "$incoming_dir" "$final_dir"
 fi
-
-mv -- "$incoming_dir" "$final_dir"
 
 local_health=failure
 if compose_release "$final_dir" up -d --no-build --pull never --remove-orphans &&
@@ -212,6 +234,13 @@ else
     rollback_result=no-previous-release-candidate-stopped
   else
     rollback_result=no-previous-release-stop-failed
+  fi
+fi
+
+if [ -d "$final_dir" ] && [ ! -e "$incoming_dir" ]; then
+  if ! mv -- "$final_dir" "$incoming_dir"; then
+    echo 'Failed to restore candidate release directory for retry' >&2
+    rollback_result="$rollback_result-candidate-restore-failed"
   fi
 fi
 
