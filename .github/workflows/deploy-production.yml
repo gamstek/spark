@@ -230,7 +230,7 @@ jobs:
         id: candidate
         run: |
           set -euo pipefail
-          release_id="${VERSION}-${SOURCE_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          release_id="$VERSION"
           candidate_dir="$RUNNER_TEMP/spark-release-$release_id"
           install -m 700 -d "$candidate_dir"
           install -m 600 compose.production.yaml \
@@ -314,5 +314,5 @@ jobs:
             echo
             echo 'Run manually on ECS after pulling the images:'
             echo
-            echo "\`bash $ECS_DEPLOY_PATH/deploy-production.sh up $ECS_DEPLOY_PATH $RELEASE_ID\`"
+            echo "\`cd $ECS_DEPLOY_PATH && ./deploy-production.sh up $RELEASE_ID\`"
           } >>"$GITHUB_STEP_SUMMARY"

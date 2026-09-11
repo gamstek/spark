@@ -95,28 +95,28 @@ docker pull ghcr.io/gamstek/spark-web:sha-<完整提交 SHA>
 发布镜像后会连接 ECS，但只同步候选发布文件，不启动、停止或替换任何容器。CI 会更新：
 
 - `/sty/spark/deploy-production.sh`
-- `/sty/spark/releases/.incoming-<release-id>/`
+- `/sty/spark/releases/.incoming-<版本号>/`
 
-本次 `release-id` 和手动命令会显示在 `Stage Production Release`
+版本号和手动命令会显示在 `Stage Production Release`
 的 summary 中。登录 ECS 后先从候选版本的环境文件读取精确镜像地址并手动拉取，再执行
 `up`：
 
 ```bash
 cd /sty/spark
-RELEASE_ID='<summary 中的 release-id>'
+VERSION=v0.0.6
 set -a
-. "releases/.incoming-$RELEASE_ID/.env.release"
+. "releases/.incoming-$VERSION/.env.release"
 set +a
 
 docker pull "$SPARK_API_IMAGE"
 docker pull "$SPARK_WEB_IMAGE"
 docker pull postgres:18-alpine
 
-bash deploy-production.sh up /sty/spark "$RELEASE_ID"
+./deploy-production.sh up "$VERSION"
 ```
 
 最后一条命令才会实际部署：脚本把候选目录移动到正式的
-`releases/$RELEASE_ID`，使用固定 Compose 项目名 `spark`
+`releases/$VERSION`，使用固定 Compose 项目名 `spark`
 启动服务，健康检查通过后原子更新 `current`。因此 CI 完成后 `current`
 不会变化，这是人工激活边界。候选版本失败时脚本会恢复上一版本。脚本使用
 `--pull never`，未提前拉取镜像时会立即失败。
@@ -125,13 +125,13 @@ bash deploy-production.sh up /sty/spark "$RELEASE_ID"
 
 ```bash
 # 查看容器状态
-bash /sty/spark/current/deploy-production.sh status /sty/spark
+./deploy-production.sh status
 
 # 停止容器，但保留容器
-bash /sty/spark/current/deploy-production.sh stop /sty/spark
+./deploy-production.sh stop
 
 # 停止并删除容器及网络，不删除数据库和媒体卷
-bash /sty/spark/current/deploy-production.sh down /sty/spark
+./deploy-production.sh down
 ```
 
 这些子命令会自动读取 `/sty/spark/.env.production`、当前版本的 `.env.release`

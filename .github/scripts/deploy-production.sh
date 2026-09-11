@@ -2,13 +2,15 @@
 
 set -eu
 
+script_dir=$(unset CDPATH; cd -- "$(dirname -- "$0")" && pwd)
+
 usage() {
   cat >&2 <<'EOF'
 usage:
-  deploy-production.sh up <deploy-root> <incoming-release-id>
-  deploy-production.sh stop <deploy-root>
-  deploy-production.sh down <deploy-root>
-  deploy-production.sh status <deploy-root>
+  deploy-production.sh up <release-id> [deploy-root]
+  deploy-production.sh stop [deploy-root]
+  deploy-production.sh down [deploy-root]
+  deploy-production.sh status [deploy-root]
 EOF
   exit 2
 }
@@ -54,13 +56,24 @@ diagnose_release() {
 action=${1:-}
 case "$action" in
   up)
-    [ "$#" -eq 3 ] || usage
-    deploy_root=$2
-    release_id=$3
+    case "$#" in
+      2)
+        deploy_root=$script_dir
+        release_id=$2
+        ;;
+      3)
+        release_id=$2
+        deploy_root=$3
+        ;;
+      *) usage ;;
+    esac
     ;;
   stop | down | status)
-    [ "$#" -eq 2 ] || usage
-    deploy_root=$2
+    case "$#" in
+      1) deploy_root=$script_dir ;;
+      2) deploy_root=$2 ;;
+      *) usage ;;
+    esac
     release_id=
     ;;
   *) usage ;;

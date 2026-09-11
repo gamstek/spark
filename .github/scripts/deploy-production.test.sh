@@ -141,7 +141,7 @@ run_activation_failure_case() {
     TEST_CURL_LOG="$curl_log" \
     TEST_CURL_MODE=success \
     TEST_MV_MODE=fail-current \
-    bash "$deploy_script" up "$deploy_root" new; then
+    bash "$deploy_script" up new "$deploy_root"; then
     fail 'failed current activation returned success'
   fi
 
@@ -163,6 +163,7 @@ run_success_case() {
   printf 'production configuration\n' >"$deploy_root/.env.production"
   chmod 600 "$deploy_root/.env.production"
   make_release "$deploy_root/releases/.incoming-new"
+  cp "$deploy_script" "$deploy_root/deploy-production.sh"
   make_fakes "$fake_dir"
   : >"$command_log"
   : >"$curl_log"
@@ -172,7 +173,7 @@ run_success_case() {
     TEST_CURL_COUNT="$curl_count" \
     TEST_CURL_LOG="$curl_log" \
     TEST_CURL_MODE=success \
-    bash "$deploy_script" up "$deploy_root" new
+    bash "$deploy_root/deploy-production.sh" up new
 
   [ -d "$deploy_root/releases/new" ] ||
     fail 'successful release was not moved to releases/new'
@@ -211,7 +212,7 @@ run_rollback_case() {
     TEST_CURL_COUNT="$curl_count" \
     TEST_CURL_LOG="$curl_log" \
     TEST_CURL_MODE=fail-candidate \
-    bash "$deploy_script" up "$deploy_root" new; then
+    bash "$deploy_script" up new "$deploy_root"; then
     fail 'failed candidate readiness returned success'
   fi
 
@@ -262,6 +263,8 @@ trap 'rm -rf -- "$test_root"' EXIT HUP INT TERM
 
 assert_file_contains "$workflow_file" \
   "script_candidate='\$ECS_DEPLOY_PATH/.deploy-production-\$RELEASE_ID'"
+assert_file_contains "$workflow_file" 'release_id="$VERSION"'
+assert_file_contains "$workflow_file" './deploy-production.sh up $RELEASE_ID'
 assert_file_contains "$workflow_file" \
   "'\$ECS_DEPLOY_PATH/deploy-production.sh'"
 if grep -F -- 'Deploy release on ECS' "$workflow_file" >/dev/null; then
