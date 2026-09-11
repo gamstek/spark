@@ -257,90 +257,20 @@ run_current_release_command_case() {
   done
 }
 
-run_workflow_failure_output_case() {
-  case_root=$1
-  fake_dir="$case_root/fakes"
-  run_script="$case_root/remote-step.sh"
-  deployment_output="$case_root/github-output"
-  runner_temp="$case_root/runner-temp"
-
-  mkdir -p "$fake_dir" "$runner_temp"
-  extract_workflow_step 'Deploy release on ECS' "$run_script"
-  cat >"$fake_dir/sshpass" <<'FAKE_SSHPASS'
-#!/usr/bin/env bash
-printf 'LOCAL_HEALTH_RESULT=failure\n'
-printf 'ROLLBACK_RESULT=success\n'
-exit 1
-FAKE_SSHPASS
-  chmod +x "$fake_dir/sshpass"
-  : >"$deployment_output"
-
-  set +e
-  PATH="$fake_dir:$PATH" \
-    ECS_DEPLOY_PATH=/opt/spark \
-    ECS_HOST=example.test \
-    ECS_PORT=22 \
-    ECS_USER=deploy \
-    RELEASE_ID=test-release \
-    RUNNER_TEMP="$runner_temp" \
-    GITHUB_OUTPUT="$deployment_output" \
-    bash -e "$run_script"
-  status=$?
-  set -e
-
-  [ "$status" -eq 1 ] || fail 'failed ECS deployment did not exit non-zero'
-  assert_file_contains "$deployment_output" 'local_health=failure'
-  assert_file_contains "$deployment_output" 'rollback=success'
-}
-
-run_public_timeout_case() {
-  case_root=$1
-  fake_dir="$case_root/fakes"
-  run_script="$case_root/public-step.sh"
-  public_output="$case_root/github-output"
-  curl_log="$case_root/curl.log"
-
-  mkdir -p "$fake_dir"
-  extract_workflow_step 'Check public production readiness' "$run_script"
-  cat >"$fake_dir/curl" <<'FAKE_PUBLIC_CURL'
-#!/usr/bin/env bash
-{
-  printf 'curl'
-  printf ' %s' "$@"
-  printf '\n'
-} >>"$TEST_CURL_LOG"
-exit 1
-FAKE_PUBLIC_CURL
-  chmod +x "$fake_dir/curl"
-  : >"$public_output"
-  : >"$curl_log"
-
-  set +e
-  PATH="$fake_dir:$PATH" \
-    ECS_HEALTHCHECK_URL=https://spark.example.test/ready \
-    GITHUB_OUTPUT="$public_output" \
-    TEST_CURL_LOG="$curl_log" \
-    bash -e "$run_script"
-  status=$?
-  set -e
-
-  [ "$status" -eq 1 ] || fail 'failed public readiness returned success'
-  assert_file_contains "$public_output" 'result=failure'
-  assert_file_contains "$curl_log" \
-    'curl --connect-timeout 5 --max-time 10 --fail --show-error --silent'
-}
-
 test_root=$(mktemp -d)
 trap 'rm -rf -- "$test_root"' EXIT HUP INT TERM
 
 assert_file_contains "$workflow_file" \
-  "deploy-production.sh' up '\$ECS_DEPLOY_PATH' '\$RELEASE_ID'"
+  "script_candidate='\$ECS_DEPLOY_PATH/.deploy-production-\$RELEASE_ID'"
+assert_file_contains "$workflow_file" \
+  "'\$ECS_DEPLOY_PATH/deploy-production.sh'"
+if grep -F -- 'Deploy release on ECS' "$workflow_file" >/dev/null; then
+  fail 'staging workflow still activates the release'
+fi
 
 run_success_case "$test_root/success"
 run_rollback_case "$test_root/rollback"
 run_activation_failure_case "$test_root/activation-failure"
 run_current_release_command_case "$test_root/current-release-commands"
-run_workflow_failure_output_case "$test_root/workflow-failure-output"
-run_public_timeout_case "$test_root/public-timeout"
 
 printf 'deploy-production tests passed\n'

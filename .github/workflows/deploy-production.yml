@@ -1,6 +1,24 @@
-name: Deploy Production
+name: Stage Production Release
 
 on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Full Git commit SHA of the published images
+        required: true
+        type: string
+      version:
+        description: Validated release version
+        required: true
+        type: string
+      api_digest:
+        description: Immutable API image digest
+        required: true
+        type: string
+      web_digest:
+        description: Immutable Web image digest
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       source_sha:
@@ -128,7 +146,7 @@ jobs:
           echo "api_digest=$api_digest" >>"$GITHUB_OUTPUT"
           echo "web_digest=$web_digest" >>"$GITHUB_OUTPUT"
 
-  deploy:
+  stage:
     needs: resolve
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -154,7 +172,6 @@ jobs:
       - name: Validate production connection settings
         env:
           ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
-          ECS_HEALTHCHECK_URL: ${{ secrets.ECS_HEALTHCHECK_URL }}
           ECS_HOST: ${{ secrets.ECS_HOST }}
           ECS_PASSWORD: ${{ secrets.ECS_PASSWORD }}
           ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
@@ -186,10 +203,6 @@ jobs:
           }
           [[ "$ECS_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || {
             echo 'ECS_HOST contains unsupported characters' >&2
-            exit 1
-          }
-          [[ -z "$ECS_HEALTHCHECK_URL" || "$ECS_HEALTHCHECK_URL" == https://* ]] || {
-            echo 'ECS_HEALTHCHECK_URL must use HTTPS' >&2
             exit 1
           }
           for name in ECS_HOST ECS_PASSWORD ECS_SSH_KNOWN_HOSTS ECS_USER; do
@@ -275,80 +288,31 @@ jobs:
             "$CANDIDATE_DIR/deploy-production.sh" \
             "$ECS_USER@$ECS_HOST:$remote_candidate/"
 
-      - name: Deploy release on ECS
-        id: remote
-        env:
-          ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
-          ECS_HOST: ${{ secrets.ECS_HOST }}
-          ECS_PORT: ${{ secrets.ECS_PORT || '22' }}
-          ECS_USER: ${{ secrets.ECS_USER }}
-          RELEASE_ID: ${{ steps.candidate.outputs.release_id }}
-          SSHPASS: ${{ secrets.ECS_PASSWORD }}
-        run: |
-          set -uo pipefail
-          remote_candidate="$ECS_DEPLOY_PATH/releases/.incoming-$RELEASE_ID"
-          deployment_log="$RUNNER_TEMP/deployment-$RELEASE_ID.log"
-          set +e
           sshpass -e ssh -o PreferredAuthentications=password \
             -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
             -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
             -p "$ECS_PORT" "$ECS_USER@$ECS_HOST" \
-            "bash '$remote_candidate/deploy-production.sh' up '$ECS_DEPLOY_PATH' '$RELEASE_ID'" \
-            2>&1 | tee "$deployment_log"
-          deployment_status=${PIPESTATUS[0]}
-          set -e
-          local_health=$(sed -n 's/^LOCAL_HEALTH_RESULT=//p' "$deployment_log" | tail -n 1)
-          rollback=$(sed -n 's/^ROLLBACK_RESULT=//p' "$deployment_log" | tail -n 1)
-          case "$local_health" in
-            success|failure) ;;
-            *) local_health=failure ;;
-          esac
-          case "$rollback" in
-            success|failure|not-needed|no-previous-release-candidate-stopped|no-previous-release-stop-failed) ;;
-            *) rollback=not-reported ;;
-          esac
-          echo "local_health=$local_health" >>"$GITHUB_OUTPUT"
-          echo "rollback=$rollback" >>"$GITHUB_OUTPUT"
-          exit "$deployment_status"
+            "set -eu; script_candidate='$ECS_DEPLOY_PATH/.deploy-production-$RELEASE_ID';
+            cp -- '$remote_candidate/deploy-production.sh' \"\$script_candidate\";
+            chmod 700 \"\$script_candidate\";
+            mv -f -- \"\$script_candidate\" '$ECS_DEPLOY_PATH/deploy-production.sh'"
 
-      - name: Check public production readiness
-        id: public
+      - name: Write staging summary
         env:
-          ECS_HEALTHCHECK_URL: ${{ secrets.ECS_HEALTHCHECK_URL }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$ECS_HEALTHCHECK_URL" ]]; then
-            echo 'Public HTTPS readiness check is not configured'
-            echo 'result=not-configured' >>"$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if curl --connect-timeout 5 --max-time 10 \
-            --fail --show-error --silent \
-            --retry 10 --retry-delay 3 --retry-connrefused \
-            "$ECS_HEALTHCHECK_URL" >/dev/null; then
-            echo 'result=success' >>"$GITHUB_OUTPUT"
-          else
-            echo 'result=failure' >>"$GITHUB_OUTPUT"
-            exit 1
-          fi
-
-      - name: Write deployment summary
-        if: always()
-        env:
-          LOCAL_HEALTH: ${{ steps.remote.outputs.local_health || 'not-run' }}
-          PUBLIC_HEALTH: ${{ steps.public.outputs.result || 'not-run' }}
-          ROLLBACK_RESULT:
-            ${{ steps.remote.outputs.rollback || 'not-reported' }}
+          ECS_DEPLOY_PATH: ${{ secrets.ECS_DEPLOY_PATH }}
+          RELEASE_ID: ${{ steps.candidate.outputs.release_id }}
         run: |
           {
-            echo '## Production deployment'
+            echo '## Production release staged'
             echo
             echo "- Version: \`$VERSION\`"
             echo "- Source SHA: \`$SOURCE_SHA\`"
             echo "- Config SHA: \`$CONFIG_SHA\`"
             echo "- API digest: \`$API_DIGEST\`"
             echo "- Web digest: \`$WEB_DIGEST\`"
-            echo "- Local health: \`$LOCAL_HEALTH\`"
-            echo "- Public health: \`$PUBLIC_HEALTH\`"
-            echo "- Rollback: \`$ROLLBACK_RESULT\`"
+            echo "- Candidate: \`$ECS_DEPLOY_PATH/releases/.incoming-$RELEASE_ID\`"
+            echo
+            echo 'Run manually on ECS after pulling the images:'
+            echo
+            echo "\`bash $ECS_DEPLOY_PATH/deploy-production.sh up $ECS_DEPLOY_PATH $RELEASE_ID\`"
           } >>"$GITHUB_STEP_SUMMARY"

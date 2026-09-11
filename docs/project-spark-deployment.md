@@ -68,8 +68,9 @@ GitHub Actions 包含三个 workflow：
 - `Release`：可从 Actions 手动运行，也可由严格 SemVer 标签触发。有效示例为
   `v1.2.3`、`v2.0.0-rc.1`；`v1.2`、`v01.2.3`、 `v1.2.3+build.1`
   均无效。发布提交必须属于 `main` 的历史。
-- `Deploy Production`：仅保留显式手动入口，输入已经发布镜像对应的 40 位小写完整 source
-  SHA。`Release` 不会调用它。
+- `Stage Production Release`：由 `Release`
+  调用，只把候选配置和部署脚本同步到 ECS，不执行部署；也可输入已发布镜像对应的 40 位小写完整 source
+  SHA 手动运行。
 
 `Release` 先调用 `CI`，随后并行构建并发布两个 `linux/amd64` 镜像：
 
@@ -90,41 +91,35 @@ docker pull ghcr.io/gamstek/spark-web:sha-<完整提交 SHA>
 
 ## 在 ECS 手动部署
 
-`Release` 只构建并发布镜像，不连接 ECS。发布完成后，在 ECS 手动拉取 Release
-summary 中的两个 digest 镜像：
+`Release`
+发布镜像后会连接 ECS，但只同步候选发布文件，不启动、停止或替换任何容器。CI 会更新：
+
+- `/sty/spark/deploy-production.sh`
+- `/sty/spark/releases/.incoming-<release-id>/`
+
+本次 `release-id` 和手动命令会显示在 `Stage Production Release`
+的 summary 中。登录 ECS 后先从候选版本的环境文件读取精确镜像地址并手动拉取，再执行
+`up`：
 
 ```bash
-docker pull ghcr.io/gamstek/spark-api@sha256:<API_DIGEST>
-docker pull ghcr.io/gamstek/spark-web@sha256:<WEB_DIGEST>
+cd /sty/spark
+RELEASE_ID='<summary 中的 release-id>'
+set -a
+. "releases/.incoming-$RELEASE_ID/.env.release"
+set +a
+
+docker pull "$SPARK_API_IMAGE"
+docker pull "$SPARK_WEB_IMAGE"
 docker pull postgres:18-alpine
+
+bash deploy-production.sh up /sty/spark "$RELEASE_ID"
 ```
 
-然后在 ECS 上包含当前仓库文件的目录中准备候选版本。以下示例使用 `/sty/spark` 和
-`v0.0.4`；两个镜像地址必须替换为同一次 Release 输出的完整 digest：
-
-```bash
-DEPLOY_ROOT=/sty/spark
-RELEASE_ID=v0.0.4
-INCOMING="$DEPLOY_ROOT/releases/.incoming-$RELEASE_ID"
-
-install -d -m 700 "$INCOMING"
-install -m 600 compose.production.yaml "$INCOMING/compose.production.yaml"
-install -m 700 .github/scripts/deploy-production.sh "$INCOMING/deploy-production.sh"
-printf '%s\n' \
-  'SPARK_API_IMAGE=ghcr.io/gamstek/spark-api@sha256:<API_DIGEST>' \
-  'SPARK_WEB_IMAGE=ghcr.io/gamstek/spark-web@sha256:<WEB_DIGEST>' \
-  >"$INCOMING/.env.release"
-printf '{"version":"%s"}\n' "$RELEASE_ID" >"$INCOMING/release.json"
-chmod 600 "$INCOMING/.env.release" "$INCOMING/release.json"
-
-bash "$INCOMING/deploy-production.sh" up "$DEPLOY_ROOT" "$RELEASE_ID"
-```
-
-是的，最后一条命令就是实际部署命令。脚本将候选目录移动到
-`$DEPLOY_ROOT/releases/$RELEASE_ID`，使用固定 Compose 项目名 `spark`
-启动服务，健康检查通过后原子更新
-`$DEPLOY_ROOT/current`。候选版本失败时会恢复上一版本。脚本使用
-`--pull never`，不会下载镜像；未提前拉取镜像时部署会立即失败。
+最后一条命令才会实际部署：脚本把候选目录移动到正式的
+`releases/$RELEASE_ID`，使用固定 Compose 项目名 `spark`
+启动服务，健康检查通过后原子更新 `current`。因此 CI 完成后 `current`
+不会变化，这是人工激活边界。候选版本失败时脚本会恢复上一版本。脚本使用
+`--pull never`，未提前拉取镜像时会立即失败。
 
 部署完成后可用同一个脚本管理当前版本：
 
@@ -143,19 +138,18 @@ bash /sty/spark/current/deploy-production.sh down /sty/spark
 和 Compose 文件，并固定使用项目名 `spark`。`down` 不传递
 `-v`，因此不会删除命名卷。
 
-如需使用保留的 `Deploy Production`
-workflow，必须在 Actions 中显式手动运行。其连接配置仅放在 `production`
-Environment：
+`Stage Production Release`
+也可在 Actions 中显式手动运行，用于重新生成某个已发布提交的候选版本。连接配置仅放在
+`production` Environment：
 
-| Secret                | 内容                                                             |
-| --------------------- | ---------------------------------------------------------------- |
-| `ECS_HOST`            | ECS 公网 IP 或可解析域名                                         |
-| `ECS_PORT`            | SSH 端口；不配置时使用 `22`                                      |
-| `ECS_USER`            | 有权限执行 Docker Compose 的 SSH 用户                            |
-| `ECS_PASSWORD`        | ECS 部署账户的 SSH 密码                                          |
-| `ECS_SSH_KNOWN_HOSTS` | ECS 的固定 `known_hosts` 记录，避免跳过主机校验                  |
-| `ECS_DEPLOY_PATH`     | 服务器部署目录，例如 `/opt/spark`                                |
-| `ECS_HEALTHCHECK_URL` | 可选的公网检查地址：`https://spark.gamstek.com/api/health/ready` |
+| Secret                | 内容                                            |
+| --------------------- | ----------------------------------------------- |
+| `ECS_HOST`            | ECS 公网 IP 或可解析域名                        |
+| `ECS_PORT`            | SSH 端口；不配置时使用 `22`                     |
+| `ECS_USER`            | 有权限执行 Docker Compose 的 SSH 用户           |
+| `ECS_PASSWORD`        | ECS 部署账户的 SSH 密码                         |
+| `ECS_SSH_KNOWN_HOSTS` | ECS 的固定 `known_hosts` 记录，避免跳过主机校验 |
+| `ECS_DEPLOY_PATH`     | 服务器部署目录，例如 `/opt/spark`               |
 
 workflow 使用 `sshpass`，通过 `SSHPASS` 环境变量读取
 `ECS_PASSWORD`；密码不会写入 SSH 命令参数或上传文件。ECS 必须允许密码认证，部署账户必须有权操作
@@ -166,15 +160,10 @@ workflow 使用 `sshpass`，通过 `SSHPASS` 环境变量读取
 ssh-keyscan -p 22 -H ecs.example.com
 ```
 
-首次部署时 `ECS_HEALTHCHECK_URL` 可以不配置，workflow 会在 ECS 内检查
-`http://127.0.0.1:18080/api/health/ready`。HTTPS 启用后再设置公网地址。候选版本的本地检查失败时，脚本自动重新启动
+手动执行 `up` 后，脚本会在 ECS 内检查
+`http://127.0.0.1:18080/api/health/ready`。候选版本检查失败时会重新启动
 `current`
-指向的上一版本并再次检查就绪状态；部署仍以失败结束，便于值班人员发现问题。公网 HTTPS 检查发生在本地激活之后，公网检查失败不会自动切换已经本地健康的版本。
-
-需要手动回滚时，在 Actions 运行
-`Deploy Production`，输入目标已发布版本对应的 40 位小写完整 source
-SHA。workflow 会解析该 SHA 的 API/Web
-digest，创建新的版本目录并经过正常审批与健康检查；数据库迁移不会反向执行。工作流不会读取或覆盖 ECS 上的
+指向的上一版本，部署命令仍以失败结束。数据库迁移不会反向执行；CI 不读取或覆盖 ECS 上的
 `.env.production` 和证书。
 
 ## GitHub 发布保护设置
@@ -189,8 +178,7 @@ digest，创建新的版本目录并经过正常审批与健康检查；数据�
 4. 将 Environment 的 deployment branches and tags 限定为默认分支 `main`
    和受保护的 `v*` 标签。
 5. 只在 `production` Environment 保存 `ECS_HOST`、`ECS_PORT`、
-   `ECS_USER`、`ECS_PASSWORD`、`ECS_SSH_KNOWN_HOSTS`、
-   `ECS_DEPLOY_PATH`、`ECS_HEALTHCHECK_URL`。
+   `ECS_USER`、`ECS_PASSWORD`、`ECS_SSH_KNOWN_HOSTS`、 `ECS_DEPLOY_PATH`。
 
 私有仓库必须使用支持 Environment required
 reviewers 的 GitHub 套餐。如果当前套餐不支持，不能把标签触发视为审批边界；应由授权操作员手动运行部署，将这次人工操作作为生产审批边界，直到套餐或仓库可见性满足 Environment 审批要求。

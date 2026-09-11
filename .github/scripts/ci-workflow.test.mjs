@@ -62,8 +62,8 @@ test('verifies release ancestry from the full checkout without another authentic
   );
 });
 
-test('publishes releases without automatically deploying to production', () => {
-  assert.doesNotMatch(
+test('stages releases on ECS without automatically activating them', () => {
+  assert.match(
     releaseWorkflow,
     /uses: \.\/\.github\/workflows\/deploy-production\.yml/,
   );

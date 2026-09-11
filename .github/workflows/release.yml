@@ -197,5 +197,18 @@ jobs:
             echo "- Source SHA: \`$SOURCE_SHA\`"
             echo "- API digest: \`$API_DIGEST\`"
             echo "- Web digest: \`$WEB_DIGEST\`"
-            echo '- Production deployment: manual'
+            echo '- Production activation: manual on ECS'
           } >>"$GITHUB_STEP_SUMMARY"
+
+  stage_production:
+    needs: [prepare, build_api, build_web]
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/deploy-production.yml
+    secrets: inherit
+    with:
+      source_sha: ${{ needs.prepare.outputs.source_sha }}
+      version: ${{ needs.prepare.outputs.version }}
+      api_digest: ${{ needs.build_api.outputs.digest }}
+      web_digest: ${{ needs.build_web.outputs.digest }}
