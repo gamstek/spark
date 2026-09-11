@@ -78,6 +78,30 @@ describe('parseWechatEventXml', () => {
     });
   });
 
+  it('rejects an optional scalar whose closing tag does not match', () => {
+    expect(() =>
+      parseWechatEventXml(`<xml>
+        <ToUserName>official-account</ToUserName>
+        <FromUserName>wechat-user</FromUserName>
+        <CreateTime>1789123457</CreateTime>
+        <MsgType>event</MsgType>
+        <Event>CLICK</EventKey>
+      </xml>`),
+    ).toThrow('WECHAT_XML_INVALID');
+  });
+
+  it('preserves tag-shaped text inside a CDATA scalar', () => {
+    expect(
+      parseWechatEventXml(`<xml>
+        <ToUserName>official-account</ToUserName>
+        <FromUserName>wechat-user</FromUserName>
+        <CreateTime>1789123457</CreateTime>
+        <MsgType>event</MsgType>
+        <EventKey><![CDATA[<Event>CLICK</Event>]]></EventKey>
+      </xml>`),
+    ).toMatchObject({ eventKey: '<Event>CLICK</Event>' });
+  });
+
   it.each([
     '<!DOCTYPE xml><xml></xml>',
     '<!ENTITY boom "boom"><xml></xml>',
