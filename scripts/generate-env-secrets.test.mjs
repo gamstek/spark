@@ -35,6 +35,7 @@ test('generates labeled application secrets without modifying environment files'
     values.WECHAT_TOKEN_ENCRYPTION_KEY,
     /^wechat-token-[A-Za-z0-9_-]{43}$/,
   );
+  assert.match(values.WECHAT_CALLBACK_TOKEN, /^[a-f0-9]{32}$/);
   assert.match(values.DINGTALK_CALLBACK_SECRET, /^dingtalk-[A-Za-z0-9_-]{43}$/);
   assert.equal(values.REDEEM_CODE_ACTIVE_KEY_ID, 'v1');
 
