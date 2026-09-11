@@ -77,7 +77,7 @@ export class OAuthController {
       scope: 'snsapi_base',
       state: issued.state,
     }).toString();
-    return reply.redirect(`${authorize.toString()}#wechat_redirect`);
+    return reply.status(302).redirect(`${authorize.toString()}#wechat_redirect`);
   }
 
   @Get('callback')
@@ -116,7 +116,7 @@ export class OAuthController {
         userId,
         returnPath,
       });
-      return reply.redirect(returnPath);
+      return reply.status(302).redirect(returnPath);
     } catch (error) {
       this.logger.error({
         event: 'wechat.oauth.failed',

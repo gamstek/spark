@@ -68,6 +68,7 @@ describe('OAuthController simulated login', () => {
     };
     const reply = {
       header: vi.fn().mockReturnThis(),
+      status: vi.fn().mockReturnThis(),
       redirect: vi.fn((url: string) => url),
     };
     const controller = new OAuthController(
@@ -87,8 +88,45 @@ describe('OAuthController simulated login', () => {
     );
 
     const redirect = new URL(reply.redirect.mock.calls[0]![0]);
+    expect(reply.status).toHaveBeenCalledWith(302);
     expect(redirect.searchParams.get('redirect_uri')).toBe(
       'https://spark.gamstek.com/api/wechat/oauth/callback',
     );
+  });
+
+  it('returns an HTTP redirect after completing OAuth', async () => {
+    const states = {
+      consume: vi.fn().mockResolvedValue('/activity/expo'),
+    };
+    const gateway = {
+      exchangeCode: vi.fn().mockResolvedValue({ openid: 'openid-1' }),
+    };
+    const identities = {
+      getOrCreateUser: vi.fn().mockResolvedValue({ userId: 'user-1' }),
+    };
+    const sessions = {
+      create: vi.fn().mockResolvedValue({ token: 'session-token' }),
+    };
+    const reply = {
+      header: vi.fn().mockReturnThis(),
+      status: vi.fn().mockReturnThis(),
+      redirect: vi.fn((url: string) => url),
+    };
+    const controller = new OAuthController(
+      states as never,
+      gateway as never,
+      identities as never,
+      sessions as never,
+    );
+
+    await controller.callback(
+      'wechat-code',
+      'signed-state',
+      { id: 'req-1', headers: { cookie: 'spark_oauth_nonce=nonce' } } as never,
+      reply as never,
+    );
+
+    expect(reply.status).toHaveBeenCalledWith(302);
+    expect(reply.redirect).toHaveBeenCalledWith('/activity/expo');
   });
 });
