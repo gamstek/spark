@@ -12,6 +12,14 @@ describe('lottery activity configuration validation', () => {
     expect(html).toContain('（必填）');
   });
 
+  it('shows which identity mode applies the subscription setting', () => {
+    const html = renderToStaticMarkup(createElement(configForm.ConfigForm));
+
+    expect(html).toMatch(
+      /<p[^>]*>关注设置仅在微信身份模式（wechat）下生效，匿名模式无需关注公众号。<\/p>/,
+    );
+  });
+
   it('exposes validation for activity form submissions', () => {
     const exports = configForm as unknown as Record<string, unknown>;
 

@@ -34,7 +34,7 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
   test('bootstraps one anonymous session and refetches both resources after simultaneous 401 responses', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== 'official-account');
+    test.skip(testInfo.project.name === 'development-simulation');
     let runtimeRequests = 0;
     let infoRequests = 0;
     let bootstrapRequests = 0;
@@ -71,10 +71,68 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
     expect(infoRequests).toBe(2);
   });
 
+  for (const earlyResource of ['runtime', 'info'] as const) {
+    test(`recovers when ${earlyResource} returns 401 before the other initial request settles`, async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name === 'development-simulation');
+      const lateResource = earlyResource === 'runtime' ? 'info' : 'runtime';
+      const requests = { runtime: 0, info: 0 };
+      let bootstrapRequests = 0;
+      let releaseInitial!: () => void;
+      const initialRequestsStarted = new Promise<void>((resolve) => {
+        releaseInitial = resolve;
+      });
+      let releaseLate!: () => void;
+      const lateResponse = new Promise<void>((resolve) => {
+        releaseLate = resolve;
+      });
+      for (const resource of ['runtime', 'info'] as const) {
+        await page.route(
+          `**/api/activity/demo/${resource}**`,
+          async (route) => {
+            requests[resource] += 1;
+            if (requests[resource] === 1) {
+              if (requests.runtime && requests.info) releaseInitial();
+              await initialRequestsStarted;
+              if (resource === lateResource) await lateResponse;
+              await route.fulfill({
+                status: 401,
+                json: { code: 'UNAUTHORIZED' },
+              });
+            } else {
+              await route.fulfill({
+                json: resource === 'runtime' ? runtime : info,
+              });
+            }
+          },
+        );
+      }
+      await page.route('**/api/activity/demo/session**', (route) => {
+        bootstrapRequests += 1;
+        return route.fulfill({ json: { authenticated: true } });
+      });
+
+      try {
+        await page.goto('/activity/demo');
+        await expect.poll(() => requests[earlyResource]).toBe(2);
+        releaseLate();
+        await expect(
+          page.getByRole('button', { name: '立即参与' }),
+        ).toBeVisible();
+        expect(requests).toEqual({ runtime: 2, info: 2 });
+        expect(bootstrapRequests).toBe(1);
+        await expect(page.getByText('操作失败，请稍后重试')).toHaveCount(0);
+      } finally {
+        releaseLate();
+      }
+    });
+  }
+
   test('shows a stable error without repeating bootstrap when the refreshed session remains unauthorized', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== 'official-account');
+    test.skip(testInfo.project.name === 'development-simulation');
     let bootstrapRequests = 0;
 
     await page.route('**/api/activity/demo/runtime**', (route) =>
@@ -98,7 +156,7 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
   test('keeps the bootstrap error when stale runtime data survives a later 401', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== 'official-account');
+    test.skip(testInfo.project.name === 'development-simulation');
     let runtimeUnauthorized = false;
     let infoRequests = 0;
     let bootstrapRequests = 0;
@@ -149,7 +207,7 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
   test('ignores the deprecated invalid-entry query when activity data is available', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== 'official-account');
+    test.skip(testInfo.project.name === 'development-simulation');
     await mockSuccessfulActivity(page);
 
     await page.goto('/activity/demo?entryError=invalid');

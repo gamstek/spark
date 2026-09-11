@@ -22,7 +22,12 @@ function hasTraversalSegment(returnPath: string): boolean {
   return pathname.split('/').some((segment) => {
     try {
       const decoded = decodeURIComponent(segment);
-      return decoded === '.' || decoded === '..';
+      return (
+        decoded === '.' ||
+        decoded === '..' ||
+        decoded.includes('/') ||
+        decoded.includes('\\')
+      );
     } catch {
       return true;
     }

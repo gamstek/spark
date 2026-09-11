@@ -28,7 +28,7 @@ import { RedemptionsService } from '../src/redemptions/redemptions.service.js';
 import { RuntimeService } from '../src/runtime/runtime.service.js';
 import { SubscriptionService } from '../src/wechat/subscription.service.js';
 import { WechatIdentityService } from '../src/wechat/wechat-identity.service.js';
-import { createTestDatabase } from './support/database.js';
+import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 const productionParameterTypes = new Map<Type, unknown[]>([
   [
@@ -70,28 +70,30 @@ function appProvider(service: Type): Provider {
 describe('production module providers', () => {
   it('boots registered routes without callback entry services and retains OAuth', async () => {
     const originalIdentityMode = process.env.ACTIVITY_IDENTITY_MODE;
-    delete process.env.ACTIVITY_IDENTITY_MODE;
-    const database = await createTestDatabase();
-    const providers = Reflect.getMetadata(
-      MODULE_METADATA.PROVIDERS,
-      AppModule,
-    ) as Provider[];
-    class ApplicationRoutesModule {}
-    Module({
-      controllers: Reflect.getMetadata(
-        MODULE_METADATA.CONTROLLERS,
-        AppModule,
-      ) as Type[],
-      providers: providers.map((provider) =>
-        typeof provider === 'object' &&
-        'provide' in provider &&
-        provider.provide === DataSource
-          ? { provide: DataSource, useValue: database.dataSource }
-          : provider,
-      ),
-    })(ApplicationRoutesModule);
+    let database: TestDatabase | undefined;
     let app: NestFastifyApplication | undefined;
     try {
+      delete process.env.ACTIVITY_IDENTITY_MODE;
+      database = await createTestDatabase();
+      const dataSource = database.dataSource;
+      const providers = Reflect.getMetadata(
+        MODULE_METADATA.PROVIDERS,
+        AppModule,
+      ) as Provider[];
+      class ApplicationRoutesModule {}
+      Module({
+        controllers: Reflect.getMetadata(
+          MODULE_METADATA.CONTROLLERS,
+          AppModule,
+        ) as Type[],
+        providers: providers.map((provider) =>
+          typeof provider === 'object' &&
+          'provide' in provider &&
+          provider.provide === DataSource
+            ? { provide: DataSource, useValue: dataSource }
+            : provider,
+        ),
+      })(ApplicationRoutesModule);
       app = await NestFactory.create<NestFastifyApplication>(
         ApplicationRoutesModule,
         new FastifyAdapter(),
@@ -141,11 +143,17 @@ describe('production module providers', () => {
         ),
       ).toEqual([{ user_id: userId, subscribed: true }]);
     } finally {
-      await app?.close();
-      await database.close();
-      if (originalIdentityMode === undefined)
-        delete process.env.ACTIVITY_IDENTITY_MODE;
-      else process.env.ACTIVITY_IDENTITY_MODE = originalIdentityMode;
+      try {
+        await app?.close();
+      } finally {
+        try {
+          await database?.close();
+        } finally {
+          if (originalIdentityMode === undefined)
+            delete process.env.ACTIVITY_IDENTITY_MODE;
+          else process.env.ACTIVITY_IDENTITY_MODE = originalIdentityMode;
+        }
+      }
     }
   });
 

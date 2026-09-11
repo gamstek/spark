@@ -69,9 +69,11 @@ export class ActivitySessionController {
       });
     }
 
-    const userId = randomUUID();
-    await this.dataSource.getRepository(UserAccount).insert({ id: userId });
-    const session = await this.sessions.create('ACTIVITY', userId);
+    const session = await this.dataSource.transaction(async (manager) => {
+      const userId = randomUUID();
+      await manager.getRepository(UserAccount).insert({ id: userId });
+      return this.sessions.create('ACTIVITY', userId, manager);
+    });
     reply.header(
       'Set-Cookie',
       `${cookieNames.ACTIVITY}=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${secureSuffix()}`,

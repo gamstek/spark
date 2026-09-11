@@ -104,6 +104,10 @@ describe('activity runtime', () => {
   });
 
   it('returns SUBSCRIBE for WeChat runtime when subscription is required', async () => {
+    await database.dataSource.query(
+      `UPDATE activity_version SET config=config || '{"requireSubscribe":true}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId],
+    );
     const userId = randomUUID();
     await database.dataSource.query(
       `INSERT INTO user_account (id) VALUES ($1)`,

@@ -11,7 +11,6 @@ const queryClient = new QueryClient();
 function ActivityEntry() {
   const { activityCode = '' } = useParams();
   const wechat = useWechatEnvironment();
-  if (!wechat.allowed) return <WechatBrowserRequired />;
   return (
     <ActivityRuntimeProvider
       key={activityCode}
@@ -20,23 +19,6 @@ function ActivityEntry() {
     >
       <ActivityScene />
     </ActivityRuntimeProvider>
-  );
-}
-
-function WechatBrowserRequired() {
-  return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col items-center justify-center bg-white px-8 text-center">
-      <div
-        aria-hidden="true"
-        className="flex size-16 items-center justify-center rounded-full bg-[#eef8f1] text-[32px]"
-      >
-        微信
-      </div>
-      <h1 className="mt-5 text-[20px] font-medium text-ink">请使用微信打开</h1>
-      <p className="mt-2 text-[14px] leading-6 text-sub">
-        请复制当前页面链接，并在微信中打开后参与活动。
-      </p>
-    </main>
   );
 }
 

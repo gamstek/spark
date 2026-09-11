@@ -24,7 +24,10 @@ function createController(
     getRepository: vi.fn((entity) =>
       entity === Activity ? activities : users,
     ),
+    transaction: async (callback: (manager: unknown) => Promise<unknown>) =>
+      callback(manager),
   };
+  const manager = { getRepository: vi.fn(() => users) };
   const sessions = {
     create: vi.fn().mockResolvedValue({ token: 'activity-session-token' }),
   };
@@ -40,7 +43,16 @@ function createController(
     mode,
   );
 
-  return { controller, dataSource, findOne, insert, reply, sessions, states };
+  return {
+    controller,
+    dataSource,
+    manager,
+    findOne,
+    insert,
+    reply,
+    sessions,
+    states,
+  };
 }
 
 describe('readActivityIdentityMode', () => {
@@ -75,6 +87,10 @@ describe('OAuthStateService.validateReturnPath', () => {
     '//example.com/activity/expo-2026',
     '/activity/expo-2026/../other',
     '/activity/expo-2026/%2e%2e/other',
+    '/activity/demo/..%2f..%2fadmin',
+    '/activity/demo/..%2F..%2Fadmin',
+    '/activity/demo/..%5c..%5cadmin',
+    '/activity/demo/..%5C..%5Cadmin',
   ])('rejects unsafe return paths (%s)', (returnPath) => {
     expect(() => states.validateReturnPath(returnPath)).toThrow(
       'RETURN_PATH_INVALID',
@@ -83,9 +99,37 @@ describe('OAuthStateService.validateReturnPath', () => {
 });
 
 describe('ActivitySessionController', () => {
+  it('sets a Secure seven-day HttpOnly cookie in production', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      const { controller, reply } = createController('anonymous');
+      await controller.create(
+        'expo-2026',
+        undefined,
+        { id: 'secure-cookie-test' } as never,
+        reply as never,
+      );
+      expect(reply.header).toHaveBeenCalledWith(
+        'Set-Cookie',
+        'spark_activity=activity-session-token; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800; Secure',
+      );
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
+
   it('creates an anonymous activity session for a published activity', async () => {
-    const { controller, dataSource, findOne, insert, reply, sessions } =
-      createController('anonymous');
+    const {
+      controller,
+      dataSource,
+      manager,
+      findOne,
+      insert,
+      reply,
+      sessions,
+    } = createController('anonymous');
 
     await expect(
       controller.create(
@@ -100,13 +144,13 @@ describe('ActivitySessionController', () => {
     expect(insert).toHaveBeenCalledOnce();
     expect(insert).toHaveBeenCalledWith({ id: expect.any(String) });
     const userId = insert.mock.calls[0]?.[0]?.id;
-    expect(sessions.create).toHaveBeenCalledWith('ACTIVITY', userId);
+    expect(sessions.create).toHaveBeenCalledWith('ACTIVITY', userId, manager);
     expect(reply.header).toHaveBeenCalledWith(
       'Set-Cookie',
       'spark_activity=activity-session-token; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800',
     );
     expect(dataSource.getRepository).toHaveBeenCalledWith(Activity);
-    expect(dataSource.getRepository).toHaveBeenCalledWith(UserAccount);
+    expect(manager.getRepository).toHaveBeenCalledWith(UserAccount);
   });
 
   it('redirects WeChat sessions without creating a user', async () => {
@@ -192,7 +236,14 @@ describe('ActivitySessionController', () => {
     expect(reply.header).not.toHaveBeenCalled();
   });
 
-  it.each(['/activity/expo-2026/../other', '/activity/expo-2026/%2e%2e/other'])(
+  it.each([
+    '/activity/expo-2026/../other',
+    '/activity/expo-2026/%2e%2e/other',
+    '/activity/expo-2026/..%2f..%2fadmin',
+    '/activity/expo-2026/..%2F..%2Fadmin',
+    '/activity/expo-2026/..%5c..%5cadmin',
+    '/activity/expo-2026/..%5C..%5Cadmin',
+  ])(
     'rejects traversal return paths before creating a session (%s)',
     async (returnPath) => {
       const { controller, findOne, insert, reply, sessions } =

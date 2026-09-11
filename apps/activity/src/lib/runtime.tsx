@@ -115,6 +115,17 @@ export function ActivityRuntimeProvider({
           `${window.location.pathname}${window.location.search}`,
         ),
       refresh: async () => {
+        // A no-data query still in flight would otherwise be reused by refetch.
+        await Promise.all([
+          queryClient.cancelQueries({
+            queryKey: ['activity-runtime', code],
+            exact: true,
+          }),
+          queryClient.cancelQueries({
+            queryKey: ['activity-info', code],
+            exact: true,
+          }),
+        ]);
         await Promise.all([
           refetchRuntime({ throwOnError: true }),
           refetchInfo({ throwOnError: true }),
@@ -131,6 +142,7 @@ export function ActivityRuntimeProvider({
   }, [
     code,
     infoQuery.error,
+    queryClient,
     refetchInfo,
     refetchRuntime,
     runtimeQuery.error,

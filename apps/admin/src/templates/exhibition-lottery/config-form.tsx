@@ -107,6 +107,13 @@ export function ConfigForm({
           >
             活动参与者跳转到该表单，提交后通过回调获得抽奖资格。
           </Text>
+          <Text
+            as="p"
+            size="2"
+            color="gray"
+          >
+            关注设置仅在微信身份模式（wechat）下生效，匿名模式无需关注公众号。
+          </Text>
         </div>
         <div className="form-grid">
           <Flex
