@@ -4,30 +4,6 @@ import type { DataSource } from 'typeorm';
 
 import { hashPassword } from '../../src/auth/accounts.service.js';
 
-export async function createTimedPublishedActivity(
-  dataSource: DataSource,
-  options: { code: string; startsAt: Date; endsAt: Date },
-): Promise<{ activityId: string }> {
-  const activityId = randomUUID();
-  const versionId = randomUUID();
-  await dataSource.transaction(async (manager) => {
-    await manager.query(
-      `INSERT INTO activity (id, code, name) VALUES ($1,$2,'Entry test activity')`,
-      [activityId, options.code],
-    );
-    await manager.query(
-      `INSERT INTO activity_version (id, activity_id, version, status, template_id, template_version, config_schema_version, config, starts_at, ends_at, draw_ends_at, redeem_ends_at, published_at, activity_name)
-       VALUES ($1,$2,1,'PUBLISHED','exhibition-lottery',1,1,'{}',$3,$4,$4,$4,$3,'Entry test activity')`,
-      [versionId, activityId, options.startsAt, options.endsAt],
-    );
-    await manager.query(
-      `UPDATE activity SET published_version_id=$1 WHERE id=$2`,
-      [versionId, activityId],
-    );
-  });
-  return { activityId };
-}
-
 export interface Scenario {
   adminId: string;
   staffId: string;

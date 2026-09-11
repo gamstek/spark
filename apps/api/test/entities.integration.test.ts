@@ -8,7 +8,6 @@ import {
   StaffActivityPermission,
   StockAdjustment,
   WebhookReceipt,
-  WechatActivityEntryToken,
 } from '../database/entities/index.js';
 import { createAdminAccount } from '../database/seeds/admin-seed.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
@@ -36,7 +35,6 @@ const expectedTables = [
   'stock_adjustment',
   'user_account',
   'webhook_receipt',
-  'wechat_activity_entry_token',
   'wechat_credential_cache',
   'wechat_identity',
 ];
@@ -58,6 +56,17 @@ describe('TypeORM entity metadata', () => {
       .sort();
 
     expect(tableNames).toEqual(expectedTables);
+  });
+
+  it('fresh migrations omit retired callback entry tables', async () => {
+    const rows = await database.dataSource.query<{ table_name: string }[]>(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema()`,
+    );
+    const tableNames = rows.map((row) => row.table_name);
+    expect(tableNames).not.toContain('wechat_activity_entry_token');
+    expect(tableNames).not.toContain('wechat_callback_receipt');
+    expect(tableNames).toContain('wechat_identity');
+    expect(tableNames).toContain('app_session');
   });
 
   it('models critical migrated columns, keys, and indexes', () => {
@@ -117,16 +126,6 @@ describe('TypeORM entity metadata', () => {
           where: 'operation_id IS NOT NULL',
         }),
       ]),
-    );
-
-    const entryToken = database.dataSource.getMetadata(
-      WechatActivityEntryToken,
-    );
-    expect(entryToken.uniques.map((item) => item.name)).toContain(
-      'wechat_activity_entry_token_hash_key',
-    );
-    expect(entryToken.indices.map((item) => item.name)).toContain(
-      'wechat_activity_entry_token_cleanup_idx',
     );
   });
 

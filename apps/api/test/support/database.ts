@@ -1,18 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import { DataSource } from 'typeorm';
+import { DataSource, MigrationExecutor } from 'typeorm';
 
-import { databaseEntities } from '../../database/entities/index.js';
-import { InitialSchema1788739200000 } from '../../database/migrations/1788739200000-InitialSchema.js';
-import { WechatSubscriptionCache1788739201000 } from '../../database/migrations/1788739201000-WechatSubscriptionCache.js';
-import { PublishingAndMedia1788739202000 } from '../../database/migrations/1788739202000-PublishingAndMedia.js';
-import { DingTalkSubmissions1788739203000 } from '../../database/migrations/1788739203000-DingTalkSubmissions.js';
-import { LotteryRedemptionCodes1788739204000 } from '../../database/migrations/1788739204000-LotteryRedemptionCodes.js';
-import { ExportMetadata1788739205000 } from '../../database/migrations/1788739205000-ExportMetadata.js';
-import { ActivityVersionPrizes1788739206000 } from '../../database/migrations/1788739206000-ActivityVersionPrizes.js';
-import { LotteryNoPrizeOutcome1788739207000 } from '../../database/migrations/1788739207000-LotteryNoPrizeOutcome.js';
-import { WechatActivityEntryTokens1788739208000 } from '../../database/migrations/1788739208000-WechatActivityEntryTokens.js';
-import { WechatCallbackReceipts1788739209000 } from '../../database/migrations/1788739209000-WechatCallbackReceipts.js';
+import { createDataSource } from '../../database/data-source.js';
 
 export interface TestDatabase {
   dataSource: DataSource;
@@ -32,7 +22,11 @@ export function resolveTestDatabaseUrl(
   return url;
 }
 
-export async function createTestDatabase(): Promise<TestDatabase> {
+export async function createTestDatabase(
+  options: {
+    throughMigration?: string;
+  } = {},
+): Promise<TestDatabase> {
   const url = resolveTestDatabaseUrl();
 
   const schema = `spark_test_${randomUUID().replaceAll('-', '')}`;
@@ -41,29 +35,22 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   await admin.query(`CREATE SCHEMA "${schema}"`);
   await admin.destroy();
 
-  const dataSource = new DataSource({
-    type: 'postgres',
-    url,
-    schema,
-    migrationsTableName: 'typeorm_migrations',
-    migrations: [
-      InitialSchema1788739200000,
-      WechatSubscriptionCache1788739201000,
-      PublishingAndMedia1788739202000,
-      DingTalkSubmissions1788739203000,
-      LotteryRedemptionCodes1788739204000,
-      ExportMetadata1788739205000,
-      ActivityVersionPrizes1788739206000,
-      LotteryNoPrizeOutcome1788739207000,
-      WechatActivityEntryTokens1788739208000,
-      WechatCallbackReceipts1788739209000,
-    ],
-    entities: databaseEntities,
-    synchronize: false,
-    extra: { options: `-c search_path=${schema}` },
-  });
+  const dataSource = createDataSource({ url, schema });
   await dataSource.initialize();
-  await dataSource.runMigrations({ transaction: 'all' });
+  if (options.throughMigration) {
+    await dataSource.transaction(async (manager) => {
+      const executor = new MigrationExecutor(dataSource, manager.queryRunner);
+      const migrations = await executor.getPendingMigrations();
+      const boundary = migrations.findIndex(
+        (migration) => migration.name === options.throughMigration,
+      );
+      if (boundary === -1) throw new Error('TEST_MIGRATION_BOUNDARY_NOT_FOUND');
+      for (const migration of migrations.slice(0, boundary + 1))
+        await executor.executeMigration(migration);
+    });
+  } else {
+    await dataSource.runMigrations({ transaction: 'all' });
+  }
 
   return {
     dataSource,

@@ -4,7 +4,6 @@ import {
   OauthState,
   StaffAccount,
   UserAccount,
-  WechatActivityEntryToken,
   WechatCredentialCache,
   WechatIdentity,
 } from './accounts.entities.js';
@@ -39,7 +38,6 @@ export * from './participation.entities.js';
 export const databaseEntities = [
   UserAccount,
   WechatIdentity,
-  WechatActivityEntryToken,
   AdminAccount,
   StaffAccount,
   AppSession,
