@@ -1,30 +1,15 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import {
-  FastifyAdapter,
-  type NestFastifyApplication,
-} from '@nestjs/platform-fastify';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
+import { createHttpAdapter } from './http-adapter.js';
 
 async function bootstrap() {
+  const adapter = createHttpAdapter();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({
-      bodyLimit: 7 * 1024 * 1024,
-      trustProxy: process.env.TRUST_PROXY ?? 'loopback',
-      logger:
-        process.env.NODE_ENV === 'production'
-          ? {
-              redact: [
-                'req.headers.authorization',
-                'req.headers.cookie',
-                'req.body.password',
-                'req.body.phone',
-              ],
-            }
-          : false,
-    }),
+    adapter,
   );
 
   app.setGlobalPrefix('api');

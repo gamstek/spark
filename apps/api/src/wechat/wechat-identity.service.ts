@@ -47,4 +47,13 @@ export class WechatIdentityService {
         { subscribed: true, subscriptionCheckedAt: () => 'now()' },
       );
   }
+
+  async markUnsubscribed(openid: string): Promise<void> {
+    await this.dataSource
+      .getRepository(WechatIdentity)
+      .update(
+        { appId: this.appId, openid },
+        { subscribed: false, subscriptionCheckedAt: () => 'now()' },
+      );
+  }
 }

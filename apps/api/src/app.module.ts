@@ -21,6 +21,10 @@ import { WechatGateway } from './wechat/wechat.gateway.js';
 import { WechatJsSdkController } from './wechat/js-sdk.controller.js';
 import { WechatJsSdkService } from './wechat/js-sdk.service.js';
 import { WechatIdentityService } from './wechat/wechat-identity.service.js';
+import { WechatActivityEntryService } from './wechat/activity-entry.service.js';
+import { ActivityEntryController } from './wechat/activity-entry.controller.js';
+import { WechatCallbackController } from './wechat/callback.controller.js';
+import { resolvePublicBaseUrl } from './wechat/entry-configuration.js';
 import { ActivitiesController } from './activities/activities.controller.js';
 import { ActivitiesService } from './activities/activities.service.js';
 import { PublishService } from './activities/publish.service.js';
@@ -69,6 +73,8 @@ import {
     StaffAdminController,
     ParticipantsAdminController,
     OAuthController,
+    WechatCallbackController,
+    ActivityEntryController,
     WechatJsSdkController,
     ActivitiesController,
     PrizesController,
@@ -100,6 +106,21 @@ import {
         new WechatIdentityService(dataSource),
     },
     AccountsService,
+    {
+      provide: WechatActivityEntryService,
+      inject: [DataSource, WechatIdentityService, SessionService],
+      useFactory: (
+        dataSource: DataSource,
+        identities: WechatIdentityService,
+        sessions: SessionService,
+      ) =>
+        new WechatActivityEntryService(
+          dataSource,
+          identities,
+          sessions,
+          resolvePublicBaseUrl(process.env.PUBLIC_BASE_URL),
+        ),
+    },
     SessionService,
     SessionGuard,
     CsrfGuard,
