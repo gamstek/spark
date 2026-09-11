@@ -117,7 +117,7 @@ printf '%s\n' \
 printf '{"version":"%s"}\n' "$RELEASE_ID" >"$INCOMING/release.json"
 chmod 600 "$INCOMING/.env.release" "$INCOMING/release.json"
 
-bash "$INCOMING/deploy-production.sh" "$DEPLOY_ROOT" "$RELEASE_ID"
+bash "$INCOMING/deploy-production.sh" up "$DEPLOY_ROOT" "$RELEASE_ID"
 ```
 
 是的，最后一条命令就是实际部署命令。脚本将候选目录移动到
@@ -125,6 +125,23 @@ bash "$INCOMING/deploy-production.sh" "$DEPLOY_ROOT" "$RELEASE_ID"
 启动服务，健康检查通过后原子更新
 `$DEPLOY_ROOT/current`。候选版本失败时会恢复上一版本。脚本使用
 `--pull never`，不会下载镜像；未提前拉取镜像时部署会立即失败。
+
+部署完成后可用同一个脚本管理当前版本：
+
+```bash
+# 查看容器状态
+bash /sty/spark/current/deploy-production.sh status /sty/spark
+
+# 停止容器，但保留容器
+bash /sty/spark/current/deploy-production.sh stop /sty/spark
+
+# 停止并删除容器及网络，不删除数据库和媒体卷
+bash /sty/spark/current/deploy-production.sh down /sty/spark
+```
+
+这些子命令会自动读取 `/sty/spark/.env.production`、当前版本的 `.env.release`
+和 Compose 文件，并固定使用项目名 `spark`。`down` 不传递
+`-v`，因此不会删除命名卷。
 
 如需使用保留的 `Deploy Production`
 workflow，必须在 Actions 中显式手动运行。其连接配置仅放在 `production`

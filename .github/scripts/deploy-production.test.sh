@@ -141,7 +141,7 @@ run_activation_failure_case() {
     TEST_CURL_LOG="$curl_log" \
     TEST_CURL_MODE=success \
     TEST_MV_MODE=fail-current \
-    bash "$deploy_script" "$deploy_root" new; then
+    bash "$deploy_script" up "$deploy_root" new; then
     fail 'failed current activation returned success'
   fi
 
@@ -172,7 +172,7 @@ run_success_case() {
     TEST_CURL_COUNT="$curl_count" \
     TEST_CURL_LOG="$curl_log" \
     TEST_CURL_MODE=success \
-    bash "$deploy_script" "$deploy_root" new
+    bash "$deploy_script" up "$deploy_root" new
 
   [ -d "$deploy_root/releases/new" ] ||
     fail 'successful release was not moved to releases/new'
@@ -211,7 +211,7 @@ run_rollback_case() {
     TEST_CURL_COUNT="$curl_count" \
     TEST_CURL_LOG="$curl_log" \
     TEST_CURL_MODE=fail-candidate \
-    bash "$deploy_script" "$deploy_root" new; then
+    bash "$deploy_script" up "$deploy_root" new; then
     fail 'failed candidate readiness returned success'
   fi
 
@@ -224,6 +224,37 @@ run_rollback_case() {
     "$deploy_root/releases/old/compose.production.yaml up -d --no-build --pull never --remove-orphans"
   assert_count 4 'docker compose -p spark ' "$command_log"
   assert_count 21 'curl --connect-timeout 2 --max-time 5 ' "$curl_log"
+}
+
+run_current_release_command_case() {
+  case_root=$1
+  deploy_root="$case_root/deploy"
+  fake_dir="$case_root/fakes"
+  command_log="$case_root/commands.log"
+
+  mkdir -p "$deploy_root/releases"
+  printf 'production configuration\n' >"$deploy_root/.env.production"
+  chmod 600 "$deploy_root/.env.production"
+  make_release "$deploy_root/releases/current-release"
+  ln -s 'releases/current-release' "$deploy_root/current"
+  make_fakes "$fake_dir"
+
+  for command in stop down status; do
+    : >"$command_log"
+    PATH="$fake_dir:$PATH" \
+      TEST_COMMAND_LOG="$command_log" \
+      bash "$deploy_script" "$command" "$deploy_root"
+
+    case "$command" in
+      status) compose_command=ps ;;
+      *) compose_command=$command ;;
+    esac
+    assert_file_contains "$command_log" \
+      "$deploy_root/releases/current-release/compose.production.yaml $compose_command"
+    if grep -F -- ' -v' "$command_log" >/dev/null; then
+      fail "$command unexpectedly requested volume deletion"
+    fi
+  done
 }
 
 run_workflow_failure_output_case() {
@@ -302,9 +333,13 @@ FAKE_PUBLIC_CURL
 test_root=$(mktemp -d)
 trap 'rm -rf -- "$test_root"' EXIT HUP INT TERM
 
+assert_file_contains "$workflow_file" \
+  "deploy-production.sh' up '\$ECS_DEPLOY_PATH' '\$RELEASE_ID'"
+
 run_success_case "$test_root/success"
 run_rollback_case "$test_root/rollback"
 run_activation_failure_case "$test_root/activation-failure"
+run_current_release_command_case "$test_root/current-release-commands"
 run_workflow_failure_output_case "$test_root/workflow-failure-output"
 run_public_timeout_case "$test_root/public-timeout"
 

@@ -293,7 +293,7 @@ jobs:
             -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 \
             -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
             -p "$ECS_PORT" "$ECS_USER@$ECS_HOST" \
-            "bash '$remote_candidate/deploy-production.sh' '$ECS_DEPLOY_PATH' '$RELEASE_ID'" \
+            "bash '$remote_candidate/deploy-production.sh' up '$ECS_DEPLOY_PATH' '$RELEASE_ID'" \
             2>&1 | tee "$deployment_log"
           deployment_status=${PIPESTATUS[0]}
           set -e

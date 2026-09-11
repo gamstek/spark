@@ -3,7 +3,13 @@
 set -eu
 
 usage() {
-  echo 'usage: deploy-production.sh <deploy-root> <incoming-release-id>' >&2
+  cat >&2 <<'EOF'
+usage:
+  deploy-production.sh up <deploy-root> <incoming-release-id>
+  deploy-production.sh stop <deploy-root>
+  deploy-production.sh down <deploy-root>
+  deploy-production.sh status <deploy-root>
+EOF
   exit 2
 }
 
@@ -45,9 +51,20 @@ diagnose_release() {
   } 2>&1 | redact_output
 }
 
-[ "$#" -eq 2 ] || usage
-deploy_root=$1
-release_id=$2
+action=${1:-}
+case "$action" in
+  up)
+    [ "$#" -eq 3 ] || usage
+    deploy_root=$2
+    release_id=$3
+    ;;
+  stop | down | status)
+    [ "$#" -eq 2 ] || usage
+    deploy_root=$2
+    release_id=
+    ;;
+  *) usage ;;
+esac
 
 case "$deploy_root" in
   /*) ;;
@@ -62,7 +79,7 @@ if [ "$deploy_root" = / ]; then
   exit 2
 fi
 
-if ! [[ "$release_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
+if [ "$action" = up ] && ! [[ "$release_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
   echo 'release id contains unsupported characters' >&2
   exit 2
 fi
@@ -93,21 +110,6 @@ if ! [[ "$production_mode" =~ ^[0-7]{3,4}$ ]] ||
   exit 2
 fi
 
-[ -d "$incoming_dir" ] || {
-  echo "incoming release directory is missing: $incoming_dir" >&2
-  exit 2
-}
-for required_file in compose.production.yaml .env.release release.json; do
-  [ -f "$incoming_dir/$required_file" ] || {
-    echo "incoming release file is missing: $required_file" >&2
-    exit 2
-  }
-done
-if [ -e "$final_dir" ] || [ -L "$final_dir" ]; then
-  echo "release already exists: $final_dir" >&2
-  exit 2
-fi
-
 previous_dir=
 if [ -L "$current_link" ]; then
   previous_target=$(readlink -- "$current_link")
@@ -127,6 +129,34 @@ if [ -L "$current_link" ]; then
   done
 elif [ -e "$current_link" ]; then
   echo 'current exists but is not a symbolic link' >&2
+  exit 2
+fi
+
+if [ "$action" != up ]; then
+  [ -n "$previous_dir" ] || {
+    echo 'current release is not configured' >&2
+    exit 2
+  }
+  case "$action" in
+    status) compose_release "$previous_dir" ps ;;
+    stop) compose_release "$previous_dir" stop ;;
+    down) compose_release "$previous_dir" down ;;
+  esac
+  exit 0
+fi
+
+[ -d "$incoming_dir" ] || {
+  echo "incoming release directory is missing: $incoming_dir" >&2
+  exit 2
+}
+for required_file in compose.production.yaml .env.release release.json; do
+  [ -f "$incoming_dir/$required_file" ] || {
+    echo "incoming release file is missing: $required_file" >&2
+    exit 2
+  }
+done
+if [ -e "$final_dir" ] || [ -L "$final_dir" ]; then
+  echo "release already exists: $final_dir" >&2
   exit 2
 fi
 
