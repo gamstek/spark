@@ -1,24 +1,6 @@
 name: Deploy Production
 
 on:
-  workflow_call:
-    inputs:
-      source_sha:
-        description: Full Git commit SHA of the published images
-        required: true
-        type: string
-      version:
-        description: Validated release version
-        required: true
-        type: string
-      api_digest:
-        description: Immutable API image digest
-        required: true
-        type: string
-      web_digest:
-        description: Immutable Web image digest
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       source_sha:

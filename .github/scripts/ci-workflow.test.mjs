@@ -62,10 +62,10 @@ test('verifies release ancestry from the full checkout without another authentic
   );
 });
 
-test('passes production secrets to the reusable deployment workflow', () => {
-  assert.match(
+test('publishes releases without automatically deploying to production', () => {
+  assert.doesNotMatch(
     releaseWorkflow,
-    /  deploy:\r?\n[\s\S]*?uses: \.\/\.github\/workflows\/deploy-production\.yml[\s\S]*?secrets: inherit/,
+    /uses: \.\/\.github\/workflows\/deploy-production\.yml/,
   );
 });
 

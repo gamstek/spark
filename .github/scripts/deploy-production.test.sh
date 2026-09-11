@@ -183,7 +183,7 @@ run_success_case() {
     fail 'current does not point to releases/new'
   assert_file_contains "$command_log" 'docker compose -p spark '
   assert_file_contains "$command_log" \
-    "$deploy_root/releases/new/compose.production.yaml up -d --no-build --remove-orphans"
+    "$deploy_root/releases/new/compose.production.yaml up -d --no-build --pull never --remove-orphans"
   assert_file_contains "$curl_log" \
     'curl --connect-timeout 2 --max-time 5 --fail --silent --show-error --output /dev/null'
 }
@@ -221,7 +221,7 @@ run_rollback_case() {
   assert_count 1 \
     "--env-file $deploy_root/releases/old/.env.release" "$command_log"
   assert_file_contains "$command_log" \
-    "$deploy_root/releases/old/compose.production.yaml up -d --no-build --remove-orphans"
+    "$deploy_root/releases/old/compose.production.yaml up -d --no-build --pull never --remove-orphans"
   assert_count 4 'docker compose -p spark ' "$command_log"
   assert_count 21 'curl --connect-timeout 2 --max-time 5 ' "$curl_log"
 }

@@ -23,8 +23,9 @@
    安装到系统 Nginx，创建 `sites-enabled` 软链接；只有 `nginx -t`
    成功后才能 reload。
 
-首次和后续版本均通过 `Release` 或 `Deploy Production` 激活。不要在 `/opt/spark`
-使用平铺的 Compose 和 `.env.release` 文件手动执行
+`Release`
+只发布镜像。首次和后续版本都由操作人员在 ECS 上运行部署脚本激活。不要在
+`/opt/spark` 使用平铺的 Compose 和 `.env.release` 文件直接执行
 `up`，否则会绕过候选版本健康检查、自动回滚和 `current`
 的原子切换。部署完成后检查当前版本和状态：
 
@@ -67,9 +68,8 @@ GitHub Actions 包含三个 workflow：
 - `Release`：可从 Actions 手动运行，也可由严格 SemVer 标签触发。有效示例为
   `v1.2.3`、`v2.0.0-rc.1`；`v1.2`、`v01.2.3`、 `v1.2.3+build.1`
   均无效。发布提交必须属于 `main` 的历史。
-- `Deploy Production`：由 `Release`
-  调用，或输入已经发布镜像对应的 40 位小写完整 source
-  SHA 手动运行。部署作业必须通过 `production` Environment 的审批。
+- `Deploy Production`：仅保留显式手动入口，输入已经发布镜像对应的 40 位小写完整 source
+  SHA。`Release` 不会调用它。
 
 `Release` 先调用 `CI`，随后并行构建并发布两个 `linux/amd64` 镜像：
 
@@ -88,16 +88,47 @@ docker pull ghcr.io/gamstek/spark-api:sha-<完整提交 SHA>
 docker pull ghcr.io/gamstek/spark-web:sha-<完整提交 SHA>
 ```
 
-## 阿里云 ECS 发布部署
+## 在 ECS 手动部署
 
-`Release` 成功发布镜像后会调用 `Deploy Production`。workflow 通过 SSH 将
-`compose.production.yaml`、digest 形式的 `.env.release`、`release.json`
-和经过测试的 `deploy-production.sh` 上传到
-`/opt/spark/releases/.incoming-<release-id>`。服务器将其原子移动为
-`/opt/spark/releases/<release-id>`，再以固定 Compose 项目名 `spark`
-启动候选版本； `/opt/spark/current`
-符号链接仅在本地就绪检查成功后原子指向新版本。GitHub Environment `production`
-仅在 Environment 范围配置以下 secrets，不在仓库或组织范围重复配置：
+`Release` 只构建并发布镜像，不连接 ECS。发布完成后，在 ECS 手动拉取 Release
+summary 中的两个 digest 镜像：
+
+```bash
+docker pull ghcr.io/gamstek/spark-api@sha256:<API_DIGEST>
+docker pull ghcr.io/gamstek/spark-web@sha256:<WEB_DIGEST>
+docker pull postgres:18-alpine
+```
+
+然后在 ECS 上包含当前仓库文件的目录中准备候选版本。以下示例使用 `/sty/spark` 和
+`v0.0.4`；两个镜像地址必须替换为同一次 Release 输出的完整 digest：
+
+```bash
+DEPLOY_ROOT=/sty/spark
+RELEASE_ID=v0.0.4
+INCOMING="$DEPLOY_ROOT/releases/.incoming-$RELEASE_ID"
+
+install -d -m 700 "$INCOMING"
+install -m 600 compose.production.yaml "$INCOMING/compose.production.yaml"
+install -m 700 .github/scripts/deploy-production.sh "$INCOMING/deploy-production.sh"
+printf '%s\n' \
+  'SPARK_API_IMAGE=ghcr.io/gamstek/spark-api@sha256:<API_DIGEST>' \
+  'SPARK_WEB_IMAGE=ghcr.io/gamstek/spark-web@sha256:<WEB_DIGEST>' \
+  >"$INCOMING/.env.release"
+printf '{"version":"%s"}\n' "$RELEASE_ID" >"$INCOMING/release.json"
+chmod 600 "$INCOMING/.env.release" "$INCOMING/release.json"
+
+bash "$INCOMING/deploy-production.sh" "$DEPLOY_ROOT" "$RELEASE_ID"
+```
+
+是的，最后一条命令就是实际部署命令。脚本将候选目录移动到
+`$DEPLOY_ROOT/releases/$RELEASE_ID`，使用固定 Compose 项目名 `spark`
+启动服务，健康检查通过后原子更新
+`$DEPLOY_ROOT/current`。候选版本失败时会恢复上一版本。脚本使用
+`--pull never`，不会下载镜像；未提前拉取镜像时部署会立即失败。
+
+如需使用保留的 `Deploy Production`
+workflow，必须在 Actions 中显式手动运行。其连接配置仅放在 `production`
+Environment：
 
 | Secret                | 内容                                                             |
 | --------------------- | ---------------------------------------------------------------- |

@@ -133,7 +133,7 @@ fi
 mv -- "$incoming_dir" "$final_dir"
 
 local_health=failure
-if compose_release "$final_dir" up -d --no-build --remove-orphans &&
+if compose_release "$final_dir" up -d --no-build --pull never --remove-orphans &&
   wait_for_readiness; then
   local_health=success
   temporary_link="$deploy_root/.current-$release_id.$$"
@@ -155,7 +155,7 @@ diagnose_release "$final_dir"
 
 rollback_result=
 if [ -n "$previous_dir" ]; then
-  if compose_release "$previous_dir" up -d --no-build --remove-orphans &&
+  if compose_release "$previous_dir" up -d --no-build --pull never --remove-orphans &&
     wait_for_readiness; then
     rollback_result=success
     echo 'Previous release restored after candidate failure' >&2
