@@ -3,8 +3,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 const MAX_XML_BYTES = 64 * 1024;
 const XML_INVALID = 'WECHAT_XML_INVALID';
 const XML_ENTITY_PATTERN = /&(amp|lt|gt|quot|apos);/g;
-const XML_SCALAR_TAG_PATTERN =
-  /<(ToUserName|FromUserName|CreateTime|MsgType|Event|EventKey)>/y;
+const XML_SCALAR_TAG_PATTERN = /<([A-Za-z_][A-Za-z0-9_.-]*)>/y;
 
 export interface WechatEvent {
   toUserName: string;
@@ -99,7 +98,7 @@ function parseScalarFields(body: string): Map<string, string> {
     XML_SCALAR_TAG_PATTERN.lastIndex = cursor;
     const openingTag = XML_SCALAR_TAG_PATTERN.exec(body);
     const tagName = openingTag?.[1];
-    if (!openingTag || !tagName || fields.has(tagName)) {
+    if (!openingTag || !tagName || tagName === 'xml' || fields.has(tagName)) {
       throw new Error(XML_INVALID);
     }
 
@@ -153,7 +152,7 @@ function decodeScalar(value: string): string {
     return cdata;
   }
 
-  if (value.includes('<')) {
+  if (value.includes('<') || value.includes(']]>')) {
     throw new Error(XML_INVALID);
   }
 

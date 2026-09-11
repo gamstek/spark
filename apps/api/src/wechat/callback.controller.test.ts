@@ -18,13 +18,11 @@ function xml(event: string, eventKey = '', msgType = 'event') {
 
 function setup() {
   const entries = {
-    issue: vi
-      .fn()
-      .mockResolvedValue({
-        status: 'issued',
-        url: 'https://spark.example/api/activity/entry?t=private-token',
-        activityCode: 'expo',
-      }),
+    issue: vi.fn().mockResolvedValue({
+      status: 'issued',
+      url: 'https://spark.example/api/activity/entry?t=private-token',
+      activityCode: 'expo',
+    }),
   };
   const identities = { markUnsubscribed: vi.fn().mockResolvedValue(undefined) };
   const reply = {
@@ -46,6 +44,56 @@ function setup() {
 }
 
 describe('WechatCallbackController', () => {
+  it.each([
+    [
+      'event',
+      '<Event>subscribe</Event><EventKey>qrscene_123</EventKey><Ticket><![CDATA[private-ticket]]></Ticket>',
+      true,
+    ],
+    [
+      'text',
+      '<Content><![CDATA[Hello <Event>subscribe</Event>]]></Content><MsgId>1234567890123456</MsgId>',
+      false,
+    ],
+    [
+      'event',
+      '<Event>SCAN</Event><EventKey>123</EventKey><Ticket><![CDATA[private-ticket]]></Ticket>',
+      false,
+    ],
+  ])(
+    'handles realistic %s messages with extra scalar fields: %s',
+    async (type, fields, issues) => {
+      const logs = vi
+        .spyOn(Logger.prototype, 'log')
+        .mockImplementation(() => undefined);
+      const { entries, reply, post } = setup();
+      const body = await post(
+        `<xml><ToUserName>official-account</ToUserName><FromUserName>private-openid</FromUserName><CreateTime>1789123456</CreateTime><MsgType>${type}</MsgType>${fields}</xml>`,
+      );
+      if (issues) {
+        expect(entries.issue).toHaveBeenCalledExactlyOnceWith('private-openid');
+        expect(body).toContain(
+          'https://spark.example/api/activity/entry?t=private-token',
+        );
+        expect(reply.header).toHaveBeenCalledWith(
+          'Content-Type',
+          'text/xml; charset=utf-8',
+        );
+      } else {
+        expect(entries.issue).not.toHaveBeenCalled();
+        expect(body).toBe('success');
+      }
+      for (const secret of [
+        'private-openid',
+        'private-token',
+        'private-ticket',
+        '1234567890123456',
+        '<Content>',
+      ])
+        expect(JSON.stringify(logs.mock.calls)).not.toContain(secret);
+    },
+  );
+
   beforeEach(() => vi.stubEnv('WECHAT_CALLBACK_TOKEN', 'callback-secret'));
   afterEach(() => {
     vi.unstubAllEnvs();

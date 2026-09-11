@@ -48,6 +48,69 @@ describe('verifyWechatSignature', () => {
 });
 
 describe('parseWechatEventXml', () => {
+  it.each([
+    [
+      'event',
+      '<Event>subscribe</Event><EventKey>qrscene_123</EventKey><Ticket><![CDATA[private-ticket]]></Ticket>',
+      'subscribe',
+      'qrscene_123',
+    ],
+    [
+      'text',
+      '<Content><![CDATA[Hello <Event>subscribe</Event>]]></Content><MsgId>1234567890123456</MsgId>',
+      undefined,
+      undefined,
+    ],
+    [
+      'event',
+      '<Event>SCAN</Event><EventKey>123</EventKey><Ticket><![CDATA[private-ticket]]></Ticket>',
+      'SCAN',
+      '123',
+    ],
+  ])(
+    'extracts only dispatch fields from realistic %s messages: %s',
+    (msgType, fields, event, eventKey) => {
+      expect(
+        parseWechatEventXml(
+          `<xml><ToUserName>official-account</ToUserName><FromUserName>wechat-user</FromUserName><CreateTime>1789123456</CreateTime><MsgType>${msgType}</MsgType>${fields}</xml>`,
+        ),
+      ).toEqual({
+        toUserName: 'official-account',
+        fromUserName: 'wechat-user',
+        createTime: 1789123456,
+        msgType,
+        event,
+        eventKey,
+      });
+    },
+  );
+
+  it.each([
+    '<Ticket><Event>subscribe</Event></Ticket>',
+    '<xml></xml>',
+    '<Ticket>bad]]>text</Ticket>',
+    '<Ticket>bad</EventKey>',
+    '<Ticket>&external;</Ticket>',
+    '<Ticket><![CDATA[unterminated</Ticket>',
+    '<Ticket><![CDATA[one]]>trailing</Ticket>',
+    '<Ticket>one</Ticket><Ticket>two</Ticket>',
+    '<Event>CLICK</Event>',
+    '<FromUserName>other-user</FromUserName>',
+    '<Ticket attr="value">ticket</Ticket>',
+    '<Ticket/><!-- comment -->',
+    '<?processing instruction?>',
+    '<!DOCTYPE xml [<!ENTITY external SYSTEM "file:///secret">]>',
+  ])(
+    'validates ignored fields and rejects malformed or duplicate structure: %s',
+    (extra) => {
+      expect(() =>
+        parseWechatEventXml(
+          subscribeEventXml.replace('</xml>', `${extra}</xml>`),
+        ),
+      ).toThrow('WECHAT_XML_INVALID');
+    },
+  );
+
   it('parses a subscribe event with documented scalar fields', () => {
     expect(parseWechatEventXml(subscribeEventXml)).toEqual({
       toUserName: 'official-account',

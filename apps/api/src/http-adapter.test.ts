@@ -15,20 +15,16 @@ describe('HTTP XML boundary', () => {
   it('serves signed callback XML with HTTP 200 and entry redirects under the API prefix', async () => {
     vi.stubEnv('WECHAT_CALLBACK_TOKEN', 'callback-secret');
     const entries = {
-      issue: vi
-        .fn()
-        .mockResolvedValue({
-          status: 'issued',
-          activityCode: 'expo',
-          url: 'https://spark.example/api/activity/entry?t=opaque-token',
-        }),
-      exchange: vi
-        .fn()
-        .mockResolvedValue({
-          status: 'exchanged',
-          activityCode: 'expo/a',
-          sessionToken: 'session-token',
-        }),
+      issue: vi.fn().mockResolvedValue({
+        status: 'issued',
+        activityCode: 'expo',
+        url: 'https://spark.example/api/activity/entry?t=opaque-token',
+      }),
+      exchange: vi.fn().mockResolvedValue({
+        status: 'exchanged',
+        activityCode: 'expo/a',
+        sessionToken: 'session-token',
+      }),
     };
     @Module({
       controllers: [WechatCallbackController, ActivityEntryController],
@@ -75,6 +71,47 @@ describe('HTTP XML boundary', () => {
       expect(received.body).toContain(
         'https://spark.example/api/activity/entry?t=opaque-token',
       );
+      for (const [type, fields, issues] of [
+        [
+          'event',
+          '<Event>subscribe</Event><EventKey>qrscene_123</EventKey><Ticket><![CDATA[private-ticket]]></Ticket>',
+          true,
+        ],
+        [
+          'text',
+          '<Content><![CDATA[Hello <Event>subscribe</Event>]]></Content><MsgId>1234567890123456</MsgId>',
+          false,
+        ],
+        [
+          'event',
+          '<Event>SCAN</Event><EventKey>123</EventKey><Ticket><![CDATA[private-ticket]]></Ticket>',
+          false,
+        ],
+      ] as const) {
+        entries.issue.mockClear();
+        const realistic = await app.inject({
+          method: 'POST',
+          url: `/api/wechat/callback?${query}`,
+          headers: { 'content-type': 'application/xml' },
+          payload: `<xml><ToUserName>account</ToUserName><FromUserName>openid</FromUserName><CreateTime>1789123456</CreateTime><MsgType>${type}</MsgType>${fields}</xml>`,
+        });
+        expect(realistic.statusCode).toBe(200);
+        if (issues) {
+          expect(realistic.headers['content-type']).toBe(
+            'text/xml; charset=utf-8',
+          );
+          expect(realistic.body).toContain(
+            'https://spark.example/api/activity/entry?t=opaque-token',
+          );
+          expect(entries.issue).toHaveBeenCalledExactlyOnceWith('openid');
+        } else {
+          expect(realistic.headers['content-type']).toBe(
+            'text/plain; charset=utf-8',
+          );
+          expect(realistic.body).toBe('success');
+          expect(entries.issue).not.toHaveBeenCalled();
+        }
+      }
       const denied = await app.inject({
         method: 'POST',
         url: '/api/wechat/callback',
