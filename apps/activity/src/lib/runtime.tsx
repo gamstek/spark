@@ -11,6 +11,7 @@ import type { RuntimeStep } from '@spark/contracts';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { activityApi, ApiError } from './api';
+import { activityEntryError } from './activity-entry-state';
 import { activityPath, activityViewFromPath } from './activity-route';
 import {
   ActivityRuntimeContext,
@@ -77,7 +78,7 @@ export function ActivityRuntimeProvider({
   const [authenticationError, setAuthenticationError] = useState<string | null>(
     null,
   );
-  const redirectingRef = useRef(false);
+  const simulatingSessionRef = useRef(false);
 
   const runtimeQuery = useQuery({
     queryKey: ['activity-runtime', code],
@@ -95,24 +96,36 @@ export function ActivityRuntimeProvider({
   const refetchInfo = infoQuery.refetch;
 
   useEffect(() => {
-    if (!isUnauthorized(runtimeQuery.error) || redirectingRef.current) return;
-    redirectingRef.current = true;
-    const returnPath = window.location.pathname + window.location.search;
-    if (simulateWechat) {
-      void activityApi
-        .createSimulatedWechatSession()
-        .then(async () => {
-          await Promise.all([refetchRuntime(), refetchInfo()]);
-          redirectingRef.current = false;
-        })
-        .catch((error: unknown) => {
-          redirectingRef.current = false;
-          setAuthenticationError(messageForError(error));
-        });
+    const invalidEntryError = activityEntryError(location.search, false);
+    if (invalidEntryError) {
+      setAuthenticationError(invalidEntryError);
       return;
     }
-    window.location.href = activityApi.oauthStartUrl(returnPath);
-  }, [refetchInfo, refetchRuntime, runtimeQuery.error, simulateWechat]);
+    if (!isUnauthorized(runtimeQuery.error)) return;
+    if (!simulateWechat) {
+      setAuthenticationError(activityEntryError(location.search, true));
+      return;
+    }
+    if (simulatingSessionRef.current) return;
+
+    simulatingSessionRef.current = true;
+    void activityApi
+      .createSimulatedWechatSession()
+      .then(async () => {
+        await Promise.all([refetchRuntime(), refetchInfo()]);
+        simulatingSessionRef.current = false;
+      })
+      .catch((error: unknown) => {
+        simulatingSessionRef.current = false;
+        setAuthenticationError(messageForError(error));
+      });
+  }, [
+    location.search,
+    refetchInfo,
+    refetchRuntime,
+    runtimeQuery.error,
+    simulateWechat,
+  ]);
 
   useEffect(() => {
     if (runtimeQuery.data) setStepOverride(null);
@@ -244,17 +257,28 @@ export function ActivityRuntimeProvider({
   }, [showPrize, win]);
 
   const initialError = runtimeQuery.error ?? infoQuery.error;
-  const awaitingOauth =
+  const configuredEntryError = activityEntryError(
+    location.search,
+    !simulateWechat && isUnauthorized(runtimeQuery.error),
+  );
+  const entryError = configuredEntryError ?? authenticationError;
+  const awaitingSimulatedSession =
     isUnauthorized(runtimeQuery.error) && !authenticationError;
   const loadError =
-    authenticationError ??
-    (initialError && !awaitingOauth ? messageForError(initialError) : null);
+    entryError ??
+    (initialError && !awaitingSimulatedSession
+      ? messageForError(initialError)
+      : null);
 
   const value = useMemo<ActivityRuntimeValue>(
     () => ({
       step,
       view,
-      loading: runtimeQuery.isPending || infoQuery.isPending || awaitingOauth,
+      loading:
+        !entryError &&
+        (runtimeQuery.isPending ||
+          infoQuery.isPending ||
+          awaitingSimulatedSession),
       loadError,
       activity,
       win,
@@ -276,7 +300,8 @@ export function ActivityRuntimeProvider({
       view,
       runtimeQuery.isPending,
       infoQuery.isPending,
-      awaitingOauth,
+      awaitingSimulatedSession,
+      entryError,
       loadError,
       activity,
       win,

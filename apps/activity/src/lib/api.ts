@@ -81,10 +81,6 @@ export const activityApi = {
     request<{ code: string; qrUrl: string }>(
       `/api/activity/${encodeURIComponent(code)}/prize-code`,
     ),
-  /** 无会话时跳微信静默授权，授权后回到 returnPath。 */
-  oauthStartUrl(returnPath: string): string {
-    return `/api/wechat/oauth/start?returnPath=${encodeURIComponent(returnPath)}`;
-  },
   createSimulatedWechatSession: () =>
     request<{ authenticated: true }>('/api/wechat/oauth/simulate', {
       method: 'POST',
