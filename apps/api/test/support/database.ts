@@ -11,6 +11,7 @@ import { LotteryRedemptionCodes1788739204000 } from '../../database/migrations/1
 import { ExportMetadata1788739205000 } from '../../database/migrations/1788739205000-ExportMetadata.js';
 import { ActivityVersionPrizes1788739206000 } from '../../database/migrations/1788739206000-ActivityVersionPrizes.js';
 import { LotteryNoPrizeOutcome1788739207000 } from '../../database/migrations/1788739207000-LotteryNoPrizeOutcome.js';
+import { WechatActivityEntryTokens1788739208000 } from '../../database/migrations/1788739208000-WechatActivityEntryTokens.js';
 
 export interface TestDatabase {
   dataSource: DataSource;
@@ -53,6 +54,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       ExportMetadata1788739205000,
       ActivityVersionPrizes1788739206000,
       LotteryNoPrizeOutcome1788739207000,
+      WechatActivityEntryTokens1788739208000,
     ],
     entities: databaseEntities,
     synchronize: false,

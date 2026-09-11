@@ -16,6 +16,7 @@ it('prepares an older development database before starting the API', async () =>
     await database.dataSource.undoLastMigration();
     await database.dataSource.undoLastMigration();
     await database.dataSource.undoLastMigration();
+    await database.dataSource.undoLastMigration();
     const exportColumns = () =>
       database.dataSource.query<{ column_name: string }[]>(
         `SELECT column_name FROM information_schema.columns

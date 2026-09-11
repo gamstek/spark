@@ -8,6 +8,7 @@ import {
   StaffActivityPermission,
   StockAdjustment,
   WebhookReceipt,
+  WechatActivityEntryToken,
 } from '../database/entities/index.js';
 import { createAdminAccount } from '../database/seeds/admin-seed.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
@@ -35,6 +36,7 @@ const expectedTables = [
   'stock_adjustment',
   'user_account',
   'webhook_receipt',
+  'wechat_activity_entry_token',
   'wechat_credential_cache',
   'wechat_identity',
 ];
@@ -115,6 +117,16 @@ describe('TypeORM entity metadata', () => {
           where: 'operation_id IS NOT NULL',
         }),
       ]),
+    );
+
+    const entryToken = database.dataSource.getMetadata(
+      WechatActivityEntryToken,
+    );
+    expect(entryToken.uniques.map((item) => item.name)).toContain(
+      'wechat_activity_entry_token_hash_key',
+    );
+    expect(entryToken.indices.map((item) => item.name)).toContain(
+      'wechat_activity_entry_token_cleanup_idx',
     );
   });
 
