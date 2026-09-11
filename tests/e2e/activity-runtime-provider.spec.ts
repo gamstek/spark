@@ -71,6 +71,30 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
     expect(infoRequests).toBe(2);
   });
 
+  test('shows a stable error without repeating bootstrap when the refreshed session remains unauthorized', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'official-account');
+    let bootstrapRequests = 0;
+
+    await page.route('**/api/activity/demo/runtime**', (route) =>
+      route.fulfill({ status: 401, json: { code: 'UNAUTHORIZED' } }),
+    );
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({ status: 401, json: { code: 'UNAUTHORIZED' } }),
+    );
+    await page.route('**/api/activity/demo/session**', (route) => {
+      bootstrapRequests += 1;
+      return route.fulfill({ json: { authenticated: true } });
+    });
+
+    await page.goto('/activity/demo');
+
+    await expect(page.getByText('操作失败，请稍后重试')).toBeVisible();
+    await page.waitForTimeout(200);
+    expect(bootstrapRequests).toBe(1);
+  });
+
   test('ignores the deprecated invalid-entry query when activity data is available', async ({
     page,
   }, testInfo) => {

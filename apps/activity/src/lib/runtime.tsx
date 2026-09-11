@@ -97,6 +97,7 @@ export function ActivityRuntimeProvider({
 
   useEffect(() => {
     if (
+      sessionBootstrapError ||
       (!isUnauthorized(runtimeQuery.error) &&
         !isUnauthorized(infoQuery.error)) ||
       bootstrappingSessionRef.current
@@ -114,7 +115,10 @@ export function ActivityRuntimeProvider({
           `${window.location.pathname}${window.location.search}`,
         ),
       refresh: async () => {
-        await Promise.all([refetchRuntime(), refetchInfo()]);
+        await Promise.all([
+          refetchRuntime({ throwOnError: true }),
+          refetchInfo({ throwOnError: true }),
+        ]);
       },
       redirect: (url) => window.location.assign(url),
     })
@@ -130,6 +134,7 @@ export function ActivityRuntimeProvider({
     refetchInfo,
     refetchRuntime,
     runtimeQuery.error,
+    sessionBootstrapError,
     simulateWechat,
   ]);
 
