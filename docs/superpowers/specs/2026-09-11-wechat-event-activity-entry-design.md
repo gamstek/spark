@@ -15,10 +15,11 @@ the activity H5 receives only a short-lived random entry token.
 
 ## Scope and Rollback Boundary
 
-Implementation starts by reverting the three anonymous-identity commits with
-new Git revert commits, preserving repository history. The implementation then
-builds the event-entry flow on the restored WeChat identity and activity-session
-foundation.
+Implementation starts by rewriting local `main` onto `10b4da8`, then replaying
+only the approved event-entry design and implementation-plan content. The three
+anonymous-identity commits and any interim revert commits must be absent from
+the resulting `main` ancestry. The implementation then builds the event-entry
+flow on the restored WeChat identity and activity-session foundation.
 
 The existing WeChat identity table, OAuth implementation, subscription lookup,
 activity session, DingTalk lead collection, lottery, prize, and redemption

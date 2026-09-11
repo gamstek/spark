@@ -9,7 +9,8 @@
 callback that issues a ten-minute, single-use activity entry token and exchanges
 it for the existing activity session.
 
-**Architecture:** Revert the three anonymous-mode commits, then add a narrow
+**Architecture:** Rewrite local `main` onto `10b4da8`, preserving only the
+approved event-entry design and implementation-plan content, then add a narrow
 plaintext WeChat callback protocol layer, an OpenID-to-entry-token service
 backed by PostgreSQL, and a redirecting token exchange endpoint. The activity H5
 no longer starts OAuth on a production 401; it tells users to re-enter through
@@ -69,15 +70,15 @@ React 19, TanStack Query, Vitest, pnpm/Turborepo.
 
 ---
 
-### Task 1: Revert Anonymous Identity Mode
+### Task 1: Remove Anonymous Identity Mode from Local History
 
 **Files:**
 
-- Revert changes from commit `991d882`
-- Remove by revert:
-  `docs/superpowers/plans/2026-09-11-activity-anonymous-identity.md`
-- Remove by revert:
-  `docs/superpowers/specs/2026-09-11-activity-anonymous-identity-design.md`
+- Rewrite local `main` from base commit `10b4da8`.
+- Replay the approved event-entry design and implementation-plan commits only;
+  preserve their document content while omitting anonymous-mode history.
+- Ensure commits `dcbc8f6`, `31cf4c8`, and `991d882`, plus interim commits
+  `817e26f`, `8ce1d58`, and `8b0da14`, are absent from `main` ancestry.
 
 **Interfaces:**
 
@@ -89,37 +90,24 @@ React 19, TanStack Query, Vitest, pnpm/Turborepo.
 
 Run: `git status --short && git log --oneline -5`
 
-Expected: no working-tree changes; the log contains `2b23ab0`, `991d882`,
-`31cf4c8`, and `dcbc8f6`.
+Expected: no working-tree changes; `main` is based on `10b4da8`.
 
-- [ ] **Step 2: Revert the anonymous implementation**
+- [ ] **Step 2: Rewrite the local history**
 
-Run: `git revert --no-edit 991d882`
+Run: `git reset --hard 10b4da8 && git cherry-pick 2b23ab0 62d7e73`
 
-Expected: a new revert commit removes `ACTIVITY_IDENTITY_MODE`, anonymous
-session bootstrap, and conditional subscription bypasses.
+Expected: `main` contains only the base followed by the approved design and
+implementation-plan content; all six obsolete commits are absent from its
+ancestry.
 
-- [ ] **Step 3: Revert the anonymous implementation plan**
-
-Run: `git revert --no-edit 31cf4c8`
-
-Expected: a new revert commit removes
-`docs/superpowers/plans/2026-09-11-activity-anonymous-identity.md`.
-
-- [ ] **Step 4: Revert the anonymous design**
-
-Run: `git revert --no-edit dcbc8f6`
-
-Expected: a new revert commit removes
-`docs/superpowers/specs/2026-09-11-activity-anonymous-identity-design.md`.
-
-- [ ] **Step 5: Verify the rollback boundary**
+- [ ] **Step 3: Verify the rollback boundary**
 
 Run:
 `git diff 10b4da8..HEAD -- . ':!docs/superpowers/specs/2026-09-11-wechat-event-activity-entry-design.md' ':!docs/superpowers/plans/2026-09-11-wechat-event-activity-entry.md'`
 
-Expected: no output; only the new approved design and this implementation plan
-differ from `10b4da8` outside Git history.
+Expected: no output; only the approved design and this implementation plan
+differ from `10b4da8`. Also verify each obsolete commit is not an ancestor of
+`main` with `git merge-base --is-ancestor`.
 
 ### Task 2: Add the Entry-Token Persistence Model
 
@@ -815,8 +803,10 @@ rg -n "ACTIVITY_IDENTITY_MODE|anonymous_created|activity-anonymous-identity" . -
 rg -n "WECHAT_CALLBACK_TOKEN|PUBLIC_BASE_URL|EventKey=LOTTERY|wechat_activity_entry_token" .env.example compose.production.yaml apps docs --glob "!node_modules/**"
 ```
 
-Expected: the three revert commits are visible; the working tree is clean;
-anonymous-mode implementation/configuration references are absent; new callback,
+Expected: only the approved design and implementation-plan commits are visible
+after `10b4da8`; the six obsolete commits are absent from `main` ancestry; the
+working tree is clean; anonymous-mode implementation/configuration references
+are absent; new callback,
 origin, menu, and token persistence references are present.
 
 - [ ] **Step 8: Review the final diff against the spec**
