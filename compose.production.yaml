@@ -24,9 +24,6 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
-    command: >-
-      sh -c "node apps/api/dist/database/migrate.js && pnpm --filter @spark/api
-      start"
     environment:
       NODE_ENV: production
       API_HOST: 0.0.0.0

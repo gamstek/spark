@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -76,6 +77,40 @@ test('uses the PostgreSQL 18 volume layout and includes database failure logs', 
     /database:\/var\/lib\/postgresql\/data/,
   );
   assert.match(deploymentScript, /logs --tail 100 postgres api web/);
+});
+
+test('inherits the production API image command', () => {
+  const config = JSON.parse(
+    execFileSync(
+      'docker',
+      [
+        'compose',
+        '-f',
+        'compose.production.yaml',
+        'config',
+        '--format',
+        'json',
+      ],
+      {
+        cwd: new URL('../..', import.meta.url),
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          POSTGRES_PASSWORD: 'test',
+          DATABASE_URL: 'postgresql://spark:test@postgres:5432/spark',
+          CSRF_SECRET: 'test-csrf-secret',
+          OAUTH_STATE_SECRET: 'test-oauth-secret',
+          WECHAT_APP_ID: 'test-app-id',
+          WECHAT_APP_SECRET: 'test-app-secret',
+          WECHAT_TOKEN_ENCRYPTION_KEY: 'test-encryption-key',
+          REDEEM_CODE_ACTIVE_KEY_ID: 'test-key',
+          REDEEM_CODE_KEYS: '{"test-key":"test-value"}',
+        },
+      },
+    ),
+  );
+
+  assert.equal(config.services.api.command, null);
 });
 
 test('builds web applications with their workspace dependencies', () => {
