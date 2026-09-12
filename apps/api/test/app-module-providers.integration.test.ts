@@ -14,11 +14,13 @@ import {
 } from '@nestjs/platform-fastify';
 import { DataSource } from 'typeorm';
 import { describe, expect, it } from 'vitest';
+import type { ActivityFormSubmissionInput } from '@spark/contracts';
 
 import { AppModule } from '../src/app.module.js';
 import { ACTIVITY_IDENTITY_MODE } from '../src/auth/activity-identity-mode.js';
 import { SessionService } from '../src/auth/session.service.js';
 import { ActivityFormService } from '../src/activity-form/activity-form.service.js';
+import { ApiExceptionFilter } from '../src/common/api-exception.filter.js';
 import { ExportsHandler } from '../src/exports/exports.handler.js';
 import { ExportsService } from '../src/exports/exports.service.js';
 import { JobsService } from '../src/jobs/jobs.service.js';
@@ -31,6 +33,25 @@ import { RuntimeService } from '../src/runtime/runtime.service.js';
 import { SubscriptionService } from '../src/wechat/subscription.service.js';
 import { WechatIdentityService } from '../src/wechat/wechat-identity.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
+import { createScenario } from './support/fixtures.js';
+
+const validForm: ActivityFormSubmissionInput = {
+  name: 'HTTP 用户',
+  organization: '星火科技',
+  department: '研发部',
+  jobTitle: '研究员',
+  phone: '13800138000',
+  email: 'http@example.com',
+  researchAreas: ['life_sciences'],
+  instrumentInterests: ['mass_spectrometry'],
+  visitPurposes: ['new_products'],
+  followUpPreferences: ['product_pdf'],
+  contactPreference: 'call_welcome',
+  onsiteAvailability: 'available',
+  privacyAccepted: true,
+};
+const { privacyAccepted: _privacyAccepted, ...expectedStoredAnswers } =
+  validForm;
 
 const productionParameterTypes = new Map<Type, unknown[]>([
   [ActivityFormService, [DataSource, Function, Function]],
@@ -103,6 +124,7 @@ describe('production module providers', () => {
         { logger: false, abortOnError: false },
       );
       app.setGlobalPrefix('api');
+      app.useGlobalFilters(new ApiExceptionFilter());
       await app.init();
       await app.getHttpAdapter().getInstance().ready();
       expect(app.get(ACTIVITY_IDENTITY_MODE)).toBe('anonymous');
@@ -114,19 +136,102 @@ describe('production module providers', () => {
         const response = await app.inject({ method, url });
         expect(response.statusCode, `${method} ${url}`).toBe(404);
       }
+      const scenario = await createScenario(dataSource, {
+        now: new Date(Date.now() - 1_000),
+      });
+      await dataSource.query(
+        `UPDATE activity_participation SET lead_completed=false,lead_completed_at=NULL WHERE id=$1`,
+        [scenario.participationIds[1]],
+      );
       const activityUserId = 'de4c8226-4ebc-4bb8-9bca-1da706a022ac';
       await dataSource.query(`INSERT INTO user_account (id) VALUES ($1)`, [
         activityUserId,
       ]);
-      const session = await app
-        .get(SessionService)
-        .create('ACTIVITY', activityUserId);
+      const sessions = app.get(SessionService);
+      const activitySession = await sessions.create('ACTIVITY', activityUserId);
+      const adminSession = await sessions.create('ADMIN', scenario.adminId);
+      const staffSession = await sessions.create('STAFF', scenario.staffId);
+      const invalidSessionResponse = await app.inject({
+        method: 'POST',
+        url: '/api/activity/expo-2026/form-submissions',
+        headers: { cookie: 'spark_activity=invalid-session' },
+        payload: validForm,
+      });
+      expect(invalidSessionResponse.statusCode).toBe(401);
+      expect(invalidSessionResponse.json()).toMatchObject({
+        code: 'UNAUTHORIZED',
+      });
+      const missingSessionResponse = await app.inject({
+        method: 'POST',
+        url: '/api/activity/expo-2026/form-submissions',
+        payload: validForm,
+      });
+      expect(missingSessionResponse.statusCode).toBe(401);
+      expect(missingSessionResponse.json()).toMatchObject({
+        code: 'UNAUTHORIZED',
+      });
+      for (const session of [adminSession, staffSession]) {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/activity/expo-2026/form-submissions',
+          headers: { cookie: `spark_activity=${session.token}` },
+          payload: validForm,
+        });
+        expect(response.statusCode).toBe(401);
+        expect(response.json()).toMatchObject({ code: 'UNAUTHORIZED' });
+      }
+      const missingCsrfResponse = await app.inject({
+        method: 'POST',
+        url: '/api/activity/expo-2026/form-submissions',
+        headers: { cookie: `spark_activity=${activitySession.token}` },
+        payload: validForm,
+      });
+      expect(missingCsrfResponse.statusCode).toBe(403);
+      expect(missingCsrfResponse.json()).toMatchObject({
+        code: 'CSRF_INVALID',
+      });
+      const invalidCsrfResponse = await app.inject({
+        method: 'POST',
+        url: '/api/activity/expo-2026/form-submissions',
+        headers: {
+          cookie: `spark_activity=${activitySession.token}`,
+          'x-csrf-token': 'invalid-token',
+        },
+        payload: validForm,
+      });
+      expect(invalidCsrfResponse.statusCode).toBe(403);
+      expect(invalidCsrfResponse.json()).toMatchObject({
+        code: 'CSRF_INVALID',
+      });
       const formResponse = await app.inject({
         method: 'POST',
         url: '/api/activity/expo-2026/form-submissions',
-        headers: { cookie: `spark_activity=${session.token}` },
+        headers: {
+          cookie: `spark_activity=${activitySession.token}`,
+          'x-csrf-token': activitySession.csrfToken,
+        },
+        payload: validForm,
       });
-      expect(formResponse.statusCode).toBe(403);
+      expect(formResponse.statusCode).toBe(201);
+      expect(formResponse.json()).toEqual({ submitted: true });
+      expect(
+        await dataSource.query(
+          `SELECT p.user_id,p.lead_completed,s.answers FROM activity_participation p JOIN activity_form_submission s ON s.participation_id=p.id WHERE p.activity_id=$1 AND p.user_id=$2`,
+          [scenario.activityId, activityUserId],
+        ),
+      ).toEqual([
+        {
+          user_id: activityUserId,
+          lead_completed: true,
+          answers: expectedStoredAnswers,
+        },
+      ]);
+      expect(
+        await dataSource.query(
+          `SELECT lead_completed FROM activity_participation WHERE id=$1`,
+          [scenario.participationIds[1]],
+        ),
+      ).toEqual([{ lead_completed: false }]);
       const providerNames = providers.map((provider) =>
         typeof provider === 'function'
           ? provider.name

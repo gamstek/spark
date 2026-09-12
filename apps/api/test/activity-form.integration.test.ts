@@ -4,7 +4,15 @@ import {
   type ActivityFormSubmissionInput,
   type ActivityFormAnswers,
 } from '@spark/contracts';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { ActivityFormService } from '../src/activity-form/activity-form.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
@@ -33,6 +41,14 @@ function expectedAnswers(
   return answers;
 }
 
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
+
 describe('atomic activity form submission', () => {
   let database: TestDatabase;
   let scenario: Scenario;
@@ -56,7 +72,7 @@ describe('atomic activity form submission', () => {
 
   const service = (
     now = scenario.now,
-    afterSubmissionInserted: () => void = () => undefined,
+    afterSubmissionInserted: () => void | Promise<void> = () => undefined,
   ) =>
     new ActivityFormService(
       database.dataSource,
@@ -114,25 +130,124 @@ describe('atomic activity form submission', () => {
     );
   });
 
-  it('keeps one first answer set for simultaneous submissions', async () => {
-    const participationId = scenario.participationIds[0];
+  async function assertFirstWriterWinsDuringOverlap(userId: string) {
+    const firstInserted = deferred();
+    const releaseFirst = deferred();
+    const secondParticipationUpsertAttempted = deferred();
     const secondForm = { ...validForm, name: '并发用户' };
+    const createQueryRunner = database.dataSource.createQueryRunner.bind(
+      database.dataSource,
+    );
+    let participationUpsertCount = 0;
+    const createQueryRunnerSpy = vi
+      .spyOn(database.dataSource, 'createQueryRunner')
+      .mockImplementation((mode) => {
+        const queryRunner = createQueryRunner(mode);
+        const query = queryRunner.query.bind(queryRunner);
+        queryRunner.query = (async (
+          queryText: string,
+          parameters?: unknown,
+          useStructuredResult?: boolean,
+        ) => {
+          if (/INSERT INTO activity_participation/.test(queryText)) {
+            participationUpsertCount += 1;
+            if (participationUpsertCount === 2)
+              secondParticipationUpsertAttempted.resolve();
+          }
+          return useStructuredResult
+            ? query(queryText, parameters as never, true)
+            : query(queryText, parameters as never);
+        }) as typeof queryRunner.query;
+        return queryRunner;
+      });
+
+    try {
+      const first = service(scenario.now, async () => {
+        firstInserted.resolve();
+        await releaseFirst.promise;
+      }).submit(userId, 'expo-2026', validForm);
+      await firstInserted.promise;
+
+      let secondSettled = false;
+      const second = service()
+        .submit(userId, 'expo-2026', secondForm)
+        .then((result) => {
+          secondSettled = true;
+          return result;
+        });
+      await secondParticipationUpsertAttempted.promise;
+      await Promise.resolve();
+      expect(secondSettled).toBe(false);
+
+      releaseFirst.resolve();
+      await expect(Promise.all([first, second])).resolves.toEqual([
+        { submitted: true },
+        { submitted: true },
+      ]);
+
+      const participations = await database.dataSource.query<
+        { id: string; lead_completed: boolean; lead_completed_at: Date }[]
+      >(
+        `SELECT id,lead_completed,lead_completed_at FROM activity_participation WHERE activity_id=$1 AND user_id=$2`,
+        [scenario.activityId, userId],
+      );
+      expect(participations).toHaveLength(1);
+      expect(participations[0]).toMatchObject({
+        lead_completed: true,
+        lead_completed_at: scenario.now,
+      });
+      const submissions = await database.dataSource.query<
+        { answers: ActivityFormAnswers; submitted_at: Date }[]
+      >(
+        `SELECT answers,submitted_at FROM activity_form_submission WHERE participation_id=$1`,
+        [participations[0]!.id],
+      );
+      expect(submissions).toHaveLength(1);
+      expect(submissions[0]).toMatchObject({
+        answers: expectedAnswers(),
+        submitted_at: scenario.now,
+      });
+    } finally {
+      releaseFirst.resolve();
+      createQueryRunnerSpy.mockRestore();
+    }
+  }
+
+  it('preserves the known first writer during an overlapping submission', async () => {
+    await assertFirstWriterWinsDuringOverlap(scenario.userIds[0]);
+  });
+
+  it('preserves the known first writer when simultaneous requests create participation', async () => {
+    const userId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO user_account (id) VALUES ($1)`,
+      [userId],
+    );
+
+    await assertFirstWriterWinsDuringOverlap(userId);
+  });
+
+  it('returns an accepted first submission after the draw deadline without overwriting it', async () => {
+    const participationId = scenario.participationIds[0];
+    const changedForm = { ...validForm, name: '截止后重试' };
+    await service(scenario.now).submit(
+      scenario.userIds[0],
+      'expo-2026',
+      validForm,
+    );
+    const first = await readSubmission(participationId);
+    const firstParticipation = await readParticipation(participationId);
 
     await expect(
-      Promise.all([
-        service().submit(scenario.userIds[0], 'expo-2026', validForm),
-        service().submit(scenario.userIds[0], 'expo-2026', secondForm),
-      ]),
-    ).resolves.toEqual([{ submitted: true }, { submitted: true }]);
-    const submissions = await database.dataSource.query<
-      { answers: ActivityFormAnswers }[]
-    >(
-      `SELECT answers FROM activity_form_submission WHERE participation_id=$1`,
-      [participationId],
-    );
-    expect(submissions).toHaveLength(1);
-    expect([expectedAnswers(), expectedAnswers(secondForm)]).toContainEqual(
-      submissions[0]?.answers,
+      service(new Date(scenario.now.getTime() + 86_400_000)).submit(
+        scenario.userIds[0],
+        'expo-2026',
+        changedForm,
+      ),
+    ).resolves.toEqual({ submitted: true });
+    expect(await readSubmission(participationId)).toEqual(first);
+    expect(await readParticipation(participationId)).toEqual(
+      firstParticipation,
     );
   });
 
@@ -181,6 +296,22 @@ describe('atomic activity form submission', () => {
         throw new Error('PARTICIPATION_UPDATE_FAILED');
       }).submit(scenario.userIds[0], 'expo-2026', validForm),
     ).rejects.toThrow('PARTICIPATION_UPDATE_FAILED');
+    expect(await readSubmission(participationId)).toBeUndefined();
+    expect(await readParticipation(participationId)).toMatchObject({
+      lead_completed: false,
+      lead_completed_at: null,
+    });
+  });
+
+  it('rolls a submission back when an asynchronous post-insert check fails', async () => {
+    const participationId = scenario.participationIds[0];
+
+    await expect(
+      service(scenario.now, async () => {
+        await Promise.resolve();
+        throw new Error('ASYNC_PARTICIPATION_UPDATE_FAILED');
+      }).submit(scenario.userIds[0], 'expo-2026', validForm),
+    ).rejects.toThrow('ASYNC_PARTICIPATION_UPDATE_FAILED');
     expect(await readSubmission(participationId)).toBeUndefined();
     expect(await readParticipation(participationId)).toMatchObject({
       lead_completed: false,

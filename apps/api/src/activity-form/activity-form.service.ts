@@ -20,7 +20,8 @@ export class ActivityFormService {
   constructor(
     @Inject(DataSource) private readonly dataSource: DataSource,
     private readonly now: () => Date = () => new Date(),
-    private readonly afterSubmissionInserted: () => void = () => undefined,
+    private readonly afterSubmissionInserted: () => void | Promise<void> = () =>
+      undefined,
   ) {}
 
   async submit(
@@ -76,7 +77,7 @@ export class ActivityFormService {
          VALUES ($1,$2,$3,$4)`,
         [randomUUID(), participation.id, answers, now],
       );
-      this.afterSubmissionInserted();
+      await this.afterSubmissionInserted();
       await manager.query(
         `UPDATE activity_participation
          SET lead_completed=true,lead_completed_at=$2,updated_at=$2
