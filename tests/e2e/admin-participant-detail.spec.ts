@@ -28,7 +28,11 @@ const participant = {
   created_at: '2026-09-10T00:00:00Z',
 };
 
-async function mockParticipants(page: Page, rows: unknown[] = [participant]) {
+async function mockParticipants(
+  page: Page,
+  rows: unknown[] = [participant],
+  options: { failFirst?: boolean } = {},
+) {
   await page.route('**/api/admin/auth/me', (route) =>
     route.fulfill({ json: { csrfToken: 'csrf' } }),
   );
@@ -45,10 +49,20 @@ async function mockParticipants(page: Page, rows: unknown[] = [participant]) {
       },
     }),
   );
-  await page.route('**/api/admin/activities/a1/participants', (route) =>
-    route.fulfill({ json: rows }),
-  );
+  let initialLoadFailed = options.failFirst ?? false;
+  await page.route('**/api/admin/activities/a1/participants', (route) => {
+    return route.fulfill(
+      initialLoadFailed
+        ? { status: 503, json: { code: 'UNAVAILABLE' } }
+        : { json: rows },
+    );
+  });
   await page.goto('/admin/activities/a1/participants');
+  return {
+    allowRetry: () => {
+      initialLoadFailed = false;
+    },
+  };
 }
 
 for (const theme of ['light', 'dark'] as const) {
@@ -167,6 +181,68 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(trigger).toBeFocused();
   });
 }
+
+test('retries a failed participant load without reloading and restores usable complete details', async ({
+  page,
+}) => {
+  let participantRequests = 0;
+  page.on('request', (request) => {
+    if (
+      new URL(request.url()).pathname ===
+      '/api/admin/activities/a1/participants'
+    )
+      participantRequests++;
+  });
+  const fixture = await mockParticipants(page, [participant], {
+    failFirst: true,
+  });
+  const failure = page
+    .getByRole('alert')
+    .filter({ hasText: '参与者数据加载失败，请稍后重试。' });
+  await expect(failure).toBeVisible();
+  const retry = failure.getByRole('button', { name: '重试', exact: true });
+  await expect(retry).toBeEnabled();
+  await expect(page.getByText('暂无参与者', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('table')).toHaveCount(0);
+  // StrictMode can abort and repeat the initial effect; every initial request
+  // must fail until the user explicitly retries. The retry adds exactly one GET.
+  const initialRequests = participantRequests;
+  expect(initialRequests).toBeGreaterThanOrEqual(1);
+  await retry.focus();
+  await expect(retry).toBeFocused();
+  fixture.allowRetry();
+  await page.keyboard.press('Enter');
+  const trigger = page.getByRole('button', { name: '参与者操作：张三' });
+  await expect(trigger).toBeVisible();
+  await expect(failure).toHaveCount(0);
+  expect(participantRequests).toBe(initialRequests + 1);
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('menuitem', { name: '查看登记详情' }).click();
+  const dialog = page.getByRole('dialog', { name: '登记详情', exact: true });
+  await expect(dialog.getByRole('definition')).toHaveText([
+    '张三',
+    '星火研究院',
+    '分析实验室',
+    '研究员',
+    '13800000000',
+    'participant@example.com',
+    '生命科学（制药、生物技术、CRO）；其他（交叉研究）',
+    '质谱类（高分辨质谱，三重四极杆质谱，MALDI-TOF 等）；其他（新型检测技术）',
+    '了解新产品/新技术动态；获取技术资料',
+    '发送详细产品技术资料（PDF）；预约资深应用工程师电话沟通',
+    '请先通过邮件发送资料',
+    '是',
+    '未填写',
+  ]);
+  await expect(
+    dialog.getByRole('button', { name: '关闭', exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  expect(participantRequests).toBe(initialRequests + 1);
+});
 
 test('shows no detail action for an unsubmitted participant and an empty state for no participants', async ({
   page,

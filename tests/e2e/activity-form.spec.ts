@@ -151,7 +151,6 @@ async function fillForm(page: Page) {
   await fillText(page);
   await fillChoices(page);
   await fillOthers(page);
-  await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
 }
 
 test.describe('anonymous self-hosted activity form', () => {
@@ -168,6 +167,8 @@ test.describe('anonymous self-hosted activity form', () => {
   }) => {
     const { state } = await mockForm(page);
     await fillForm(page);
+    const consent = page.getByRole('checkbox', { name: /我已阅读并同意/ });
+    await expect(consent).not.toBeChecked();
     const privacy = page.getByRole('button', {
       name: '用户活动隐私协议',
       exact: true,
@@ -178,6 +179,15 @@ test.describe('anonymous self-hosted activity form', () => {
     ).toBeVisible();
     await page.getByRole('button', { name: '关闭用户活动隐私协议' }).click();
     await expect(privacy).toBeFocused();
+    await expect(consent).not.toBeChecked();
+    await page.getByRole('button', { name: '提交信息' }).click();
+    await expect(consent).toBeFocused();
+    await expect(consent).toHaveAttribute('aria-invalid', 'true');
+    await expect(
+      page.getByText('请阅读并同意用户活动隐私协议', { exact: true }),
+    ).toBeVisible();
+    expect(state.submissions).toEqual([]);
+    await consent.check();
     await page.getByRole('button', { name: '提交信息' }).click();
     await expect(
       page
@@ -246,6 +256,7 @@ test.describe('anonymous self-hosted activity form', () => {
     await page
       .getByRole('textbox', { name: /其他研究方向\/应用领域说明/ })
       .fill('');
+    await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
     await page
       .getByRole('textbox', { name: /其他仪器类型或技术说明/ })
       .fill('');
@@ -303,6 +314,7 @@ test.describe('anonymous self-hosted activity form', () => {
     const { state } = await mockForm(page);
     await fillForm(page);
     await page.getByRole('textbox', { name: /手机号码/ }).fill('13800000000');
+    await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
     await page
       .getByRole('textbox', { name: /电子邮箱/ })
       .fill('participant@example.com');
@@ -324,6 +336,7 @@ test.describe('anonymous self-hosted activity form', () => {
     try {
       await fillForm(page);
       const submit = page.getByRole('button', { name: '提交信息' });
+      await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
       const before = await submit.boundingBox();
       await submit.dblclick();
       const pending = page.getByRole('button', { name: '提交中…' });
@@ -352,6 +365,7 @@ test.describe('anonymous self-hosted activity form', () => {
     }) => {
       const { state } = await mockForm(page, failure);
       await fillForm(page);
+      await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
       await page
         .getByRole('textbox', { name: /13\s*其他具体需求或咨询/ })
         .fill('请安排下午的技术交流');
@@ -466,6 +480,9 @@ test.describe('anonymous self-hosted activity form', () => {
       await page.keyboard.press('Escape');
       await expect(dialog).not.toBeVisible();
       await expect(privacy).toBeFocused();
+      await expect(
+        page.getByRole('checkbox', { name: /我已阅读并同意/ }),
+      ).not.toBeChecked();
     });
   }
 });
