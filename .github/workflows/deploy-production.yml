@@ -251,10 +251,9 @@ jobs:
             --arg webImage "${IMAGE_PREFIX}-web@${WEB_DIGEST}" \
             --arg runId "$GITHUB_RUN_ID" \
             --arg createdAt "$created_at" \
-            --argjson schemaEpoch 2 \
             '{version: $version, sourceSha: $sourceSha, configSha: $configSha,
               apiImage: $apiImage, webImage: $webImage, runId: $runId,
-              createdAt: $createdAt, schemaEpoch: $schemaEpoch}' >"$candidate_dir/release.json"
+              createdAt: $createdAt}' >"$candidate_dir/release.json"
           chmod 600 "$candidate_dir/release.json"
           echo "release_id=$release_id" >>"$GITHUB_OUTPUT"
           echo "candidate_dir=$candidate_dir" >>"$GITHUB_OUTPUT"

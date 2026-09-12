@@ -9,7 +9,7 @@
 > 且有有效奖品库存的抽奖；权重大于 0 时可能产生未中奖结果。资格不预留库存；未中奖权重为 0 且库存耗尽时不消耗资格。已开始活动锁定模板和业务规则，仅可提前结束抽奖及增加已有奖项库存；抽奖与兑奖分别截止，兑奖过期不回补库存。每个匿名会话每活动限一次中奖，清除 Cookie 或更换设备可能建立新身份。
 >
 > 活动配置仅包含
-> `requireSubscribe`、`noPrizeWeight`、`heroAssetId`、`rulesText`，见[配置说明](project-spark-configuration.md)。已有部署按[部署指南](project-spark-deployment.md)执行 `db:migrate`；旧外部表单答案不迁移，关联用户需重新登记。
+> `requireSubscribe`、`noPrizeWeight`、`heroAssetId`、`rulesText`，见[配置说明](project-spark-configuration.md)。部署前由获授权运维人员按[部署指南](project-spark-deployment.md)手动清空该应用数据库，再执行 `db:migrate`；旧答案不会迁移。
 
 > **版本：V1.0 MVP**\
 > **形态：微信内 H5 + 工作人员核销端 + PC 管理后台**\

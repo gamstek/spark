@@ -4,8 +4,8 @@
 
 当前自动检查覆盖 API 生产任务装配、自有报名表事务与校验、活动运行时、版本化奖项快照、兑奖过期、管理后台参与者详情和分列导出。
 
-- 对已有 PostgreSQL 数据库执行 `pnpm --filter @spark/api db:migrate` 后运行
-  `pnpm verify`；旧外部表单报名/回调答案会丢弃，已关联旧答案的参与者需要重新登记。
+- 由获授权运维人员手动清空该应用 PostgreSQL 数据库，执行
+  `pnpm --filter @spark/api db:migrate` 后运行 `pnpm verify`；旧报名/回调答案不会迁移。
 - 运行活动表单、管理端和已实现的工作人员端 Playwright 测试。
 - 对部署地址运行 `tests/e2e/deployment.spec.ts`，确认三个入口可深链接刷新，未知
   `/api` 路由仍返回 JSON 404。

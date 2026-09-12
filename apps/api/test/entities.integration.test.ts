@@ -66,6 +66,36 @@ describe('TypeORM entity metadata', () => {
       .filter((name) => name !== 'typeorm_migrations')
       .sort();
     expect(tableNames).toEqual(expectedTables);
+
+    const participationColumns = await database.dataSource.query<
+      { column_name: string }[]
+    >(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema=current_schema() AND table_name='activity_participation'`,
+    );
+    expect(
+      participationColumns.map((column) => column.column_name),
+    ).not.toContain('adopted_submission_id');
+  });
+
+  it('records only the fresh self-hosted form migration chain', async () => {
+    const migrations = await database.dataSource.query<{ name: string }[]>(
+      `SELECT name FROM typeorm_migrations ORDER BY timestamp`,
+    );
+    const names = migrations.map((migration) => migration.name);
+
+    expect(names).toEqual([
+      'InitialSchema1788739200000',
+      'WechatSubscriptionCache1788739201000',
+      'PublishingAndMedia1788739202000',
+      'LotteryRedemptionCodes1788739204000',
+      'ExportMetadata1788739205000',
+      'ActivityVersionPrizes1788739206000',
+      'LotteryNoPrizeOutcome1788739207000',
+      'WechatActivityEntryTokens1788739208000',
+      'WechatCallbackReceipts1788739209000',
+      'DropWechatEventActivityEntry1788739210000',
+    ]);
   });
 
   it('models critical migrated columns, keys, and indexes', () => {

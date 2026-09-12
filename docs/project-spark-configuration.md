@@ -38,7 +38,7 @@
 表单通过当前匿名活动会话与 CSRF 校验调用
 `POST /api/activity/:code/form-submissions`。服务端在同一事务中保存答案并确认留资，首次有效提交后不能覆盖。活动页随后刷新运行状态进入抽奖；管理端提供 13 题详情及 XLSX 分列导出。
 
-已有部署执行 `pnpm --filter @spark/api db:migrate` 即可前向升级。迁移保留活动和其他无关数据，但不迁移旧外部表单的报名/回调答案；已关联旧答案的参与者会重新登记。具体步骤见[部署指南](project-spark-deployment.md)。
+本版本不提供已有数据库的前向升级。由获授权运维人员手动清空该应用数据库后，执行 `pnpm --filter @spark/api db:migrate` 创建当前结构；旧报名和回调答案不会迁移。具体步骤见[部署指南](project-spark-deployment.md)。
 
 ## 系统自行生成的密钥
 
