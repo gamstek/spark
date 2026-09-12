@@ -111,16 +111,18 @@ describe('application database startup', () => {
   });
 
   it('rejects a pending migration before startup and closes its connection', async () => {
-    const database = await createTestDatabase();
-    const { url, schema } = connectionTarget(database.dataSource);
-    await database.dataSource.undoLastMigration({ transaction: 'all' });
-    process.env.DATABASE_URL = url;
-    process.env.DATABASE_SCHEMA = schema;
-    const candidate = createDataSource({ url, schema });
-    const provider = getApplicationDataSourceProvider();
+    const database = await createTestDatabase({
+      throughMigration: 'DropWechatEventActivityEntry1788739210000',
+    });
+    let candidate: DataSource | undefined;
     let started: DataSource | undefined;
-    let startupError: unknown;
     try {
+      const { url, schema } = connectionTarget(database.dataSource);
+      process.env.DATABASE_URL = url;
+      process.env.DATABASE_SCHEMA = schema;
+      candidate = createDataSource({ url, schema });
+      const provider = getApplicationDataSourceProvider();
+      let startupError: unknown;
       try {
         started = await provider.useFactory(candidate);
       } catch (error) {
@@ -134,8 +136,7 @@ describe('application database startup', () => {
       expect(candidate.isInitialized).toBe(false);
     } finally {
       if (started?.isInitialized) await started.destroy();
-      if (candidate.isInitialized) await candidate.destroy();
-      await database.dataSource.runMigrations({ transaction: 'all' });
+      if (candidate?.isInitialized) await candidate.destroy();
       await database.close();
     }
   });

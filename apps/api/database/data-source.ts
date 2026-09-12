@@ -5,6 +5,7 @@ import { databaseEntities } from './entities/index.js';
 import { InitialSchema1788739200000 } from './migrations/1788739200000-InitialSchema.js';
 import { WechatSubscriptionCache1788739201000 } from './migrations/1788739201000-WechatSubscriptionCache.js';
 import { PublishingAndMedia1788739202000 } from './migrations/1788739202000-PublishingAndMedia.js';
+import { PrepareWithdrawnFormBaseline1788739202500 } from './migrations/1788739202500-PrepareWithdrawnFormBaseline.js';
 import { DingTalkSubmissions1788739203000 } from './migrations/1788739203000-DingTalkSubmissions.js';
 import { LotteryRedemptionCodes1788739204000 } from './migrations/1788739204000-LotteryRedemptionCodes.js';
 import { ExportMetadata1788739205000 } from './migrations/1788739205000-ExportMetadata.js';
@@ -34,6 +35,7 @@ export function createDataSource(
       InitialSchema1788739200000,
       WechatSubscriptionCache1788739201000,
       PublishingAndMedia1788739202000,
+      PrepareWithdrawnFormBaseline1788739202500,
       DingTalkSubmissions1788739203000,
       LotteryRedemptionCodes1788739204000,
       ExportMetadata1788739205000,

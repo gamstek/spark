@@ -29,10 +29,11 @@ assert_count() {
 
 make_release() {
   release_dir=$1
+  schema_epoch=${2:-0}
   mkdir -p "$release_dir"
   : >"$release_dir/compose.production.yaml"
   : >"$release_dir/.env.release"
-  : >"$release_dir/release.json"
+  printf '{"schemaEpoch": %s}\n' "$schema_epoch" >"$release_dir/release.json"
 }
 
 make_fakes() {
@@ -284,6 +285,39 @@ run_rollback_case() {
   assert_count 21 'curl --connect-timeout 2 --max-time 5 ' "$curl_log"
 }
 
+run_schema_epoch_rollback_block_case() {
+  case_root=$1
+  deploy_root="$case_root/deploy"
+  fake_dir="$case_root/fakes"
+  command_log="$case_root/commands.log"
+  curl_count="$case_root/curl-count"
+
+  mkdir -p "$deploy_root/releases"
+  printf 'production configuration\n' >"$deploy_root/.env.production"
+  chmod 600 "$deploy_root/.env.production"
+  make_release "$deploy_root/releases/old" 1
+  make_release "$deploy_root/releases/.incoming-new" 2
+  ln -s 'releases/old' "$deploy_root/current"
+  make_fakes "$fake_dir"
+  : >"$command_log"
+
+  if PATH="$fake_dir:$PATH" \
+    TEST_COMMAND_LOG="$command_log" \
+    TEST_CURL_COUNT="$curl_count" \
+    TEST_CURL_MODE=fail-candidate \
+    bash "$deploy_script" up new "$deploy_root"; then
+    fail 'schema epoch candidate failure returned success'
+  fi
+
+  [ "$(readlink "$deploy_root/current")" = 'releases/old' ] ||
+    fail 'schema epoch failure changed current release link'
+  if grep -F -- "$deploy_root/releases/old/compose.production.yaml up -d" "$command_log" >/dev/null; then
+    fail 'schema epoch failure restarted the incompatible previous release'
+  fi
+  assert_file_contains "$command_log" \
+    "$deploy_root/releases/new/compose.production.yaml down"
+}
+
 run_current_release_command_case() {
   case_root=$1
   deploy_root="$case_root/deploy"
@@ -332,6 +366,7 @@ run_success_case "$test_root/success"
 run_final_candidate_retry_case "$test_root/final-candidate-retry"
 run_active_release_up_case "$test_root/active-release-up"
 run_rollback_case "$test_root/rollback"
+run_schema_epoch_rollback_block_case "$test_root/schema-epoch-rollback-block"
 run_activation_failure_case "$test_root/activation-failure"
 run_current_release_command_case "$test_root/current-release-commands"
 

@@ -29,6 +29,16 @@ compose_release() {
     -f "$release_dir/compose.production.yaml" "$@"
 }
 
+release_schema_epoch() {
+  release_dir=$1
+  epoch=$(sed -nE 's/.*"schemaEpoch"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' \
+    "$release_dir/release.json" | head -n 1)
+  case "${epoch:-0}" in
+    ''|*[!0-9]*) echo 0 ;;
+    *) echo "$epoch" ;;
+  esac
+}
+
 wait_for_readiness() {
   attempt=1
   while [ "$attempt" -le 20 ]; do
@@ -220,7 +230,16 @@ diagnose_release "$final_dir"
 
 rollback_result=
 if [ -n "$previous_dir" ]; then
-  if compose_release "$previous_dir" up -d --no-build --pull never --remove-orphans &&
+  candidate_epoch=$(release_schema_epoch "$final_dir")
+  previous_epoch=$(release_schema_epoch "$previous_dir")
+  if [ "$candidate_epoch" -gt "$previous_epoch" ]; then
+    echo 'Candidate crossed a database schema epoch; automatic image rollback is blocked' >&2
+    if compose_release "$final_dir" down; then
+      rollback_result=schema-epoch-rollback-blocked-candidate-stopped
+    else
+      rollback_result=schema-epoch-rollback-blocked-candidate-stop-failed
+    fi
+  elif compose_release "$previous_dir" up -d --no-build --pull never --remove-orphans &&
     wait_for_readiness; then
     rollback_result=success
     echo 'Previous release restored after candidate failure' >&2

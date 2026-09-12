@@ -26,6 +26,7 @@ export class ReplaceDingTalkFormStorage1788739211000 implements MigrationInterfa
       SET config=config - ARRAY['formId','formUrl','prefillField','fieldMapping']
       WHERE config ?| ARRAY['formId','formUrl','prefillField','fieldMapping'];
 
+      DELETE FROM background_job WHERE kind='DINGTALK_SUBMISSION';
       DROP TABLE IF EXISTS webhook_receipt;
       DROP TABLE IF EXISTS dingtalk_form_submission;
 
@@ -43,7 +44,8 @@ export class ReplaceDingTalkFormStorage1788739211000 implements MigrationInterfa
     `);
   }
 
-  async down(_queryRunner: QueryRunner): Promise<void> {
+  async down(queryRunner: QueryRunner): Promise<void> {
+    void queryRunner;
     throw new Error(
       'IRREVERSIBLE_DINGTALK_STORAGE_REMOVAL: deleted DingTalk answers cannot be restored',
     );

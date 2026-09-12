@@ -204,6 +204,16 @@ it('upgrades legacy form storage without losing unrelated activity data', async 
        VALUES ($1,'legacy-form','callback-record',$2,$3)`,
       [randomUUID(), scenario.participationIds[0], { callback: 'legacy' }],
     );
+    for (const status of ['PENDING', 'RUNNING', 'FAILED'])
+      await source.query(
+        `INSERT INTO background_job (id,kind,status,payload) VALUES ($1,'DINGTALK_SUBMISSION',$2,$3)`,
+        [randomUUID(), status, { legacy: true }],
+      );
+    const retainedJobId = randomUUID();
+    await source.query(
+      `INSERT INTO background_job (id,kind,status,payload) VALUES ($1,'EXPORT_ACTIVITY','PENDING',$2)`,
+      [retainedJobId, { retained: true }],
+    );
     await source.query(
       `UPDATE activity_version
        SET config=$1
@@ -234,6 +244,9 @@ it('upgrades legacy form storage without losing unrelated activity data', async 
     expect(tableNames).toContain('activity_form_submission');
     expect(tableNames).not.toContain('dingtalk_form_submission');
     expect(tableNames).not.toContain('webhook_receipt');
+    expect(
+      await source.query(`SELECT id FROM background_job ORDER BY id`),
+    ).toEqual([{ id: retainedJobId }]);
 
     expect(
       await source.query(`SELECT id FROM activity WHERE id=$1`, [
@@ -290,6 +303,89 @@ it('upgrades legacy form storage without losing unrelated activity data', async 
         `SELECT name FROM typeorm_migrations ORDER BY timestamp DESC LIMIT 1`,
       ),
     ).toEqual([{ name: 'ReplaceDingTalkFormStorage1788739211000' }]);
+  } finally {
+    await database.close();
+  }
+});
+
+it('converges a withdrawn baseline before replaying immutable history', async () => {
+  const database = await createTestDatabase({
+    throughMigration: 'PublishingAndMedia1788739202000',
+  });
+  const source = database.dataSource;
+  try {
+    const userId = randomUUID();
+    const activityId = randomUUID();
+    const participationId = randomUUID();
+    const submissionId = randomUUID();
+    const submittedAt = new Date('2026-09-12T10:00:00.000Z');
+    await source.query(`INSERT INTO user_account (id) VALUES ($1)`, [userId]);
+    await source.query(
+      `INSERT INTO activity (id,code,name) VALUES ($1,'withdrawn','Withdrawn baseline')`,
+      [activityId],
+    );
+    await source.query(
+      `INSERT INTO activity_participation (id,activity_id,user_id,lead_completed,lead_completed_at,updated_at)
+       VALUES ($1,$2,$3,true,$4,$4)`,
+      [participationId, activityId, userId, submittedAt],
+    );
+    await source.query(`DROP TABLE webhook_receipt,dingtalk_form_submission`);
+    await source.query(`
+      CREATE TABLE activity_form_submission (
+        id uuid PRIMARY KEY,
+        participation_id uuid NOT NULL REFERENCES activity_participation(id) ON DELETE RESTRICT,
+        answers jsonb NOT NULL,
+        submitted_at timestamptz NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT activity_form_submission_participation_key UNIQUE (participation_id)
+      )
+    `);
+    await source.query(
+      `INSERT INTO activity_form_submission (id,participation_id,answers,submitted_at)
+       VALUES ($1,$2,$3,$4)`,
+      [
+        submissionId,
+        participationId,
+        { name: 'already self-hosted' },
+        submittedAt,
+      ],
+    );
+
+    await source.runMigrations();
+
+    expect(
+      await source.query(
+        `SELECT id,participation_id,answers,submitted_at FROM activity_form_submission`,
+      ),
+    ).toEqual([
+      {
+        id: submissionId,
+        participation_id: participationId,
+        answers: { name: 'already self-hosted' },
+        submitted_at: submittedAt,
+      },
+    ]);
+    expect(
+      await source.query(
+        `SELECT lead_completed,lead_completed_at,updated_at FROM activity_participation WHERE id=$1`,
+        [participationId],
+      ),
+    ).toEqual([
+      {
+        lead_completed: true,
+        lead_completed_at: submittedAt,
+        updated_at: submittedAt,
+      },
+    ]);
+    expect(
+      await source.query(
+        `SELECT name FROM typeorm_migrations WHERE name IN ('PrepareWithdrawnFormBaseline1788739202500','DingTalkSubmissions1788739203000','ReplaceDingTalkFormStorage1788739211000') ORDER BY timestamp`,
+      ),
+    ).toEqual([
+      { name: 'PrepareWithdrawnFormBaseline1788739202500' },
+      { name: 'DingTalkSubmissions1788739203000' },
+      { name: 'ReplaceDingTalkFormStorage1788739211000' },
+    ]);
   } finally {
     await database.close();
   }
