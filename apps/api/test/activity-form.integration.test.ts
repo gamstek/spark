@@ -49,6 +49,50 @@ function deferred() {
   return { promise, resolve };
 }
 
+const barrierTimeoutMs = 1_000;
+
+type TrackedRequest<T> = {
+  result: Promise<T>;
+  failure: Promise<never>;
+  settled: Promise<void>;
+};
+
+function trackRequest<T>(result: Promise<T>): TrackedRequest<T> {
+  const failure = result.then<never>(
+    () => new Promise<never>(() => undefined),
+    (error: unknown) => Promise.reject(error),
+  );
+  void failure.catch(() => undefined);
+  return {
+    result,
+    failure,
+    settled: result.then(
+      () => undefined,
+      () => undefined,
+    ),
+  };
+}
+
+async function waitForBarrier<T>(
+  barrier: Promise<T>,
+  requestFailures: readonly Promise<never>[],
+  label: string,
+  timeoutMs = barrierTimeoutMs,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(
+      () => reject(new Error(`BARRIER_TIMEOUT:${label}`)),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([barrier, ...requestFailures, timedOut]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 describe('atomic activity form submission', () => {
   let database: TestDatabase;
   let scenario: Scenario;
@@ -66,6 +110,27 @@ describe('atomic activity form submission', () => {
       `UPDATE activity_participation SET lead_completed=false,lead_completed_at=NULL WHERE id=$1`,
       [scenario.participationIds[0]],
     );
+  });
+
+  it('fails a local barrier when no signal arrives', async () => {
+    await expect(
+      waitForBarrier(deferred().promise, [], 'missing signal', 5),
+    ).rejects.toThrow('BARRIER_TIMEOUT:missing signal');
+  });
+
+  it('propagates a started request failure through a barrier', async () => {
+    const failure = new Error('SECOND_REQUEST_FAILED');
+    let rejectRequest!: (error: Error) => void;
+    const request = new Promise<void>((_resolve, reject) => {
+      rejectRequest = reject;
+    });
+    const tracked = trackRequest(request);
+    rejectRequest(failure);
+
+    await expect(
+      waitForBarrier(deferred().promise, [tracked.failure], 'second request'),
+    ).rejects.toThrow('SECOND_REQUEST_FAILED');
+    await tracked.settled;
   });
 
   afterAll(async () => database.close());
@@ -138,6 +203,8 @@ describe('atomic activity form submission', () => {
     const createQueryRunner = database.dataSource.createQueryRunner.bind(
       database.dataSource,
     );
+    let first: TrackedRequest<{ submitted: true }> | undefined;
+    let second: TrackedRequest<{ submitted: true }> | undefined;
     let participationUpsertCount = 0;
     const createQueryRunnerSpy = vi
       .spyOn(database.dataSource, 'createQueryRunner')
@@ -162,28 +229,39 @@ describe('atomic activity form submission', () => {
       });
 
     try {
-      const first = service(scenario.now, async () => {
-        firstInserted.resolve();
-        await releaseFirst.promise;
-      }).submit(userId, 'expo-2026', validForm);
-      await firstInserted.promise;
+      first = trackRequest(
+        service(scenario.now, async () => {
+          firstInserted.resolve();
+          await releaseFirst.promise;
+        }).submit(userId, 'expo-2026', validForm),
+      );
+      await waitForBarrier(
+        firstInserted.promise,
+        [first.failure],
+        'first submission insert',
+      );
 
       let secondSettled = false;
-      const second = service()
-        .submit(userId, 'expo-2026', secondForm)
-        .then((result) => {
-          secondSettled = true;
-          return result;
-        });
-      await secondParticipationUpsertAttempted.promise;
+      second = trackRequest(
+        service()
+          .submit(userId, 'expo-2026', secondForm)
+          .then((result) => {
+            secondSettled = true;
+            return result;
+          }),
+      );
+      await waitForBarrier(
+        secondParticipationUpsertAttempted.promise,
+        [first.failure, second.failure],
+        'second participation upsert',
+      );
       await Promise.resolve();
       expect(secondSettled).toBe(false);
 
       releaseFirst.resolve();
-      await expect(Promise.all([first, second])).resolves.toEqual([
-        { submitted: true },
-        { submitted: true },
-      ]);
+      await expect(Promise.all([first.result, second.result])).resolves.toEqual(
+        [{ submitted: true }, { submitted: true }],
+      );
 
       const participations = await database.dataSource.query<
         { id: string; lead_completed: boolean; lead_completed_at: Date }[]
@@ -209,7 +287,19 @@ describe('atomic activity form submission', () => {
       });
     } finally {
       releaseFirst.resolve();
-      createQueryRunnerSpy.mockRestore();
+      const startedRequests = [first, second].filter(
+        (request): request is TrackedRequest<{ submitted: true }> =>
+          request !== undefined,
+      );
+      try {
+        await waitForBarrier(
+          Promise.all(startedRequests.map((request) => request.settled)),
+          [],
+          'overlap cleanup',
+        );
+      } finally {
+        createQueryRunnerSpy.mockRestore();
+      }
     }
   }
 
