@@ -50,8 +50,9 @@ const validForm: ActivityFormSubmissionInput = {
   onsiteAvailability: 'available',
   privacyAccepted: true,
 };
-const { privacyAccepted: _privacyAccepted, ...expectedStoredAnswers } =
-  validForm;
+const expectedStoredAnswers = Object.fromEntries(
+  Object.entries(validForm).filter(([key]) => key !== 'privacyAccepted'),
+);
 
 const productionParameterTypes = new Map<Type, unknown[]>([
   [ActivityFormService, [DataSource, Function, Function]],

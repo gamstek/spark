@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ActivityFormSubmissionSchema,
+  type ActivityFormAnswers,
   type ActivityFormSubmissionInput,
 } from '@spark/contracts';
 import { DataSource } from 'typeorm';
@@ -31,7 +32,9 @@ export class ActivityFormService {
   ): Promise<{ submitted: true }> {
     const parsed: ActivityFormSubmissionInput =
       ActivityFormSubmissionSchema.parse(input);
-    const { privacyAccepted: _privacyAccepted, ...answers } = parsed;
+    const answers = Object.fromEntries(
+      Object.entries(parsed).filter(([key]) => key !== 'privacyAccepted'),
+    ) as ActivityFormAnswers;
 
     return this.dataSource.transaction(async (manager) => {
       const activities = await manager.query<ActivityRow[]>(

@@ -37,8 +37,9 @@ const validForm: ActivityFormSubmissionInput = {
 function expectedAnswers(
   input: ActivityFormSubmissionInput = validForm,
 ): ActivityFormAnswers {
-  const { privacyAccepted: _privacyAccepted, ...answers } = input;
-  return answers;
+  return Object.fromEntries(
+    Object.entries(input).filter(([key]) => key !== 'privacyAccepted'),
+  ) as ActivityFormAnswers;
 }
 
 function deferred() {
