@@ -17,6 +17,8 @@ import { describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { ACTIVITY_IDENTITY_MODE } from '../src/auth/activity-identity-mode.js';
+import { SessionService } from '../src/auth/session.service.js';
+import { ActivityFormService } from '../src/activity-form/activity-form.service.js';
 import { ExportsHandler } from '../src/exports/exports.handler.js';
 import { ExportsService } from '../src/exports/exports.service.js';
 import { JobsService } from '../src/jobs/jobs.service.js';
@@ -31,6 +33,7 @@ import { WechatIdentityService } from '../src/wechat/wechat-identity.service.js'
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 const productionParameterTypes = new Map<Type, unknown[]>([
+  [ActivityFormService, [DataSource, Function, Function]],
   [
     LotteryService,
     [DataSource, CodeService, ACTIVITY_IDENTITY_MODE, Function, Function],
@@ -111,6 +114,19 @@ describe('production module providers', () => {
         const response = await app.inject({ method, url });
         expect(response.statusCode, `${method} ${url}`).toBe(404);
       }
+      const activityUserId = 'de4c8226-4ebc-4bb8-9bca-1da706a022ac';
+      await dataSource.query(`INSERT INTO user_account (id) VALUES ($1)`, [
+        activityUserId,
+      ]);
+      const session = await app
+        .get(SessionService)
+        .create('ACTIVITY', activityUserId);
+      const formResponse = await app.inject({
+        method: 'POST',
+        url: '/api/activity/expo-2026/form-submissions',
+        headers: { cookie: `spark_activity=${session.token}` },
+      });
+      expect(formResponse.statusCode).toBe(403);
       const providerNames = providers.map((provider) =>
         typeof provider === 'function'
           ? provider.name

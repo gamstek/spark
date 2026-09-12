@@ -49,4 +49,27 @@ describe('ApiExceptionFilter', () => {
       requestId: 'request-2',
     });
   });
+
+  it('maps unavailable forms to a conflict response', () => {
+    const send = vi.fn();
+    const status = vi.fn(() => ({ send }));
+    const host = {
+      switchToHttp: () => ({
+        getRequest: () => ({ id: 'request-3' }),
+        getResponse: () => ({ status }),
+      }),
+    };
+
+    new ApiExceptionFilter().catch(
+      new Error('FORM_NOT_AVAILABLE'),
+      host as never,
+    );
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+    expect(send).toHaveBeenCalledWith({
+      code: 'FORM_NOT_AVAILABLE',
+      message: 'FORM_NOT_AVAILABLE',
+      requestId: 'request-3',
+    });
+  });
 });

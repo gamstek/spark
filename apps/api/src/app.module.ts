@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AccountsService } from './auth/accounts.service.js';
+import { ActivityFormController } from './activity-form/activity-form.controller.js';
+import { ActivityFormService } from './activity-form/activity-form.service.js';
 import {
   AdminAuthController,
   StaffAuthController,
@@ -88,6 +90,7 @@ import {
     RuntimeController,
     ActivityInfoController,
     ActivitySessionController,
+    ActivityFormController,
   ],
   providers: [
     {
@@ -107,6 +110,12 @@ import {
         new WechatIdentityService(dataSource),
     },
     AccountsService,
+    {
+      provide: ActivityFormService,
+      inject: [DataSource],
+      useFactory: (dataSource: DataSource) =>
+        new ActivityFormService(dataSource),
+    },
     SessionService,
     {
       provide: ACTIVITY_IDENTITY_MODE,

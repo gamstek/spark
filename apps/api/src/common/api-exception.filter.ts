@@ -18,6 +18,7 @@ const statusByCode: Record<string, number> = {
   DRAW_NOT_ACTIVE: 409,
   OUT_OF_STOCK: 409,
   ACTIVITY_ENDED: 409,
+  FORM_NOT_AVAILABLE: 409,
   REDEMPTION_EXPIRED: 410,
   NOT_QUALIFIED: 403,
 };
