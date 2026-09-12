@@ -266,9 +266,48 @@ body {
   }
 }
 
+@keyframes lottery-wheel-settle {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(calc(1440deg + var(--lottery-wheel-target)));
+  }
+}
+
+@keyframes lottery-wheel-stop {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(720deg);
+  }
+}
+
 .lottery-wheel--spinning {
   animation: lottery-wheel-spin 720ms linear infinite;
   will-change: transform;
+}
+
+.lottery-wheel--settling {
+  animation: lottery-wheel-settle 1800ms cubic-bezier(0.12, 0.72, 0.18, 1)
+    forwards;
+  will-change: transform;
+}
+
+.lottery-wheel--stopping {
+  animation: lottery-wheel-stop 600ms cubic-bezier(0.18, 0.72, 0.22, 1) forwards;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lottery-wheel--spinning,
+  .lottery-wheel--settling,
+  .lottery-wheel--stopping {
+    animation: none;
+  }
 }
 
 .registration-page {

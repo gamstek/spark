@@ -86,14 +86,15 @@ containers, generic SaaS card grids, and decorative gradients.
 
 ## Components
 
-| Capability     | Canonical owner                                        | Behavior and verification                                                                                                                                   |
-| -------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Content dialog | `src/components/content-dialog.tsx`, Radix Dialog      | Generic title/trigger/children; close, Escape, outside dismissal, modal focus trap, focus restoration; verify keyboard and narrow viewport                  |
-| Markdown       | `PrivacyAgreementContent` in the content-dialog module | ReactMarkdown + remark-gfm; semantic headings/lists/links/tables; raw HTML disabled                                                                         |
-| Privacy source | `src/lib/privacy-agreement.ts`                         | Import one user-authored Markdown source; require exact activity token; no separate consent time/version storage                                            |
-| Form fields    | `FormField`, `ChoiceField` in `src/components/`        | Native labelled text controls and semantic fieldsets with Radix Checkbox/RadioGroup; persistent error regions, visible required markers and focus           |
-| Registration   | `src/pages/registration-form-page.tsx`                 | React Hook Form with the shared Zod resolver; 01–12 required, 13 optional; first-error focus, preserved values, duplicate prevention and stable busy action |
-| Scrollbar      | `src/styles.css` global baseline                       | Every owned overflow surface inherits standard/WebKit colors without opt-in class; forced-colors fallback                                                   |
+| Capability     | Canonical owner                                        | Behavior and verification                                                                                                                                                 |
+| -------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Content dialog | `src/components/content-dialog.tsx`, Radix Dialog      | Generic title/trigger/children; close, Escape, outside dismissal, modal focus trap, focus restoration; verify keyboard and narrow viewport                                |
+| Markdown       | `PrivacyAgreementContent` in the content-dialog module | ReactMarkdown + remark-gfm; semantic headings/lists/links/tables; raw HTML disabled                                                                                       |
+| Privacy source | `src/lib/privacy-agreement.ts`                         | Import one user-authored Markdown source; require exact activity token; no separate consent time/version storage                                                          |
+| Form fields    | `FormField`, `ChoiceField` in `src/components/`        | Native labelled text controls and semantic fieldsets with Radix Checkbox/RadioGroup; persistent error regions, visible required markers and focus                         |
+| Registration   | `src/pages/registration-form-page.tsx`                 | React Hook Form with the shared Zod resolver; 01–12 required, 13 optional; first-error focus, preserved values, duplicate prevention and stable busy action               |
+| Lottery motion | `src/pages/lottery-page.tsx`, `src/styles.css`         | Server-authoritative draw; immediate continuous rotation, minimum visible spin, eased target settlement, then result reveal; reduced-motion path and duplicate prevention |
+| Scrollbar      | `src/styles.css` global baseline                       | Every owned overflow surface inherits standard/WebKit colors without opt-in class; forced-colors fallback                                                                 |
 
 Color paths map `colors.*` to matching `--color-*`; `typography.*` maps to
 `--font-*`. `ContentDialog` consumes these variables directly. Scrollbar thumb,
@@ -114,6 +115,15 @@ use an inset border without changing control geometry. Conditional “other”
 explanations are required only while selected and are unregistered when hidden.
 The runtime owns the submission-success screen and subsequent lottery
 transition.
+
+The lottery wheel starts moving immediately after an intentional draw and the
+server remains the only prize authority. Fast responses stay concealed through
+at least two full spin cycles, then the wheel decelerates through additional
+turns to the matching prize segment before the result and follow-up action are
+revealed. Slow responses keep the continuous spin running. Failed requests use a
+short controlled stop and preserve a retry path; repeated activation remains
+disabled throughout motion. Reduced-motion preference removes rotation and uses
+a brief state transition without delaying access to the result.
 
 ## Do's and Don'ts
 

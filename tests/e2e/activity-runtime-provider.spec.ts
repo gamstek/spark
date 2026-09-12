@@ -48,6 +48,188 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
     await expect(page.getByRole('button', { name: '去抽奖' })).toHaveCount(0);
   });
 
+  test('keeps the authoritative result hidden until the wheel finishes spinning and settling', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'development-simulation');
+    const win = {
+      id: '8f72385d-54b9-4614-a8b1-c926aa22018e',
+      prizeLevel: '一等奖',
+      prizeName: '小米充电宝',
+      prizeImageUrl: null,
+      redeemEndAt: '2026-09-12T10:00:00.000Z',
+      redemptionStatus: 'WAIT_REDEEM',
+    } as const;
+    let drawn = false;
+    let drawRequests = 0;
+
+    await page.route('**/api/activity/demo/runtime**', (route) =>
+      route.fulfill({
+        json: {
+          ...runtime,
+          nextStep: drawn ? 'PRIZE' : 'LOTTERY',
+          win: drawn ? win : null,
+        },
+      }),
+    );
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({
+        json: {
+          ...info,
+          prizes: [
+            {
+              prizeLevel: win.prizeLevel,
+              name: win.prizeName,
+              imageUrl: null,
+            },
+            {
+              prizeLevel: '二等奖',
+              name: '定制保温杯',
+              imageUrl: null,
+            },
+          ],
+        },
+      }),
+    );
+    await page.route('**/api/activity/demo/lottery', async (route) => {
+      drawRequests += 1;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      drawn = true;
+      await route.fulfill({ json: { win } });
+    });
+    await page.route('**/api/activity/demo/prize-code', (route) =>
+      route.fulfill({ json: { code: 'PRIZE-CODE', qrUrl: '/prize-code.png' } }),
+    );
+
+    await page.goto('/activity/demo');
+    await page.getByRole('button', { name: '立即参与' }).click();
+    const wheel = page.getByLabel('抽奖转盘');
+    const result = page.getByText('一等奖 · 小米充电宝');
+    const startedAt = Date.now();
+
+    await page.getByRole('button', { name: '立即抽奖' }).click();
+    await expect(wheel).toHaveClass(/lottery-wheel--spinning/);
+    await page.waitForTimeout(500);
+    await expect(result).toHaveCount(0);
+    await expect(wheel).toHaveClass(/lottery-wheel--settling/, {
+      timeout: 2_500,
+    });
+    await expect(result).toHaveCount(0);
+    await expect(result).toBeVisible({ timeout: 3_000 });
+
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(2_700);
+    expect(drawRequests).toBe(1);
+  });
+
+  test('stops the wheel cleanly and restores retry after a rejected draw', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'development-simulation');
+    let drawRequests = 0;
+
+    await page.route('**/api/activity/demo/runtime**', (route) =>
+      route.fulfill({ json: { ...runtime, nextStep: 'LOTTERY' } }),
+    );
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({
+        json: {
+          ...info,
+          prizes: [
+            {
+              prizeLevel: '一等奖',
+              name: '小米充电宝',
+              imageUrl: null,
+            },
+          ],
+        },
+      }),
+    );
+    await page.route('**/api/activity/demo/lottery', async (route) => {
+      drawRequests += 1;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      await route.fulfill({
+        status: 500,
+        json: { code: 'INTERNAL_ERROR', message: 'INTERNAL_ERROR' },
+      });
+    });
+
+    await page.goto('/activity/demo');
+    await page.getByRole('button', { name: '立即参与' }).click();
+    const wheel = page.getByLabel('抽奖转盘');
+    const drawButton = page.getByRole('button', { name: '立即抽奖' });
+
+    await drawButton.click();
+    await expect(wheel).toHaveClass(/lottery-wheel--spinning/);
+    await expect(page.getByRole('button', { name: '抽奖中…' })).toBeDisabled();
+    await expect(wheel).toHaveClass(/lottery-wheel--stopping/, {
+      timeout: 2_500,
+    });
+    await expect(page.getByText('操作失败，请稍后重试')).toBeVisible();
+    await expect(drawButton).toBeEnabled({ timeout: 1_500 });
+    expect(drawRequests).toBe(1);
+  });
+
+  test('reveals the authoritative result without sustained rotation when reduced motion is requested', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'development-simulation');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const win = {
+      id: '8f72385d-54b9-4614-a8b1-c926aa22018e',
+      prizeLevel: '一等奖',
+      prizeName: '小米充电宝',
+      prizeImageUrl: null,
+      redeemEndAt: '2026-09-12T10:00:00.000Z',
+      redemptionStatus: 'WAIT_REDEEM',
+    } as const;
+    let drawn = false;
+
+    await page.route('**/api/activity/demo/runtime**', (route) =>
+      route.fulfill({
+        json: {
+          ...runtime,
+          nextStep: drawn ? 'PRIZE' : 'LOTTERY',
+          win: drawn ? win : null,
+        },
+      }),
+    );
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({
+        json: {
+          ...info,
+          prizes: [
+            {
+              prizeLevel: win.prizeLevel,
+              name: win.prizeName,
+              imageUrl: null,
+            },
+          ],
+        },
+      }),
+    );
+    await page.route('**/api/activity/demo/lottery', (route) => {
+      drawn = true;
+      return route.fulfill({ json: { win } });
+    });
+    await page.route('**/api/activity/demo/prize-code', (route) =>
+      route.fulfill({ json: { code: 'PRIZE-CODE', qrUrl: '/prize-code.png' } }),
+    );
+
+    await page.goto('/activity/demo');
+    await page.getByRole('button', { name: '立即参与' }).click();
+    const wheel = page.getByLabel('抽奖转盘');
+    await page.getByRole('button', { name: '立即抽奖' }).click();
+
+    await expect
+      .poll(() =>
+        wheel.evaluate((element) => getComputedStyle(element).animationName),
+      )
+      .toBe('none');
+    await expect(page.getByText('一等奖 · 小米充电宝')).toBeVisible({
+      timeout: 1_000,
+    });
+  });
+
   test('bootstraps one anonymous session and refetches both resources after simultaneous 401 responses', async ({
     page,
   }, testInfo) => {
