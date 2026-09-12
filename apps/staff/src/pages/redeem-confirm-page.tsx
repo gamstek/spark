@@ -1,16 +1,19 @@
 ﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { staffApi, ApiError, type RedemptionView } from '../lib/api';
 import { ActionButton } from '../components/action-button';
 import { PageShell } from '../components/page-shell';
 import { StatusTag } from '../components/status-tag';
 import { SLICES } from '../lib/assets';
+import { confirmRedemptionAndUpdateRecords } from '../lib/redemption-confirmation';
 import { useStaff } from '../lib/runtime';
 
 /** 核销信息确认：进入即查询兑奖码，确认无误后发放。 */
 export function RedeemConfirmPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { code, csrfToken } = useStaff();
   const [view, setView] = useState<RedemptionView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +54,11 @@ export function RedeemConfirmPage() {
     if (!csrfToken || !view) return;
     setConfirming(true);
     try {
-      const result = await staffApi.confirm(code, csrfToken);
+      const result = await confirmRedemptionAndUpdateRecords(
+        queryClient,
+        code,
+        csrfToken,
+      );
       navigate('/redeem/success', {
         state: { redeemedAt: result.redeemedAt },
       });

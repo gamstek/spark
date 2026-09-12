@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 import { CodeService } from './code.service.js';
 
 export interface RedemptionView {
+  redemptionId: string;
   lotteryRecordId: string;
   activityId: string;
   prizeName: string;
@@ -202,6 +203,7 @@ export class RedemptionsService {
   }
   private toView(row: RedemptionRow): RedemptionView {
     return {
+      redemptionId: row.redemption_id,
       lotteryRecordId: row.lottery_record_id,
       activityId: row.activity_id,
       prizeName: row.prize_name,

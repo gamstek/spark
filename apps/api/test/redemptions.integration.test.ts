@@ -95,6 +95,13 @@ describe('redemption recovery and atomic confirmation', () => {
     expect(first.status).toBe('REDEEMED');
     expect(second.status).toBe('REDEEMED');
     expect(first.redeemedAt).toBe(second.redeemedAt);
+    const [storedRedemption] = await database.dataSource.query<
+      { id: string }[]
+    >(`SELECT id FROM redemption WHERE lottery_record_id=$1`, [
+      scenario.lotteryRecordId,
+    ]);
+    expect(first.redemptionId).toBe(storedRedemption?.id);
+    expect(second.redemptionId).toBe(storedRedemption?.id);
     expect(
       await database.dataSource.query(
         `SELECT id FROM audit_event WHERE action='REDEMPTION_CONFIRMED'`,

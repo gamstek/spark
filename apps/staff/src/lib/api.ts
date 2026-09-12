@@ -60,6 +60,7 @@ export interface StaffMe {
 
 /** 核销结果视图（lookup / confirm 共用） */
 export interface RedemptionView {
+  redemptionId: string;
   lotteryRecordId: string;
   activityId: string;
   prizeName: string;
