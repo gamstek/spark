@@ -61,11 +61,11 @@ const EMPTY_ACTIVITY: ActivityDisplay = {
 
 export function ActivityRuntimeProvider({
   code,
-  simulateWechat = false,
+  simulateDevelopmentSession = false,
   children,
 }: {
   code: string;
-  simulateWechat?: boolean;
+  simulateDevelopmentSession?: boolean;
   children: ReactNode;
 }) {
   const queryClient = useQueryClient();
@@ -107,8 +107,8 @@ export function ActivityRuntimeProvider({
 
     bootstrappingSessionRef.current = true;
     void bootstrapActivitySession({
-      simulateWechat,
-      createSimulatedSession: activityApi.createSimulatedWechatSession,
+      simulateDevelopmentSession,
+      createDevelopmentSession: activityApi.createDevelopmentSession,
       createSession: () =>
         activityApi.bootstrapSession(
           code,
@@ -147,7 +147,7 @@ export function ActivityRuntimeProvider({
     refetchRuntime,
     runtimeQuery.error,
     sessionBootstrapError,
-    simulateWechat,
+    simulateDevelopmentSession,
   ]);
 
   useEffect(() => {

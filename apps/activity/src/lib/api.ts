@@ -88,7 +88,7 @@ export const activityApi = {
     request<{ code: string; qrUrl: string }>(
       `/api/activity/${encodeURIComponent(code)}/prize-code`,
     ),
-  createSimulatedWechatSession: () =>
+  createDevelopmentSession: () =>
     request<{ authenticated: true }>('/api/wechat/oauth/simulate', {
       method: 'POST',
     }),

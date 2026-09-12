@@ -8,18 +8,10 @@ export default defineConfig({
   reporter: 'line',
   projects: [
     {
-      name: 'ordinary-browser',
+      name: 'anonymous-browser',
       use: {
         baseURL: 'http://127.0.0.1:5181',
         channel: 'chrome',
-      },
-    },
-    {
-      name: 'official-account',
-      use: {
-        baseURL: 'http://127.0.0.1:5181',
-        channel: 'chrome',
-        userAgent: 'Mozilla/5.0 MicroMessenger/8.0.0 WeChat/8.0.0',
       },
     },
     {

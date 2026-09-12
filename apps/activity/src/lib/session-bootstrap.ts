@@ -2,20 +2,20 @@ export type ActivitySessionBootstrap =
   { authenticated: true } | { authenticated: false; redirectUrl: string };
 
 export async function bootstrapActivitySession({
-  simulateWechat,
-  createSimulatedSession,
+  simulateDevelopmentSession,
+  createDevelopmentSession,
   createSession,
   refresh,
   redirect,
 }: {
-  simulateWechat: boolean;
-  createSimulatedSession: () => Promise<unknown>;
+  simulateDevelopmentSession: boolean;
+  createDevelopmentSession: () => Promise<unknown>;
   createSession: () => Promise<ActivitySessionBootstrap>;
   refresh: () => Promise<unknown>;
   redirect: (url: string) => void;
 }): Promise<void> {
-  if (simulateWechat) {
-    await createSimulatedSession();
+  if (simulateDevelopmentSession) {
+    await createDevelopmentSession();
     await refresh();
     return;
   }

@@ -4,14 +4,14 @@ import { bootstrapActivitySession } from './session-bootstrap';
 
 describe('bootstrapActivitySession', () => {
   it('refreshes after anonymous session creation authenticates the visitor', async () => {
-    const createSimulatedSession = vi.fn();
+    const createDevelopmentSession = vi.fn();
     const createSession = vi.fn(async () => ({ authenticated: true }) as const);
     const refresh = vi.fn(async () => undefined);
     const redirect = vi.fn();
 
     await bootstrapActivitySession({
-      simulateWechat: false,
-      createSimulatedSession,
+      simulateDevelopmentSession: false,
+      createDevelopmentSession,
       createSession,
       refresh,
       redirect,
@@ -26,8 +26,8 @@ describe('bootstrapActivitySession', () => {
     const redirect = vi.fn();
 
     await bootstrapActivitySession({
-      simulateWechat: false,
-      createSimulatedSession: vi.fn(),
+      simulateDevelopmentSession: false,
+      createDevelopmentSession: vi.fn(),
       createSession: async () => ({
         authenticated: false,
         redirectUrl: '/api/wechat/oauth/start?returnPath=%2Factivity%2Fdemo',
@@ -42,13 +42,13 @@ describe('bootstrapActivitySession', () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it('creates a simulated WeChat session before refreshing', async () => {
+  it('creates a development session before refreshing when simulation is enabled', async () => {
     const calls: string[] = [];
 
     await bootstrapActivitySession({
-      simulateWechat: true,
-      createSimulatedSession: async () => {
-        calls.push('simulated-session');
+      simulateDevelopmentSession: true,
+      createDevelopmentSession: async () => {
+        calls.push('development-session');
       },
       createSession: async () => ({ authenticated: true }),
       refresh: async () => {
@@ -57,6 +57,6 @@ describe('bootstrapActivitySession', () => {
       redirect: vi.fn(),
     });
 
-    expect(calls).toEqual(['simulated-session', 'refresh']);
+    expect(calls).toEqual(['development-session', 'refresh']);
   });
 });

@@ -215,13 +215,13 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
     await expect(page.getByRole('button', { name: '立即参与' })).toBeVisible();
   });
 
-  test('creates a simulated session and refetches runtime and info only in development simulation', async ({
+  test('creates a development session and refetches runtime and info only when simulation is enabled', async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'development-simulation');
     let runtimeRequests = 0;
     let infoRequests = 0;
-    let simulatedSessionRequests = 0;
+    let developmentSessionRequests = 0;
 
     await page.route('**/api/activity/demo/runtime**', (route) => {
       runtimeRequests += 1;
@@ -236,14 +236,14 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
       return route.fulfill({ json: info });
     });
     await page.route('**/api/wechat/oauth/simulate', (route) => {
-      simulatedSessionRequests += 1;
+      developmentSessionRequests += 1;
       return route.fulfill({ json: { authenticated: true } });
     });
 
     await page.goto('/activity/demo');
 
     await expect(page.getByRole('button', { name: '立即参与' })).toBeVisible();
-    expect(simulatedSessionRequests).toBe(1);
+    expect(developmentSessionRequests).toBe(1);
     expect(runtimeRequests).toBe(2);
     expect(infoRequests).toBe(2);
   });
