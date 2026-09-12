@@ -50,7 +50,6 @@ describe('RuntimeScene', () => {
     const markup = renderToStaticMarkup(<RuntimeScene />);
 
     expect(markup).toContain('专家信息登记表单');
-    expect(markup).not.toContain('正在打开钉钉表单');
   });
 
   it('shows submission success ahead of the server runtime step', () => {

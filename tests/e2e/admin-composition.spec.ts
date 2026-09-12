@@ -46,7 +46,7 @@ async function mockWorkspace(page: Page) {
       json: [
         {
           id: 'job-1',
-          kind: 'DINGTALK_CALLBACK',
+          kind: 'EXPORT',
           attempts: 3,
           status: 'FAILED',
           lastError: 'upstream timeout',
@@ -88,7 +88,10 @@ test('composes the approved operational zone from actual activity and failed-job
     '最近 2 项失败任务',
   );
   await expect(
-    context.getByRole('link', { name: /检查钉钉表单回调/ }),
+    context.getByRole('link', {
+      name: '检查线索导出 已尝试 3 次，需检查原因',
+      exact: true,
+    }),
   ).toHaveAttribute('href', '/admin/jobs');
   await expect(
     context.getByRole('link', { name: '查看数据', exact: true }),

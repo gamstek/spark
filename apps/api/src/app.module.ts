@@ -39,10 +39,6 @@ import { PrizesService } from './prizes/prizes.service.js';
 import { JobHandlers } from './jobs/jobs.handlers.js';
 import { JobsController } from './jobs/jobs.controller.js';
 import { JobsService } from './jobs/jobs.service.js';
-import { DingTalkCallbackController } from './dingtalk/callback.controller.js';
-import { DingTalkCallbackService } from './dingtalk/callback.service.js';
-import { DingTalkPrefillService } from './dingtalk/prefill.service.js';
-import { DingTalkSubmissionHandler } from './dingtalk/submission.handler.js';
 import { LotteryController } from './lottery/lottery.controller.js';
 import { LotteryService } from './lottery/lottery.service.js';
 import { CodeService } from './redemptions/code.service.js';
@@ -82,7 +78,6 @@ import {
     PrizesController,
     MediaController,
     JobsController,
-    DingTalkCallbackController,
     LotteryController,
     RedemptionsController,
     ReportsController,
@@ -147,9 +142,6 @@ import {
     MediaService,
     JobsService,
     JobHandlers,
-    DingTalkCallbackService,
-    DingTalkPrefillService,
-    DingTalkSubmissionHandler,
     CodeService,
     {
       provide: LotteryService,

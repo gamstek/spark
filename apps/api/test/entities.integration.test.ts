@@ -57,15 +57,15 @@ describe('TypeORM entity metadata', () => {
     expect(tableNames).toEqual(expectedTables);
   });
 
-  it('fresh migrations omit retired submission tables', async () => {
+  it('fresh migrations create exactly the registered business tables', async () => {
     const rows = await database.dataSource.query<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema()`,
     );
-    const tableNames = rows.map((row) => row.table_name);
-    expect(tableNames).not.toContain('webhook_receipt');
-    expect(tableNames).not.toContain('dingtalk_form_submission');
-    expect(tableNames).toContain('wechat_identity');
-    expect(tableNames).toContain('app_session');
+    const tableNames = rows
+      .map((row) => row.table_name)
+      .filter((name) => name !== 'typeorm_migrations')
+      .sort();
+    expect(tableNames).toEqual(expectedTables);
   });
 
   it('models critical migrated columns, keys, and indexes', () => {

@@ -2,7 +2,6 @@ export * from './activities.js';
 export * from './activity-form.js';
 export * from './activity-info.js';
 export * from './auth.js';
-export * from './dingtalk.js';
 export * from './errors.js';
 export * from './exports.js';
 export * from './lottery.js';

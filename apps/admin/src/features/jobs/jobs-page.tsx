@@ -18,7 +18,6 @@ type Job = {
 };
 
 const jobLabels: Record<string, string> = {
-  DINGTALK_CALLBACK: '钉钉表单回调',
   EXPORT: '线索导出',
   EXPIRE_REDEMPTION: '核销凭证过期',
 };

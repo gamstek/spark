@@ -15,7 +15,6 @@
         "CSRF_SECRET",
         "DATABASE_SCHEMA",
         "DATABASE_URL",
-        "DINGTALK_CALLBACK_SECRET",
         "JOB_POLL_INTERVAL_MS",
         "MAINTENANCE_INTERVAL_MS",
         "MEDIA_ROOT",

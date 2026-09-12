@@ -13,14 +13,6 @@ import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
 
 const validConfig = {
-  formId: 'ding-form',
-  formUrl: 'https://alidocs.dingtalk.com/notable/share/form/example',
-  prefillField: 'participationId',
-  fieldMapping: {
-    participationId: '参与记录ID',
-    name: '姓名',
-    phone: '手机号',
-  },
   requireSubscribe: true,
   noPrizeWeight: 1,
   heroAssetId: 'hero-asset',

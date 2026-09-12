@@ -127,14 +127,6 @@ export function ActivityEditPage() {
       const heroFile = form.get('heroFile');
       const hasHeroFile = heroFile instanceof File && heroFile.size > 0;
       const configFields = {
-        formId: form.get('formId'),
-        formUrl: form.get('formUrl'),
-        prefillField: form.get('prefillField'),
-        fieldMapping: {
-          participationId: '参与编号',
-          name: '姓名',
-          phone: '手机号',
-        },
         requireSubscribe: true,
         noPrizeWeight: Number(detail?.config?.noPrizeWeight ?? 1),
         heroAssetId: heroAssetId || (hasHeroFile ? 'pending-upload' : ''),

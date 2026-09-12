@@ -17,43 +17,36 @@
 `anonymous`。不要把生产配置改成
 `wechat`：该模式仅为未来具备保留 OAuth 流程能力的公众号账户预留。
 
-当前系统不使用公众号原始 ID、微信支付商户号、EncodingAESKey、UnionID 或钉钉 AppKey/AppSecret。
+当前系统不使用公众号原始 ID、微信支付商户号、EncodingAESKey 或 UnionID。
 
 活动入口使用可分享的 HTTPS 活动链接，例如
 `https://spark.gamstek.com/activity/<activityCode>`，可用于海报、群公告和客服话术。首次打开会在该浏览器建立匿名活动会话，Cookie 最长保留 7 天。匿名 Cookie 不能跨设备识别同一人：清除 Cookie、使用无痕窗口或更换设备都可能建立新的会话，因此不能依赖它限制同一人跨设备重复参与。
 
-## 钉钉表单提供的信息
+## 活动配置与自有表单
 
-这些值由运营人员在管理后台为每个活动填写，不属于服务器环境变量：
+每个活动的模板配置仅包含以下四项：
 
-| 字段           | 具体含义                                                                                                          |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `formId`       | 钉钉表单的稳定标识。回调 Body 必须发送同一个值。                                                                  |
-| `formUrl`      | 表单 HTTPS 分享地址，必须属于 `alidocs.dingtalk.com`。系统会保留原有参数并自动追加参与编号。                      |
-| `prefillField` | URL 中保存参与编号的参数名，默认为 `prefill_participant`。打开表单前，系统会将内部 `participationId` 写入该参数。 |
-| `fieldMapping` | 回调中参与编号、姓名、手机号对应的表单字段。第一版后台使用固定映射。                                              |
+| 字段               | 含义                                       |
+| ------------------ | ------------------------------------------ |
+| `requireSubscribe` | 保留的关注规则值；当前匿名模式不检查关注。 |
+| `noPrizeWeight`    | 未中奖权重，必须为有限非负数。             |
+| `heroAssetId`      | 活动主图资源 ID，必填。                    |
+| `rulesText`        | 活动规则，必填，最多 4000 字。             |
 
-钉钉自动化向以下地址发送 POST：
+活动页内置固定的 13 题报名表。Q1–Q12 必填，Q13 可选；两个“其他”选项被选中时必须填写对应说明。手机号与邮箱只检查非空和长度，不进行格式校验。提交前必须同意隐私协议。
 
-```text
-https://spark.gamstek.com/api/integrations/dingtalk/form-submissions
-```
+表单通过当前匿名活动会话与 CSRF 校验调用
+`POST /api/activity/:code/form-submissions`。服务端在同一事务中保存答案并确认留资，首次有效提交后不能覆盖。活动页随后刷新运行状态进入抽奖；管理端提供 13 题详情及 XLSX 分列导出。
 
-`DINGTALK_CALLBACK_SECRET`
-是本系统自行生成的共享密钥，不是钉钉提供的AppSecret。服务器保存一份，钉钉自动化请求头配置同一个值：
-
-```text
-Authorization: Bearer <DINGTALK_CALLBACK_SECRET>
-```
+本次版本重写初始数据库结构，只支持空库重建，不迁移或保留旧报名数据。已有部署必须在激活前完成数据库重建，并重新创建管理员、活动与奖品；普通增量迁移不会替换已经执行的初始结构。具体步骤见[部署指南](project-spark-deployment.md)。
 
 ## 系统自行生成的密钥
 
 | 配置                          | 用途                                                                 | 变更影响                                                           |
 | ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `CSRF_SECRET`                 | 生成管理端和工作人员端写请求的 CSRF 校验值。                         | 修改后现有页面会话需要重新登录。                                   |
+| `CSRF_SECRET`                 | 生成活动端、管理端和工作人员端写请求的 CSRF 校验值。                 | 修改后现有页面会话需要重新登录。                                   |
 | `OAUTH_STATE_SECRET`          | 签名微信公众号 OAuth 的一次性 state，防止回调伪造和重放。            | 修改时正在进行的 OAuth 会失败，用户可重新进入活动。                |
 | `WECHAT_TOKEN_ENCRYPTION_KEY` | 加密 PostgreSQL 中缓存的公众号 access token。                        | 多实例和数据库恢复必须使用同一个值。                               |
-| `DINGTALK_CALLBACK_SECRET`    | 验证钉钉表单自动化回调。                                             | 修改时必须同步更新钉钉自动化请求头。                               |
 | `REDEEM_CODE_ACTIVE_KEY_ID`   | 指定新兑奖码使用的密钥标签，例如 `v1`。                              | 必须能在 `REDEEM_CODE_KEYS` 中找到同名项。                         |
 | `REDEEM_CODE_KEYS`            | JSON 格式的兑奖码 AES 密钥集合；每个值是 Base64 编码的 32 字节密钥。 | 轮换时新增密钥并切换 active ID；删除旧密钥会导致旧兑奖码无法展示。 |
 
@@ -63,7 +56,7 @@ Authorization: Bearer <DINGTALK_CALLBACK_SECRET>
 openssl rand -base64 32
 ```
 
-三个通用签名/加密密钥和钉钉回调密钥分别执行一次，不能复用。兑奖码密钥把命令结果作为
+三个通用签名/加密密钥分别执行一次，不能复用。兑奖码密钥把命令结果作为
 `REDEEM_CODE_KEYS` 中对应 key ID 的值。
 
 ## 数据库与运行配置

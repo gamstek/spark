@@ -27,10 +27,8 @@ test.beforeEach(async ({ page }) => {
         ends_at: '2099-01-03T00:00:00Z',
         redeem_ends_at: '2099-01-04T00:00:00Z',
         config: {
-          formId: 'form-id',
-          formUrl:
-            'https://alidocs.dingtalk.com/notable/share/form/test?participant=',
-          prefillField: 'participant',
+          requireSubscribe: true,
+          noPrizeWeight: 1,
           heroAssetId: 'old-hero',
           rulesText: '数量有限，先到先得',
         },

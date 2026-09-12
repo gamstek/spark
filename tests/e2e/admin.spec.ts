@@ -33,10 +33,8 @@ test('logs in and creates the only supported activity template', async ({
         ends_at: '2099-09-26T02:49:00Z',
         redeem_ends_at: '2099-09-30T02:49:00Z',
         config: {
-          formId: 'form-id',
-          formUrl:
-            'https://alidocs.dingtalk.com/notable/share/form/form-id?source=link',
-          prefillField: 'prefill_participant',
+          requireSubscribe: true,
+          noPrizeWeight: 1,
           heroAssetId: 'hero',
           rulesText: '数量有限，先到先得',
         },
@@ -76,14 +74,8 @@ test('logs in and creates the only supported activity template', async ({
     /rt-variant-ghost/,
   );
   await expect(page.locator('.editor-form-content .rt-Card')).toHaveCount(0);
-  await expect(page.locator('.required-field-mark')).toHaveCount(10);
+  await expect(page.locator('.required-field-mark')).toHaveCount(7);
   await page.getByPlaceholder('活动名称').fill('展会活动');
-  await page
-    .getByPlaceholder('钉钉表单 HTTPS 分享链接')
-    .fill(
-      'https://alidocs.dingtalk.com/notable/share/form/form-id?source=link',
-    );
-  await expect(page.getByPlaceholder('钉钉表单 ID')).toHaveValue('form-id');
   await page.getByPlaceholder('主图资源 ID').fill('hero');
   await page.getByPlaceholder('活动规则').fill('数量有限，先到先得');
   await page.locator('[name="startsAt"]').fill('2026-09-17T10:49');
@@ -204,10 +196,8 @@ test('shows revision conflicts while editing a future activity', async ({
         ends_at: '2099-01-03T00:00:00Z',
         redeem_ends_at: '2099-01-04T00:00:00Z',
         config: {
-          formId: 'form-id',
-          formUrl:
-            'https://alidocs.dingtalk.com/notable/share/form/test?participant=',
-          prefillField: 'participant',
+          requireSubscribe: true,
+          noPrizeWeight: 1,
           heroAssetId: 'hero',
           rulesText: 'rules',
         },
@@ -259,7 +249,7 @@ test('locks a running activity', async ({ page }) => {
   );
   await page.goto('/admin/activities/a1');
   await expect(page.getByText('活动已经开始')).toBeVisible();
-  await expect(page.getByPlaceholder('钉钉表单 ID')).toBeDisabled();
+  await expect(page.getByPlaceholder('主图资源 ID')).toBeDisabled();
   await expect(page.getByRole('button', { name: '保存草稿' })).toBeDisabled();
   await expect(
     page.getByRole('button', { name: '提前结束抽奖' }),
@@ -558,7 +548,21 @@ test('shows operational loading, empty, status, and export states', async ({
           id: 'participant-1',
           lead_completed: true,
           lead_completed_at: '2026-09-10T01:00:00Z',
-          fields: { name: '测试参与者', phone: '13800000000' },
+          answers: {
+            name: '测试参与者',
+            organization: '星火研究院',
+            department: '分析实验室',
+            jobTitle: '研究员',
+            phone: '13800000000',
+            email: 'visitor@example.com',
+            researchAreas: ['life_sciences'],
+            instrumentInterests: ['chromatography'],
+            visitPurposes: ['new_products'],
+            followUpPreferences: ['product_pdf'],
+            contactPreference: 'email_first',
+            onsiteAvailability: 'available',
+            otherNeeds: '',
+          },
           created_at: '2026-09-10T00:00:00Z',
           channel_code: 'expo',
           prize_name: null,
@@ -667,7 +671,7 @@ test('retries a failed job and reports queue feedback', async ({ page }) => {
       json: [
         {
           id: 'job-1',
-          kind: 'DINGTALK_CALLBACK',
+          kind: 'EXPORT',
           attempts: 3,
           lastError: '上游请求超时',
         },

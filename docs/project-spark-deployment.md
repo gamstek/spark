@@ -14,7 +14,7 @@
 
 1. 在 ECS 创建
    `/opt/spark/.env.production`，按[配置说明](project-spark-configuration.md)
-   设置数据库、微信公众号凭据、钉钉回调密钥和兑奖码密钥，并执行
+   设置数据库、微信公众号凭据、应用签名密钥和兑奖码密钥，并执行
    `chmod 600 /opt/spark/.env.production`。容器内数据库主机名使用
    `postgres`，密码中的特殊字符必须进行 URL 编码。
 2. 安装 Docker Engine、Docker Compose 插件、系统 Nginx 和 Certbot。
@@ -45,6 +45,20 @@ Cookie 在生产环境使用 `Secure`、`HttpOnly` 和
 `SameSite=Lax`。PostgreSQL数据保存在命名卷
 `database`，普通发布不会删除或重建该卷。
 
+## 自有报名表版本的数据库重建
+
+本次初始迁移已重写。升级必须使用空数据库；不会迁移、保留或回填旧报名记录。只重启容器或运行增量迁移不能更新已执行的初始结构。
+
+1. 停止 API 写入并核对准备重建的数据库实例和库名。
+2. 由获授权的运维人员重建该应用数据库，确保新库为空；不要删除媒体卷或其他应用数据库。
+3. 启动本版本 API，让初始迁移创建 `activity_form_submission`
+   等完整结构，再运行模板兼容检查。
+4. 重新创建管理员、工作人员权限、活动和奖品，活动配置只包含关注规则、未中奖权重、主图及规则。
+5. 确认
+   `ACTIVITY_IDENTITY_MODE=anonymous`，实际提交 13 题表单，核对参与者详情、XLSX 列、抽奖与核销。
+
+表单答案与留资状态在一次请求的同一事务中保存。通用后台任务继续用于导出和维护。数据库重建后不得直接激活依赖旧结构的版本；候选版本失败时应保持服务停止并修正新版本或使用与数据库匹配的版本。下文的普通自动回滚流程不适用于跨本次结构切换。
+
 ## 域名与 HTTPS
 
 先确认容器的本地就绪检查成功，再添加 `spark.gamstek.com`
@@ -57,7 +71,7 @@ curl -fsS https://spark.gamstek.com/api/health/ready
 ```
 
 依次验证 `/activity/`、`/staff/`、`/admin/` 和
-`/api/health/ready`。HTTPS 可用后，再配置微信公众号网页授权域名、接口 IP 白名单及钉钉正式回调。
+`/api/health/ready`。HTTPS 可用后，再配置微信公众号网页授权域名、接口 IP 白名单（保留的 OAuth 与工作人员 JS-SDK 能力）。
 
 ## 自动化验证与镜像发布
 

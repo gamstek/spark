@@ -1,37 +1,13 @@
 import { Flex, Heading, Text, TextArea, TextField } from '@radix-ui/themes';
-import { useState } from 'react';
 
 import { RequiredFieldMark } from '../../components/required-field-mark';
 
 type ConfigValue = Record<string, unknown>;
 
-export function extractDingTalkFormId(value: string): string {
-  try {
-    const url = new URL(value);
-    if (url.hostname !== 'alidocs.dingtalk.com') return '';
-    const segments = url.pathname.split('/').filter(Boolean);
-    const formIndex = segments.findIndex((segment) => segment === 'form');
-    return formIndex >= 0
-      ? decodeURIComponent(segments[formIndex + 1] ?? '')
-      : '';
-  } catch {
-    return '';
-  }
-}
-
 export function getLotteryConfigError(config: ConfigValue): string | null {
-  try {
-    const formUrl = new URL(String(config.formUrl ?? ''));
-    if (
-      formUrl.protocol !== 'https:' ||
-      formUrl.hostname !== 'alidocs.dingtalk.com'
-    )
-      throw new Error('INVALID_DINGTALK_FORM_URL');
-  } catch {
-    return '请输入 alidocs.dingtalk.com 域名下的 HTTPS 表单链接。';
-  }
   if (!String(config.heroAssetId ?? '').trim())
     return '请上传活动主图，或填写已有的主图资源 ID。';
+  if (!String(config.rulesText ?? '').trim()) return '请填写活动规则。';
   return null;
 }
 
@@ -77,122 +53,8 @@ export function ConfigForm({
   locked?: boolean;
   value?: ConfigValue;
 }) {
-  const initialFormUrl = String(value.formUrl ?? '');
-  const [formId, setFormId] = useState(
-    String(value.formId ?? extractDingTalkFormId(initialFormUrl)),
-  );
-  const [formUrl, setFormUrl] = useState(initialFormUrl);
-
   return (
     <>
-      <section className="form-section activity-form-section">
-        <div className="form-section-heading">
-          <Text
-            size="1"
-            color="iris"
-            weight="bold"
-          >
-            模板配置
-          </Text>
-          <Heading
-            as="h2"
-            size="4"
-          >
-            钉钉留资表单
-          </Heading>
-          <Text
-            as="p"
-            size="2"
-            color="gray"
-          >
-            活动参与者跳转到该表单，提交后通过回调获得抽奖资格。
-          </Text>
-          <Text
-            as="p"
-            size="2"
-            color="gray"
-          >
-            关注设置仅在微信身份模式（wechat）下生效，匿名模式无需关注公众号。
-          </Text>
-        </div>
-        <div className="form-grid">
-          <Flex
-            direction="column"
-            gap="2"
-            className="form-grid-wide"
-          >
-            <FieldLabel
-              htmlFor="form-url"
-              title="钉钉表单链接"
-              description="系统会自动识别表单 ID，并追加参与编号参数"
-              required
-            />
-            <TextField.Root
-              size="2"
-              variant="soft"
-              color="gray"
-              type="url"
-              id="form-url"
-              name="formUrl"
-              placeholder="钉钉表单 HTTPS 分享链接"
-              required
-              disabled={locked}
-              value={formUrl}
-              onChange={(event) => {
-                const nextUrl = event.target.value;
-                setFormUrl(nextUrl);
-                const extractedFormId = extractDingTalkFormId(nextUrl);
-                if (extractedFormId) setFormId(extractedFormId);
-              }}
-            />
-          </Flex>
-          <Flex
-            direction="column"
-            gap="2"
-          >
-            <FieldLabel
-              htmlFor="form-id"
-              title="钉钉表单 ID"
-              required
-            />
-            <TextField.Root
-              size="2"
-              variant="soft"
-              color="gray"
-              id="form-id"
-              name="formId"
-              placeholder="钉钉表单 ID"
-              value={formId}
-              onChange={(event) => setFormId(event.target.value)}
-              required
-              disabled={locked}
-            />
-          </Flex>
-          <Flex
-            direction="column"
-            gap="2"
-          >
-            <FieldLabel
-              htmlFor="prefill-field"
-              title="参与编号参数"
-              description="用于把 participationId 写入表单记录"
-              required
-            />
-            <TextField.Root
-              size="2"
-              variant="soft"
-              color="gray"
-              id="prefill-field"
-              name="prefillField"
-              placeholder="预填参数名"
-              defaultValue={String(value.prefillField ?? 'prefill_participant')}
-              required
-              disabled={locked}
-            />
-          </Flex>
-        </div>
-      </section>
-
       <section className="form-section activity-form-section">
         <div className="form-section-heading">
           <Text

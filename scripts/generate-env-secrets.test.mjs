@@ -35,7 +35,6 @@ test('generates labeled application secrets without modifying environment files'
   assert.equal(new Set(keys).size, keys.length);
   assert.deepEqual(keys.sort(), [
     'CSRF_SECRET',
-    'DINGTALK_CALLBACK_SECRET',
     'OAUTH_STATE_SECRET',
     'REDEEM_CODE_ACTIVE_KEY_ID',
     'REDEEM_CODE_KEYS',
@@ -49,7 +48,6 @@ test('generates labeled application secrets without modifying environment files'
     values.WECHAT_TOKEN_ENCRYPTION_KEY,
     /^wechat-token-[A-Za-z0-9_-]{43}$/,
   );
-  assert.match(values.DINGTALK_CALLBACK_SECRET, /^dingtalk-[A-Za-z0-9_-]{43}$/);
   assert.equal(values.REDEEM_CODE_ACTIVE_KEY_ID, 'v1');
 
   const redemptionKeys = JSON.parse(values.REDEEM_CODE_KEYS);
