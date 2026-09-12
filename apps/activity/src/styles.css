@@ -270,3 +270,213 @@ body {
   animation: lottery-wheel-spin 720ms linear infinite;
   will-change: transform;
 }
+
+.registration-page {
+  max-width: 720px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 32px 20px calc(32px + env(safe-area-inset-bottom));
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: 16px/1.8 var(--font-body);
+  overflow-wrap: anywhere;
+}
+
+.registration-header h1 {
+  margin: 0 0 16px;
+  font: 600 22px/1.6 var(--font-display);
+}
+
+.registration-header p {
+  margin: 0 0 16px;
+}
+.registration-guidance {
+  color: var(--color-sub);
+  font-size: 14px;
+}
+.registration-question {
+  min-width: 0;
+  margin: 0;
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.registration-label {
+  display: block;
+  padding: 0 0 12px 34px;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.registration-number {
+  float: left;
+  width: 34px;
+  margin-left: -34px;
+  color: var(--color-sub);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.registration-required {
+  margin-left: 4px;
+}
+.registration-control {
+  margin-left: 34px;
+  min-width: 0;
+}
+.registration-choices {
+  padding-top: 0;
+  border-top: 0;
+}
+.registration-choices legend {
+  padding-top: 20px;
+  width: 100%;
+  border-top: 1px solid var(--color-line);
+}
+.registration-options {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.registration-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.6;
+}
+
+.registration-option :is([role='checkbox'], [role='radio']) {
+  flex: none;
+  margin-top: 3px;
+}
+.registration-option:hover {
+  background: var(--color-canvas);
+}
+.registration-option:active {
+  border-color: var(--color-ink);
+}
+.registration-option:has([data-state='checked']) {
+  border-color: var(--color-ink);
+  background: var(--color-canvas);
+}
+.registration-option[data-disabled] {
+  cursor: default;
+  opacity: 0.65;
+}
+.registration-option:focus-within {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.registration-form :is(input:not([type='checkbox'], [type='radio']), textarea) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  line-height: 1.6;
+  scroll-margin-block: 24px;
+}
+
+.registration-form textarea {
+  resize: none;
+  min-height: 168px;
+}
+.registration-form :is(input, textarea):read-only {
+  background: var(--color-canvas);
+}
+.registration-form :is(input, textarea)[aria-invalid='true'] {
+  border-color: var(--color-ink);
+  box-shadow: inset 0 0 0 1px var(--color-ink);
+}
+.registration-form :is(input, textarea, button):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}
+.registration-error {
+  min-height: 28px;
+  margin: 4px 0 12px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.registration-error:not(:empty)::before {
+  content: '⚠ ';
+}
+.registration-explanation .registration-label {
+  padding-left: 0;
+}
+.registration-footer {
+  padding-top: 20px;
+  border-top: 1px solid var(--color-line);
+}
+.registration-consent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 4px;
+}
+.registration-consent-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.registration-consent-label:hover {
+  background: var(--color-canvas);
+}
+.registration-consent-label:active {
+  color: var(--color-sub);
+}
+.registration-consent-label[data-disabled] {
+  cursor: default;
+}
+.registration-privacy-link {
+  min-height: 44px;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.registration-summary {
+  min-height: 58px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.registration-submit {
+  max-width: none;
+  cursor: pointer;
+}
+.registration-submit:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.registration-submit:active:not(:disabled) {
+  opacity: 0.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .registration-submit {
+    transition: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .registration-page {
+    padding-inline: 40px;
+  }
+}

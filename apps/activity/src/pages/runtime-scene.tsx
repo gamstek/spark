@@ -1,5 +1,4 @@
 import { useRuntime } from '../hooks/use-runtime';
-import { useDocumentTitle } from '../hooks/use-document-title';
 import { HomePage } from './home-page';
 import { ActivityInfoPage } from './activity-info-page';
 import { ActivityRulesPage } from './activity-rules-page';
@@ -7,16 +6,7 @@ import { SubscribePage } from './subscribe-page';
 import { SubmitSuccessPage } from './submit-success-page';
 import { LotteryPage } from './lottery-page';
 import { RedemptionPage } from './redemption-page';
-
-function RegistrationPagePlaceholder() {
-  const { activity } = useRuntime();
-  useDocumentTitle(activity.title, '专家信息登记表单');
-  return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[430px] items-center justify-center bg-canvas px-6 text-center text-ink">
-      <h1>专家信息登记表单</h1>
-    </main>
-  );
-}
+import { RegistrationFormPage } from './registration-form-page';
 
 /**
  * step → 页面分发。活动说明是独立于状态机的正交页面。
@@ -40,7 +30,7 @@ export function RuntimeScene() {
         content = <SubscribePage />;
         break;
       case 'FORM':
-        content = <RegistrationPagePlaceholder />;
+        content = <RegistrationFormPage />;
         break;
       case 'LOTTERY':
       case 'NO_PRIZE':

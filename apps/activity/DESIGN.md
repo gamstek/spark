@@ -86,12 +86,14 @@ containers, generic SaaS card grids, and decorative gradients.
 
 ## Components
 
-| Capability     | Canonical owner                                        | Behavior and verification                                                                                                                  |
-| -------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Content dialog | `src/components/content-dialog.tsx`, Radix Dialog      | Generic title/trigger/children; close, Escape, outside dismissal, modal focus trap, focus restoration; verify keyboard and narrow viewport |
-| Markdown       | `PrivacyAgreementContent` in the content-dialog module | ReactMarkdown + remark-gfm; semantic headings/lists/links/tables; raw HTML disabled                                                        |
-| Privacy source | `src/lib/privacy-agreement.ts`                         | Import one user-authored Markdown source; require exact activity token; no separate consent time/version storage                           |
-| Scrollbar      | `src/styles.css` global baseline                       | Every owned overflow surface inherits standard/WebKit colors without opt-in class; forced-colors fallback                                  |
+| Capability     | Canonical owner                                        | Behavior and verification                                                                                                                                   |
+| -------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Content dialog | `src/components/content-dialog.tsx`, Radix Dialog      | Generic title/trigger/children; close, Escape, outside dismissal, modal focus trap, focus restoration; verify keyboard and narrow viewport                  |
+| Markdown       | `PrivacyAgreementContent` in the content-dialog module | ReactMarkdown + remark-gfm; semantic headings/lists/links/tables; raw HTML disabled                                                                         |
+| Privacy source | `src/lib/privacy-agreement.ts`                         | Import one user-authored Markdown source; require exact activity token; no separate consent time/version storage                                            |
+| Form fields    | `FormField`, `ChoiceField` in `src/components/`        | Native labelled text controls and semantic fieldsets with Radix Checkbox/RadioGroup; persistent error regions, visible required markers and focus           |
+| Registration   | `src/pages/registration-form-page.tsx`                 | React Hook Form with the shared Zod resolver; 01–12 required, 13 optional; first-error focus, preserved values, duplicate prevention and stable busy action |
+| Scrollbar      | `src/styles.css` global baseline                       | Every owned overflow surface inherits standard/WebKit colors without opt-in class; forced-colors fallback                                                   |
 
 Color paths map `colors.*` to matching `--color-*`; `typography.*` maps to
 `--font-*`. `ContentDialog` consumes these variables directly. Scrollbar thumb,
@@ -104,6 +106,14 @@ beginning; Tab reaches the always-visible close button and links, staying within
 the modal. Close is named `关闭${title}`; a concise hidden description explains
 scrolling and dismissal. Opening or closing never accepts an agreement. Trigger
 consumers provide a semantic button with visible focus and pointer states.
+
+Registration uses document scrolling and one full-width `ActionButton`. The
+number rail is 34px, choice targets are at least 48px high, and question
+dividers use the line token. Error regions reserve a text line; invalid inputs
+use an inset border without changing control geometry. Conditional “other”
+explanations are required only while selected and are unregistered when hidden.
+The runtime owns the submission-success screen and subsequent lottery
+transition.
 
 ## Do's and Don'ts
 
