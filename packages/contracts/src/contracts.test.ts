@@ -7,6 +7,7 @@ import {
   CallbackInputSchema,
   LotteryConfigSchema,
   researchAreaValues,
+  RuntimeStepSchema,
   SessionViewSchema,
 } from './index.js';
 
@@ -128,6 +129,10 @@ describe('shared API contracts', () => {
     expect(
       LotteryConfigSchema.safeParse({ formUrl: 'javascript:alert(1)' }).success,
     ).toBe(false);
+  });
+
+  it('does not expose an asynchronous external-form runtime step', () => {
+    expect(RuntimeStepSchema.safeParse('WAITING_FORM').success).toBe(false);
   });
 
   it('accepts Shanghai-offset activity times and rejects a client code', () => {

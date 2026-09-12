@@ -1,4 +1,9 @@
-import type { ActivityInfo, ActivityRuntime, WinView } from '@spark/contracts';
+import type {
+  ActivityFormSubmissionInput,
+  ActivityInfo,
+  ActivityRuntime,
+  WinView,
+} from '@spark/contracts';
 
 import type { ActivitySessionBootstrap } from './session-bootstrap';
 
@@ -17,6 +22,7 @@ export class ApiError extends Error {
 type RequestOptions = {
   method?: 'GET' | 'POST';
   headers?: Record<string, string>;
+  body?: unknown;
 };
 
 async function request<T>(
@@ -32,7 +38,10 @@ async function request<T>(
         : {}),
       ...options.headers,
     },
-    body: options.method === 'POST' ? JSON.stringify({}) : undefined,
+    body:
+      options.method === 'POST'
+        ? JSON.stringify(options.body ?? {})
+        : undefined,
   });
   if (!response.ok) {
     let code = 'INTERNAL_ERROR';
@@ -77,11 +86,17 @@ export const activityApi = {
         headers: { 'x-csrf-token': csrfToken },
       },
     ),
-  formLink: (code: string) =>
-    request<{ url: string }>(
-      `/api/activity/${encodeURIComponent(code)}/form-link`,
+  submitForm: (
+    code: string,
+    csrfToken: string,
+    input: ActivityFormSubmissionInput,
+  ) =>
+    request<{ submitted: true }>(
+      `/api/activity/${encodeURIComponent(code)}/form-submissions`,
       {
         method: 'POST',
+        headers: { 'x-csrf-token': csrfToken },
+        body: input,
       },
     ),
   prizeCode: (code: string) =>

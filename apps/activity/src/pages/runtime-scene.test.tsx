@@ -6,9 +6,9 @@ import { RuntimeScene } from './runtime-scene';
 const runtime = vi.hoisted(() => ({
   view: 'home',
   step: 'FORM',
+  formSubmitted: false,
   message: null as string | null,
   setMessage: vi.fn(),
-  startForm: vi.fn(),
   activity: { title: '测试活动' },
 }));
 
@@ -35,6 +35,7 @@ describe('RuntimeScene', () => {
   beforeEach(() => {
     runtime.view = 'home';
     runtime.step = 'FORM';
+    runtime.formSubmitted = false;
   });
 
   it('shows the activity home before participation starts', () => {
@@ -44,12 +45,20 @@ describe('RuntimeScene', () => {
     expect(markup).not.toContain('填写活动信息');
   });
 
-  it('opens the DingTalk form instead of rendering a local form page', () => {
+  it('renders the local registration page while the form is incomplete', () => {
     runtime.view = 'flow';
     const markup = renderToStaticMarkup(<RuntimeScene />);
 
-    expect(markup).toContain('正在打开钉钉表单');
-    expect(markup).not.toContain('填写活动信息');
+    expect(markup).toContain('专家信息登记表单');
+    expect(markup).not.toContain('正在打开钉钉表单');
+  });
+
+  it('shows submission success ahead of the server runtime step', () => {
+    runtime.view = 'flow';
+    runtime.step = 'FORM';
+    runtime.formSubmitted = true;
+
+    expect(renderToStaticMarkup(<RuntimeScene />)).toContain('提交成功');
   });
 
   it('keeps the winning result on the lottery page', () => {

@@ -7,7 +7,10 @@ import {
   type ReactNode,
 } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { RuntimeStep } from '@spark/contracts';
+import type {
+  ActivityFormSubmissionInput,
+  RuntimeStep,
+} from '@spark/contracts';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { activityApi, ApiError } from './api';
@@ -75,6 +78,7 @@ export function ActivityRuntimeProvider({
   const [message, setMessage] = useState<string | null>(null);
   const [stepOverride, setStepOverride] = useState<RuntimeStep | null>(null);
   const [drawing, setDrawing] = useState(false);
+  const [formSubmitted, setFormSubmitted] = useState(false);
   const [sessionBootstrapError, setSessionBootstrapError] = useState<
     string | null
   >(null);
@@ -233,19 +237,23 @@ export function ActivityRuntimeProvider({
     }
   }, [refreshRuntime]);
 
-  const startForm = useCallback(async () => {
-    try {
-      setMessage(null);
-      const { url } = await activityApi.formLink(code);
-      window.location.href = url;
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 'FORM_NOT_AVAILABLE') {
-        await refreshRuntime().catch(() => undefined);
-        return;
+  const submitActivityForm = useCallback(
+    async (input: ActivityFormSubmissionInput) => {
+      const csrfToken = runtime?.csrfToken;
+      if (!csrfToken) {
+        throw new ApiError('UNAUTHORIZED', 401, '会话已失效，请刷新页面重试');
       }
-      setMessage(messageForError(error));
-    }
-  }, [code, refreshRuntime]);
+      setMessage(null);
+      await activityApi.submitForm(code, csrfToken, input);
+      setFormSubmitted(true);
+    },
+    [code, runtime?.csrfToken],
+  );
+
+  const continueToLottery = useCallback(async () => {
+    setFormSubmitted(false);
+    await refreshRuntime();
+  }, [refreshRuntime]);
 
   const draw = useCallback(async () => {
     const csrfToken = runtime?.csrfToken;
@@ -310,11 +318,13 @@ export function ActivityRuntimeProvider({
       prizeCode: prizeCodeQuery.data ?? null,
       message,
       drawing,
+      formSubmitted,
       openView,
       closeView,
       participate,
       verifySubscribe,
-      startForm,
+      submitActivityForm,
+      continueToLottery,
       draw,
       showPrize,
       showMyPrizes,
@@ -330,11 +340,13 @@ export function ActivityRuntimeProvider({
       prizeCodeQuery.data,
       message,
       drawing,
+      formSubmitted,
       openView,
       closeView,
       participate,
       verifySubscribe,
-      startForm,
+      submitActivityForm,
+      continueToLottery,
       draw,
       showPrize,
       showMyPrizes,

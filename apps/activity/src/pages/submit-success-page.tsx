@@ -12,7 +12,7 @@ import { useDocumentTitle } from '../hooks/use-document-title';
  *   + 深灰副文两行；下方「去抽奖」按钮（刷新运行时，由服务端判定可抽性）。
  */
 export function SubmitSuccessPage() {
-  const { activity, participate } = useRuntime();
+  const { activity, continueToLottery } = useRuntime();
   const navigate = useNavigate();
   useDocumentTitle(activity.title, '提交成功');
 
@@ -51,7 +51,9 @@ export function SubmitSuccessPage() {
 
       {/* 按钮：去抽奖 (43,658) 293×58 */}
       <div className="absolute left-[43px] top-[658px] w-[293px]">
-        <ActionButton onClick={() => void participate()}>去抽奖</ActionButton>
+        <ActionButton onClick={() => void continueToLottery()}>
+          去抽奖
+        </ActionButton>
       </div>
     </PageShell>
   );

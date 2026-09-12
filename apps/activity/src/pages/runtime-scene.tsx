@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useRuntime } from '../hooks/use-runtime';
 import { useDocumentTitle } from '../hooks/use-document-title';
 import { HomePage } from './home-page';
@@ -9,20 +8,12 @@ import { SubmitSuccessPage } from './submit-success-page';
 import { LotteryPage } from './lottery-page';
 import { RedemptionPage } from './redemption-page';
 
-function DingTalkFormRedirect() {
-  const { activity, startForm } = useRuntime();
-  useDocumentTitle(activity.title, '正在打开钉钉表单');
-
-  useEffect(() => {
-    void startForm();
-  }, [startForm]);
-
+function RegistrationPagePlaceholder() {
+  const { activity } = useRuntime();
+  useDocumentTitle(activity.title, '专家信息登记表单');
   return (
-    <main
-      className="mx-auto flex min-h-dvh w-full max-w-[430px] items-center justify-center bg-[#f5f6fa] px-6 text-center text-[15px] text-ink"
-      role="status"
-    >
-      正在打开钉钉表单…
+    <main className="mx-auto flex min-h-dvh w-full max-w-[430px] items-center justify-center bg-canvas px-6 text-center text-ink">
+      <h1>专家信息登记表单</h1>
     </main>
   );
 }
@@ -32,10 +23,11 @@ function DingTalkFormRedirect() {
  * 其余按 RuntimeStep 渲染；顶部浮动展示全局提示消息。
  */
 export function RuntimeScene() {
-  const { step, view, message, setMessage } = useRuntime();
+  const { step, view, message, setMessage, formSubmitted } = useRuntime();
 
   let content;
-  if (view === 'home') content = <HomePage />;
+  if (formSubmitted) content = <SubmitSuccessPage />;
+  else if (view === 'home') content = <HomePage />;
   else if (view === 'rules') content = <ActivityRulesPage />;
   else if (view === 'info') content = <ActivityInfoPage />;
   else if (view === 'prizes') content = <RedemptionPage />;
@@ -48,10 +40,7 @@ export function RuntimeScene() {
         content = <SubscribePage />;
         break;
       case 'FORM':
-        content = <DingTalkFormRedirect />;
-        break;
-      case 'WAITING_FORM':
-        content = <SubmitSuccessPage />;
+        content = <RegistrationPagePlaceholder />;
         break;
       case 'LOTTERY':
       case 'NO_PRIZE':

@@ -1,5 +1,9 @@
 import { createContext } from 'react';
-import type { RuntimeStep, WinView } from '@spark/contracts';
+import type {
+  ActivityFormSubmissionInput,
+  RuntimeStep,
+  WinView,
+} from '@spark/contracts';
 
 export type ActivityView = 'home' | 'flow' | 'rules' | 'info' | 'prizes';
 
@@ -30,11 +34,13 @@ export interface ActivityRuntimeValue {
   prizeCode: PrizeCodeView | null;
   message: string | null;
   drawing: boolean;
+  formSubmitted: boolean;
   openView: (view: ActivityView) => void;
   closeView: () => void;
   participate: () => Promise<void>;
   verifySubscribe: () => Promise<void>;
-  startForm: () => Promise<void>;
+  submitActivityForm: (input: ActivityFormSubmissionInput) => Promise<void>;
+  continueToLottery: () => Promise<void>;
   draw: () => Promise<void>;
   showPrize: () => void;
   showMyPrizes: () => void;
