@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import { Inject, Injectable } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import ExcelJS from 'exceljs';
+import type { ActivityFormAnswers } from '@spark/contracts';
 import { DataSource } from 'typeorm';
+import {
+  activityFormExportColumns,
+  toActivityFormExportRow,
+} from './activity-form-export.js';
 import { JobHandlers } from '../jobs/jobs.handlers.js';
 
 type Row = {
@@ -52,15 +57,15 @@ export class ExportsHandler implements OnModuleInit {
     sheet.columns = [
       { header: '参与ID', key: 'id', width: 38 },
       { header: '用户ID', key: 'userId', width: 38 },
-      { header: '姓名', key: 'name', width: 20 },
-      { header: '手机号', key: 'phone', width: 20, style: { numFmt: '@' } },
+      ...activityFormExportColumns.map((column) =>
+        column.key === 'phone' ? { ...column, style: { numFmt: '@' } } : column,
+      ),
       { header: '首次留资时间', key: 'leadAt', width: 24 },
       { header: '奖品', key: 'prize', width: 24 },
       { header: '兑奖状态', key: 'status', width: 16 },
       { header: '核销时间', key: 'redeemedAt', width: 24 },
       { header: '参与时间', key: 'createdAt', width: 24 },
       { header: '来源渠道', key: 'channel', width: 20 },
-      { header: '表单字段(JSON)', key: 'fields', width: 50 },
     ];
     let cursor: string | null = null;
     let count = 0;
@@ -77,20 +82,19 @@ export class ExportsHandler implements OnModuleInit {
       );
       if (!rows.length) break;
       for (const row of rows) {
-        const safe = (value: unknown) =>
-          typeof value === 'string' ? value : String(value ?? '');
+        const answers = row.fields
+          ? toActivityFormExportRow(row.fields as ActivityFormAnswers)
+          : {};
         sheet.addRow({
           id: row.id,
           userId: row.user_id,
-          name: safe(row.fields?.name),
-          phone: safe(row.fields?.phone),
+          ...answers,
           leadAt: row.lead_completed_at?.toISOString() ?? '',
           prize: row.prize_name ?? '',
           status: row.status ?? '',
           redeemedAt: row.redeemed_at?.toISOString() ?? '',
           createdAt: row.created_at.toISOString(),
           channel: row.channel_code ?? 'direct',
-          fields: JSON.stringify(row.fields ?? {}),
         });
         count++;
       }
