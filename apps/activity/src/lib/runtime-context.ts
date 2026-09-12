@@ -35,6 +35,8 @@ export interface ActivityRuntimeValue {
   message: string | null;
   drawing: boolean;
   formSubmitted: boolean;
+  continuingToLottery: boolean;
+  continueError: string | null;
   openView: (view: ActivityView) => void;
   closeView: () => void;
   participate: () => Promise<void>;

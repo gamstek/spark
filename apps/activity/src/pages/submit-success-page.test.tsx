@@ -1,4 +1,5 @@
 import type { MouseEvent, ReactElement, ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ActionButton } from '../components/action-button';
@@ -7,6 +8,7 @@ import { SubmitSuccessPage } from './submit-success-page';
 const runtime = vi.hoisted(() => ({
   activity: { title: '测试活动' },
   continueToLottery: vi.fn(),
+  continueError: null as string | null,
 }));
 
 vi.mock('../hooks/use-runtime', () => ({ useRuntime: () => runtime }));
@@ -44,5 +46,15 @@ describe('SubmitSuccessPage', () => {
     button?.props.onClick?.({} as MouseEvent<HTMLButtonElement>);
 
     expect(runtime.continueToLottery).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the acknowledgement and offers a retry after lottery refresh fails', () => {
+    runtime.continueError = '网络异常，请稍后重试';
+
+    const markup = renderToStaticMarkup(<SubmitSuccessPage />);
+
+    expect(markup).toContain('提交成功');
+    expect(markup).toContain('网络异常，请稍后重试');
+    expect(markup).toContain('重试进入抽奖');
   });
 });

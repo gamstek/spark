@@ -27,10 +27,16 @@ const expectedSubmission = {
   privacyAccepted: true,
 };
 
-async function mockForm(page: Page, failure?: '500' | 'lost', delayed = false) {
+async function mockForm(
+  page: Page,
+  failure?: '500' | 'lost',
+  delayed = false,
+  continueFailure?: '500' | 'lost',
+) {
   const state = {
     submissions: [] as unknown[],
     runtimeReads: 0,
+    continueRuntimeReads: 0,
     authenticated: false,
     submitted: false,
   };
@@ -44,6 +50,15 @@ async function mockForm(page: Page, failure?: '500' | 'lost', delayed = false) {
   });
   await page.route('**/api/activity/demo/runtime**', (route) => {
     state.runtimeReads++;
+    if (
+      state.authenticated &&
+      state.submitted &&
+      continueFailure &&
+      state.continueRuntimeReads++ === 0
+    ) {
+      if (continueFailure === 'lost') return route.abort('failed');
+      return route.fulfill({ status: 500, json: { code: 'INTERNAL_ERROR' } });
+    }
     return route.fulfill(
       state.authenticated
         ? {
@@ -201,6 +216,40 @@ test.describe('anonymous self-hosted activity form', () => {
     await expect(page.getByRole('button', { name: '开始抽奖' })).toBeVisible();
     expect(state.runtimeReads).toBeGreaterThan(reads);
     expect(state.submissions).toHaveLength(1);
+  });
+
+  test('retains successful submission acknowledgement and retries lottery refresh without a second POST', async ({
+    page,
+  }) => {
+    const pageErrors: Error[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error));
+    const { state } = await mockForm(page, undefined, false, '500');
+    await fillForm(page);
+    await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
+    await page.getByRole('button', { name: '提交信息' }).click();
+    await expect(
+      page
+        .getByRole('banner')
+        .getByRole('heading', { name: '提交成功', exact: true }),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: '去抽奖' }).click();
+    await expect(
+      page
+        .getByRole('banner')
+        .getByRole('heading', { name: '提交成功', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveText(/请稍后重试/);
+    await expect(
+      page.getByRole('button', { name: '重试进入抽奖' }),
+    ).toBeVisible();
+    expect(state.submissions).toHaveLength(1);
+
+    await page.getByRole('button', { name: '重试进入抽奖' }).click();
+    await expect(page.getByRole('button', { name: '开始抽奖' })).toBeVisible();
+    expect(state.continueRuntimeReads).toBe(2);
+    expect(state.submissions).toHaveLength(1);
+    expect(pageErrors).toEqual([]);
   });
 
   test('requires questions 01–12 and consent, focuses the first error, and leaves 13 optional', async ({

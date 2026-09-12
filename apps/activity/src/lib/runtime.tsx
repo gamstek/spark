@@ -40,6 +40,19 @@ function messageForError(error: unknown): string {
   return NETWORK_ERROR_MESSAGE;
 }
 
+export async function refreshAcknowledgedForm(
+  refreshRuntime: () => Promise<unknown>,
+  clearAcknowledgement: () => void,
+  reportFailure: (error: unknown) => void,
+): Promise<void> {
+  try {
+    await refreshRuntime();
+    clearAcknowledgement();
+  } catch (error) {
+    reportFailure(error);
+  }
+}
+
 function formatDate(iso: string): string {
   const date = new Date(iso);
   const pad = (value: number) => String(value).padStart(2, '0');
@@ -79,6 +92,8 @@ export function ActivityRuntimeProvider({
   const [stepOverride, setStepOverride] = useState<RuntimeStep | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [continuingToLottery, setContinuingToLottery] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
   const [sessionBootstrapError, setSessionBootstrapError] = useState<
     string | null
   >(null);
@@ -251,8 +266,17 @@ export function ActivityRuntimeProvider({
   );
 
   const continueToLottery = useCallback(async () => {
-    setFormSubmitted(false);
-    await refreshRuntime();
+    setContinueError(null);
+    setContinuingToLottery(true);
+    try {
+      await refreshAcknowledgedForm(
+        refreshRuntime,
+        () => setFormSubmitted(false),
+        (error) => setContinueError(messageForError(error)),
+      );
+    } finally {
+      setContinuingToLottery(false);
+    }
   }, [refreshRuntime]);
 
   const draw = useCallback(async () => {
@@ -301,11 +325,12 @@ export function ActivityRuntimeProvider({
     (isUnauthorized(runtimeQuery.error) || isUnauthorized(infoQuery.error));
   const loading =
     runtimeQuery.isPending || infoQuery.isPending || awaitingSessionBootstrap;
-  const loadError =
-    sessionBootstrapError ??
-    (initialError && !awaitingSessionBootstrap
-      ? messageForError(initialError)
-      : null);
+  const loadError = formSubmitted
+    ? null
+    : (sessionBootstrapError ??
+      (initialError && !awaitingSessionBootstrap
+        ? messageForError(initialError)
+        : null));
 
   const value = useMemo<ActivityRuntimeValue>(
     () => ({
@@ -319,6 +344,8 @@ export function ActivityRuntimeProvider({
       message,
       drawing,
       formSubmitted,
+      continuingToLottery,
+      continueError,
       openView,
       closeView,
       participate,
@@ -341,6 +368,8 @@ export function ActivityRuntimeProvider({
       message,
       drawing,
       formSubmitted,
+      continuingToLottery,
+      continueError,
       openView,
       closeView,
       participate,
