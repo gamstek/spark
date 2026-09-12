@@ -6,7 +6,7 @@
 > `POST /api/activity/:code/form-submissions`
 > 使用活动会话及 CSRF 校验，在同一事务中保存首次答案并确认留资，重复提交不覆盖。提交成功后显示确认页，点击“去抽奖”再刷新 runtime；后台提供完整答案详情与分列导出。抽奖使用活动奖池锁及事务，没有可选抽奖结果时不消耗资格，已中奖结果优先恢复。当前配置以[配置说明](project-spark-configuration.md)为准，下文示例路由不作为自有表单实现依据。
 >
-> 初始数据库结构已重写，部署必须按[部署指南](project-spark-deployment.md)重建空库，不迁移或保留旧报名数据。
+> 部署按[部署指南](project-spark-deployment.md)执行 `db:migrate` 前向升级；旧外部表单报名/回调答案不迁移，已关联旧答案的参与者需重新登记。
 
 > H5 营销抽奖系统 · 微信无感身份与活动状态流程设计\
 > Version: V1.0 MVP

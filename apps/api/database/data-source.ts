@@ -5,6 +5,7 @@ import { databaseEntities } from './entities/index.js';
 import { InitialSchema1788739200000 } from './migrations/1788739200000-InitialSchema.js';
 import { WechatSubscriptionCache1788739201000 } from './migrations/1788739201000-WechatSubscriptionCache.js';
 import { PublishingAndMedia1788739202000 } from './migrations/1788739202000-PublishingAndMedia.js';
+import { DingTalkSubmissions1788739203000 } from './migrations/1788739203000-DingTalkSubmissions.js';
 import { LotteryRedemptionCodes1788739204000 } from './migrations/1788739204000-LotteryRedemptionCodes.js';
 import { ExportMetadata1788739205000 } from './migrations/1788739205000-ExportMetadata.js';
 import { ActivityVersionPrizes1788739206000 } from './migrations/1788739206000-ActivityVersionPrizes.js';
@@ -12,6 +13,7 @@ import { LotteryNoPrizeOutcome1788739207000 } from './migrations/1788739207000-L
 import { WechatActivityEntryTokens1788739208000 } from './migrations/1788739208000-WechatActivityEntryTokens.js';
 import { WechatCallbackReceipts1788739209000 } from './migrations/1788739209000-WechatCallbackReceipts.js';
 import { DropWechatEventActivityEntry1788739210000 } from './migrations/1788739210000-DropWechatEventActivityEntry.js';
+import { ReplaceDingTalkFormStorage1788739211000 } from './migrations/1788739211000-ReplaceDingTalkFormStorage.js';
 
 export function createDataSource(
   options: { url?: string; schema?: string } = {},
@@ -32,6 +34,7 @@ export function createDataSource(
       InitialSchema1788739200000,
       WechatSubscriptionCache1788739201000,
       PublishingAndMedia1788739202000,
+      DingTalkSubmissions1788739203000,
       LotteryRedemptionCodes1788739204000,
       ExportMetadata1788739205000,
       ActivityVersionPrizes1788739206000,
@@ -39,6 +42,7 @@ export function createDataSource(
       WechatActivityEntryTokens1788739208000,
       WechatCallbackReceipts1788739209000,
       DropWechatEventActivityEntry1788739210000,
+      ReplaceDingTalkFormStorage1788739211000,
     ],
     entities: databaseEntities,
     synchronize: false,

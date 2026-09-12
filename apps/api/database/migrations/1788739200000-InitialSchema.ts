@@ -70,13 +70,14 @@ export class InitialSchema1788739200000 implements MigrationInterface {
         lead_completed_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE (activity_id, user_id)
       );
-      CREATE TABLE activity_form_submission (
-        id uuid PRIMARY KEY,
+      CREATE TABLE webhook_receipt (
+        id uuid PRIMARY KEY, form_id varchar(128) NOT NULL, record_id varchar(256) NOT NULL,
+        participation_id uuid NOT NULL, payload jsonb NOT NULL, received_at timestamptz NOT NULL DEFAULT now(), UNIQUE (form_id, record_id)
+      );
+      CREATE TABLE dingtalk_form_submission (
+        id uuid PRIMARY KEY, form_id varchar(128) NOT NULL, record_id varchar(256) NOT NULL,
         participation_id uuid NOT NULL REFERENCES activity_participation(id) ON DELETE RESTRICT,
-        answers jsonb NOT NULL,
-        submitted_at timestamptz NOT NULL,
-        created_at timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT activity_form_submission_participation_key UNIQUE (participation_id)
+        fields jsonb NOT NULL, submitted_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE (form_id, record_id)
       );
       CREATE TABLE background_job (
         id uuid PRIMARY KEY, kind varchar(80) NOT NULL, deduplication_key varchar(256) UNIQUE,
@@ -139,8 +140,8 @@ export class InitialSchema1788739200000 implements MigrationInterface {
   async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       DROP TABLE IF EXISTS export_job, audit_event, stock_adjustment, channel_visit, redemption,
-        lottery_record, activity_prize, prize, background_job, activity_form_submission,
-        activity_participation, staff_activity_permission, activity_version,
+        lottery_record, activity_prize, prize, background_job, dingtalk_form_submission,
+        webhook_receipt, activity_participation, staff_activity_permission, activity_version,
         activity, media_asset, wechat_credential_cache, oauth_state, app_session,
         staff_account, admin_account, wechat_identity, user_account CASCADE;
     `);

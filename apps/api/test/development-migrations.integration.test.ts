@@ -4,13 +4,33 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import { expect, it } from 'vitest';
+import type { ActivityFormSubmissionInput } from '@spark/contracts';
+import { MigrationExecutor } from 'typeorm';
 
+import { ActivityFormService } from '../src/activity-form/activity-form.service.js';
 import { ExportsService } from '../src/exports/exports.service.js';
 import { JobsService } from '../src/jobs/jobs.service.js';
 import { MaintenanceService } from '../src/maintenance/maintenance.service.js';
 import { createTestDatabase } from './support/database.js';
+import { createScenario } from './support/fixtures.js';
 
 const execFileAsync = promisify(execFile);
+
+const validForm: ActivityFormSubmissionInput = {
+  name: '迁移后报名用户',
+  organization: '星火科技',
+  department: '研发部',
+  jobTitle: '研究员',
+  phone: '13800138000',
+  email: 'migrated@example.com',
+  researchAreas: ['life_sciences'],
+  instrumentInterests: ['mass_spectrometry'],
+  visitPurposes: ['new_products'],
+  followUpPreferences: ['product_pdf'],
+  contactPreference: 'call_welcome',
+  onsiteAvailability: 'available',
+  privacyAccepted: true,
+};
 
 it('prepares an older development database before starting the API', async () => {
   const database = await createTestDatabase({
@@ -113,7 +133,14 @@ it('retires populated callback entry tables on upgrade and preserves OAuth data'
     });
     const originalSchema = await schemaShape();
     expect(await source.showMigrations()).toBe(true);
-    await source.runMigrations();
+    await source.transaction(async (manager) => {
+      const executor = new MigrationExecutor(source, manager.queryRunner);
+      const [dropMigration] = await executor.getPendingMigrations();
+      expect(dropMigration?.name).toBe(
+        'DropWechatEventActivityEntry1788739210000',
+      );
+      await executor.executeMigration(dropMigration!);
+    });
     const tables = (
       await source.query<{ table_name: string }[]>(
         `SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema()`,
@@ -145,6 +172,124 @@ it('retires populated callback entry tables on upgrade and preserves OAuth data'
     expect(await schemaShape()).toEqual(originalSchema);
     await source.runMigrations();
     expect(await source.showMigrations()).toBe(false);
+  } finally {
+    await database.close();
+  }
+});
+
+it('upgrades legacy form storage without losing unrelated activity data', async () => {
+  const database = await createTestDatabase({
+    throughMigration: 'DropWechatEventActivityEntry1788739210000',
+  });
+  const source = database.dataSource;
+  try {
+    const scenario = await createScenario(source);
+    const adoptedSubmissionId = randomUUID();
+    await source.query(
+      `INSERT INTO dingtalk_form_submission (id,form_id,record_id,participation_id,fields,submitted_at)
+       VALUES ($1,'legacy-form','legacy-record',$2,$3,$4)`,
+      [
+        adoptedSubmissionId,
+        scenario.participationIds[0],
+        { name: '旧报名答案' },
+        scenario.now,
+      ],
+    );
+    await source.query(
+      `UPDATE activity_participation SET adopted_submission_id=$1 WHERE id=$2`,
+      [adoptedSubmissionId, scenario.participationIds[0]],
+    );
+    await source.query(
+      `INSERT INTO webhook_receipt (id,form_id,record_id,participation_id,payload)
+       VALUES ($1,'legacy-form','callback-record',$2,$3)`,
+      [randomUUID(), scenario.participationIds[0], { callback: 'legacy' }],
+    );
+    await source.query(
+      `UPDATE activity_version
+       SET config=$1
+       WHERE id=(SELECT published_version_id FROM activity WHERE id=$2)`,
+      [
+        {
+          requireSubscribe: false,
+          noPrizeWeight: 0.1,
+          heroAssetId: null,
+          rulesText: '保留的活动规则',
+          formId: 'legacy-form',
+          formUrl: 'https://legacy.example/form',
+          prefillField: 'name',
+          fieldMapping: { name: '姓名' },
+        },
+        scenario.activityId,
+      ],
+    );
+
+    expect(await source.showMigrations()).toBe(true);
+    await source.runMigrations();
+
+    const tableNames = (
+      await source.query<{ table_name: string }[]>(
+        `SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema()`,
+      )
+    ).map((row) => row.table_name);
+    expect(tableNames).toContain('activity_form_submission');
+    expect(tableNames).not.toContain('dingtalk_form_submission');
+    expect(tableNames).not.toContain('webhook_receipt');
+
+    expect(
+      await source.query(`SELECT id FROM activity WHERE id=$1`, [
+        scenario.activityId,
+      ]),
+    ).toEqual([{ id: scenario.activityId }]);
+    expect(
+      await source.query(`SELECT id FROM activity_participation WHERE id=$1`, [
+        scenario.participationIds[0],
+      ]),
+    ).toEqual([{ id: scenario.participationIds[0] }]);
+    expect(
+      await source.query(
+        `SELECT lead_completed,lead_completed_at FROM activity_participation WHERE id=$1`,
+        [scenario.participationIds[0]],
+      ),
+    ).toEqual([{ lead_completed: false, lead_completed_at: null }]);
+    expect(
+      await source.query(
+        `SELECT lead_completed FROM activity_participation WHERE id=$1`,
+        [scenario.participationIds[1]],
+      ),
+    ).toEqual([{ lead_completed: true }]);
+    expect(
+      await source.query<{ config: Record<string, unknown> }[]>(
+        `SELECT config FROM activity_version WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+        [scenario.activityId],
+      ),
+    ).toEqual([
+      {
+        config: {
+          requireSubscribe: false,
+          noPrizeWeight: 0.1,
+          heroAssetId: null,
+          rulesText: '保留的活动规则',
+        },
+      },
+    ]);
+    await expect(
+      new ActivityFormService(source, () => scenario.now).submit(
+        scenario.userIds[0],
+        'expo-2026',
+        validForm,
+      ),
+    ).resolves.toEqual({ submitted: true });
+    expect(
+      await source.query(
+        `SELECT id FROM activity_form_submission WHERE participation_id=$1`,
+        [scenario.participationIds[0]],
+      ),
+    ).toHaveLength(1);
+    expect(
+      await source.query(
+        `SELECT name FROM typeorm_migrations ORDER BY timestamp DESC LIMIT 1`,
+      ),
+    ).toEqual([{ name: 'ReplaceDingTalkFormStorage1788739211000' }]);
   } finally {
     await database.close();
   }
