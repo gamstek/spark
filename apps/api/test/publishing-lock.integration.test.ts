@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { Module, type Provider } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { NestFactory } from '@nestjs/core';
+import type { LotteryConfig } from '@spark/templates';
 import { DataSource } from 'typeorm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -15,9 +16,10 @@ import { createScenario, type Scenario } from './support/fixtures.js';
 
 const validConfig = {
   requireSubscribe: true,
+  noPrizeWeight: 1,
   heroAssetId: 'hero-asset',
   rulesText: '活动规则',
-};
+} satisfies LotteryConfig;
 
 describe('activity publishing lock', () => {
   let database: TestDatabase;
