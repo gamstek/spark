@@ -31,6 +31,23 @@ async function mockSuccessfulActivity(page: Page) {
 }
 
 test.describe('ActivityRuntimeProvider lifecycle', () => {
+  test('a returning submitted participant enters lottery directly without showing the local success acknowledgement', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'development-simulation');
+    await page.route('**/api/activity/demo/runtime**', (route) =>
+      route.fulfill({ json: { ...runtime, nextStep: 'LOTTERY' } }),
+    );
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({ json: info }),
+    );
+    await page.goto('/activity/demo');
+    await page.getByRole('button', { name: '立即参与' }).click();
+    await expect(page.getByRole('button', { name: '开始抽奖' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '提交信息' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '去抽奖' })).toHaveCount(0);
+  });
+
   test('bootstraps one anonymous session and refetches both resources after simultaneous 401 responses', async ({
     page,
   }, testInfo) => {
