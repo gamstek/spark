@@ -2,11 +2,30 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ApiErrorCodeSchema,
+  ActivityFormSubmissionSchema,
   ActivityInputSchema,
   CallbackInputSchema,
   LotteryConfigSchema,
+  researchAreaValues,
   SessionViewSchema,
 } from './index.js';
+
+const validActivityForm = {
+  name: '张三',
+  organization: '星火科技有限公司',
+  department: '分析实验室',
+  jobTitle: '高级研究员',
+  phone: '13800138000',
+  email: 'zhangsan@example.com',
+  researchAreas: ['life_sciences', 'materials_science'],
+  instrumentInterests: ['chromatography', 'mass_spectrometry'],
+  visitPurposes: ['new_products', 'application_solution'],
+  followUpPreferences: ['product_pdf', 'engineer_call'],
+  contactPreference: 'email_first',
+  onsiteAvailability: 'available',
+  otherNeeds: '',
+  privacyAccepted: true,
+};
 
 const callback = {
   formId: 'ding-form-1',
@@ -16,6 +35,78 @@ const callback = {
 };
 
 describe('shared API contracts', () => {
+  it('re-exports fixed form value metadata for browser clients', () => {
+    expect(researchAreaValues).toEqual([
+      'life_sciences',
+      'materials_science',
+      'food_agriculture_safety',
+      'environmental_monitoring',
+      'chemical_petrochemical',
+      'clinical_medical_research',
+      'other',
+    ]);
+  });
+
+  it('accepts a complete fixed activity form without phone or email format checks', () => {
+    expect(
+      ActivityFormSubmissionSchema.safeParse(validActivityForm).success,
+    ).toBe(true);
+    expect(
+      ActivityFormSubmissionSchema.safeParse({
+        ...validActivityForm,
+        phone: 'not-a-number',
+        email: 'not-an-email',
+      }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    [{ ...validActivityForm, name: '  ' }, 'empty required text'],
+    [
+      { ...validActivityForm, researchAreas: [] },
+      'empty required multi-select',
+    ],
+    [
+      { ...validActivityForm, instrumentInterests: ['unknown'] },
+      'unknown option',
+    ],
+    [
+      {
+        ...validActivityForm,
+        visitPurposes: ['new_products', 'new_products'],
+      },
+      'duplicate options',
+    ],
+    [{ ...validActivityForm, privacyAccepted: false }, 'privacy not accepted'],
+    [{ ...validActivityForm, unexpected: true }, 'unknown object key'],
+    [
+      {
+        ...validActivityForm,
+        researchAreas: ['other'],
+        researchAreaOther: '',
+      },
+      'other research area without explanation',
+    ],
+    [
+      { ...validActivityForm, researchAreaOther: '交叉学科' },
+      'research area explanation without other',
+    ],
+    [
+      {
+        ...validActivityForm,
+        instrumentInterests: ['other'],
+        instrumentInterestOther: '',
+      },
+      'other instrument interest without explanation',
+    ],
+    [
+      { ...validActivityForm, instrumentInterestOther: '定制设备' },
+      'instrument interest explanation without other',
+    ],
+  ])('rejects invalid fixed activity form: %s', (input) => {
+    expect(ActivityFormSubmissionSchema.safeParse(input).success).toBe(false);
+  });
+
   it('accepts a valid DingTalk callback', () => {
     expect(CallbackInputSchema.parse(callback)).toEqual(callback);
   });
