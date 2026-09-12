@@ -218,7 +218,21 @@ test('read-only participants keep prize and redemption status in distinct compac
       json: [
         {
           id: 'u1',
-          fields: { name: '张三', phone: '13800000000' },
+          answers: {
+            name: '张三',
+            organization: '星火研究院',
+            department: '分析实验室',
+            jobTitle: '研究员',
+            phone: '13800000000',
+            email: 'participant@example.com',
+            researchAreas: ['life_sciences', 'other'],
+            researchAreaOther: '交叉研究',
+            instrumentInterests: ['mass_spectrometry'],
+            visitPurposes: ['new_products'],
+            followUpPreferences: ['product_pdf'],
+            contactPreference: 'email_first',
+            onsiteAvailability: 'available',
+          },
           lead_completed: true,
           channel_code: 'expo',
           prize_name: '定制礼盒',
@@ -243,8 +257,36 @@ test('read-only participants keep prize and redemption status in distinct compac
   ).toBeVisible();
   await expect(
     page.getByRole('columnheader', { name: '操作', exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await compactRow(page.getByRole('row', { name: /张三/ }));
+  await expect(
+    page.getByRole('cell', { name: '星火研究院', exact: true }),
+  ).toBeVisible();
+  const trigger = await openActions(page, '参与者操作：张三');
+  await page.getByRole('menuitem', { name: '查看登记详情' }).click();
+  const dialog = page.getByRole('dialog', { name: '登记详情', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('dt')).toHaveCount(13);
+  await expect(dialog).toContainText(
+    '生命科学（制药、生物技术、CRO）；其他（交叉研究）',
+  );
+  await expect(dialog.locator('dd').last()).toHaveText('未填写');
+  await expect(
+    page.getByRole('button', { name: '关闭', exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press('Tab');
+  expect(
+    await dialog.evaluate((element) =>
+      element.contains(document.activeElement),
+    ),
+  ).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page.getByRole('menuitem', { name: '查看登记详情' }).click();
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(trigger).toBeFocused();
 });
 
 test('staff uses separate compact columns and a keyboard-accessible edit and status menu', async ({

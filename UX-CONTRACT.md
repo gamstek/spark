@@ -44,15 +44,28 @@ not change other endpoints' dataset contracts.
 
 ## Flow ledger
 
-| Operation                | Pending and success                                               | Failure and focus                                                                                  |
-| ------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Sign in                  | Disable duplicate submit; navigate after login and CSRF retrieval | Retain fields, announce error, focus missing required field; do not reload on rejected credentials |
-| Create/edit activity     | Existing draft save and publish flow retained                     | Preserve existing revision conflict and live-activity lock handling                                |
-| Add inventory            | Existing stock mutation ID and confirmation retained              | Existing uncertain-result retry behavior retained                                                  |
-| End draw / disable staff | Confirm with Radix AlertDialog before request                     | Existing inline result and cancellation behavior retained                                          |
-| Export                   | Existing generation action and actual task status retained        | No fabricated progress percentage or download availability                                         |
-| Search                   | Immediate local filtering; no request per keystroke               | Clear restores dataset; count reflects matching records                                            |
-| Mobile navigation        | Link closes drawer and changes route                              | Escape closes without navigation; trigger receives focus                                           |
+| Operation                     | Pending and success                                                                                                | Failure and focus                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Sign in                       | Disable duplicate submit; navigate after login and CSRF retrieval                                                  | Retain fields, announce error, focus missing required field; do not reload on rejected credentials |
+| Create/edit activity          | Existing draft save and publish flow retained                                                                      | Preserve existing revision conflict and live-activity lock handling                                |
+| Add inventory                 | Existing stock mutation ID and confirmation retained                                                               | Existing uncertain-result retry behavior retained                                                  |
+| End draw / disable staff      | Confirm with Radix AlertDialog before request                                                                      | Existing inline result and cancellation behavior retained                                          |
+| Export                        | Existing generation action and actual task status retained                                                         | No fabricated progress percentage or download availability                                         |
+| Search                        | Immediate local filtering; no request per keystroke                                                                | Clear restores dataset; count reflects matching records                                            |
+| Mobile navigation             | Link closes drawer and changes route                                                                               | Escape closes without navigation; trigger receives focus                                           |
+| View participant registration | TableRowActions opens the read-only ParticipantDetailDialog using the already-loaded answers; no fetch or mutation | Escape/关闭 restores the row menu trigger; all 13 answers scroll inside the bounded Radix dialog   |
+
+Participant data comes only from the ADMIN-session-protected participant query
+(`apps/api/src/participants/participants-admin.controller.ts`), bounded to the
+latest 500 rows.
+Show 姓名、单位、手机号码、线索状态、渠道、奖品、核销状态、参与时间 and an
+operation column. Missing submissions show 未填写 and 暂无登记详情; incomplete
+lead state says 待填写. Shared `@spark/contracts` definitions and formatter own
+the question order, Chinese option labels and optional-answer 未填写 text. The
+dialog uses the current Admin theme, accessible title/description, focus
+containment and a persistent close action outside its scrolling answer list.
+Loading, failed reads with 重试, and an empty dataset remain distinct; stale or
+aborted activity reads cannot replace the current activity's rows.
 
 ## Form and interaction policy
 

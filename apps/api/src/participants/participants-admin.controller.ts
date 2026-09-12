@@ -10,7 +10,7 @@ export class ParticipantsAdminController {
   @Get()
   list(@Param('activityId') activityId: string) {
     return this.dataSource.query(
-      `SELECT p.id,p.user_id,p.created_at,p.lead_completed,p.lead_completed_at,s.answers AS fields,
+      `SELECT p.id,p.user_id,p.created_at,p.lead_completed,p.lead_completed_at,s.answers,
          l.prize_name,CASE WHEN r.status='WAIT_REDEEM' AND r.redeem_end_at<=now() THEN 'EXPIRED' ELSE r.status END AS redemption_status,
          (SELECT cv.channel_code FROM channel_visit cv WHERE cv.activity_id=p.activity_id AND cv.user_id=p.user_id ORDER BY cv.visited_at,cv.id LIMIT 1) AS channel_code
        FROM activity_participation p LEFT JOIN activity_form_submission s ON s.participation_id=p.id

@@ -1,9 +1,19 @@
 import { randomUUID } from 'node:crypto';
+import { Module } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from '@nestjs/platform-fastify';
+import type { ActivityFormAnswers } from '@spark/contracts';
+import { DataSource } from 'typeorm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ActivitiesService } from '../src/activities/activities.service.js';
 import { PublishService } from '../src/activities/publish.service.js';
 import { AccountsService } from '../src/auth/accounts.service.js';
 import { SessionService } from '../src/auth/session.service.js';
+import { SessionGuard } from '../src/auth/session.guard.js';
+import { ParticipantsAdminController } from '../src/participants/participants-admin.controller.js';
 import { PrizesService } from '../src/prizes/prizes.service.js';
 import { StaffService } from '../src/staff/staff.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
@@ -27,6 +37,79 @@ describe('admin operations', () => {
     scenario = await createScenario(database.dataSource);
   });
   afterAll(async () => database.close());
+  it('returns complete local answers only to administrators and keeps missing submissions null', async () => {
+    const answers: ActivityFormAnswers = {
+      name: '登记用户',
+      organization: '星火研究院',
+      department: '分析室',
+      jobTitle: '研究员',
+      phone: '13800138000',
+      email: 'participant@example.com',
+      researchAreas: ['life_sciences', 'other'],
+      researchAreaOther: '交叉研究',
+      instrumentInterests: ['mass_spectrometry'],
+      visitPurposes: ['new_products'],
+      followUpPreferences: ['product_pdf'],
+      contactPreference: 'email_first',
+      onsiteAvailability: 'available',
+    };
+    await database.dataSource.query(
+      `INSERT INTO activity_form_submission (id,participation_id,answers,submitted_at) VALUES ($1,$2,$3,now())`,
+      [randomUUID(), scenario.participationIds[0], answers],
+    );
+    const sessions = new SessionService(database.dataSource, 'test-secret');
+    class ParticipantTestModule {}
+    Module({
+      controllers: [ParticipantsAdminController],
+      providers: [
+        SessionGuard,
+        { provide: DataSource, useValue: database.dataSource },
+        { provide: SessionService, useValue: sessions },
+      ],
+    })(ParticipantTestModule);
+    const app = await NestFactory.create<NestFastifyApplication>(
+      ParticipantTestModule,
+      new FastifyAdapter(),
+      { logger: false },
+    );
+    try {
+      await app.init();
+      await app.getHttpAdapter().getInstance().ready();
+      const url = `/admin/activities/${scenario.activityId}/participants`;
+      expect((await app.inject({ method: 'GET', url })).statusCode).toBe(401);
+      const staff = await sessions.create('STAFF', scenario.staffId);
+      expect(
+        (
+          await app.inject({
+            method: 'GET',
+            url,
+            headers: { cookie: `spark_admin=${staff.token}` },
+          })
+        ).statusCode,
+      ).toBe(401);
+      const admin = await sessions.create('ADMIN', scenario.adminId);
+      const response = await app.inject({
+        method: 'GET',
+        url,
+        headers: { cookie: `spark_admin=${admin.token}` },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: scenario.participationIds[0],
+            answers,
+          }),
+          expect.objectContaining({
+            id: scenario.participationIds[1],
+            answers: null,
+          }),
+        ]),
+      );
+    } finally {
+      await app.close();
+    }
+  });
   it('creates a draft using only a supported template version', async () => {
     const service = new ActivitiesService(database.dataSource);
     await expect(

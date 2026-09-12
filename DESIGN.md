@@ -307,7 +307,7 @@ menu on narrow screens.
 | Prizes/stock    | Level, name, awarded, available, total, weight; menu opens existing 添加库存 dialog                                                                                                             |
 | Failed jobs     | Type, task ID, status, attempt count, latest error; menu runs existing 重新处理 handler                                                                                                         |
 | Export          | Task, status, record count; menu refreshes status and conditionally offers original download link                                                                                               |
-| Participants    | Name, phone, lead state, channel, prize, redemption state, participation time; no operation column                                                                                              |
+| Participants    | Name, organization, phone, lead state, channel, prize, redemption state, participation time; TableRowActions menu contains 查看登记详情 for submitted rows                                      |
 | Redemptions     | Prize, redemption state, staff, time; no operation column                                                                                                                                       |
 | Staff           | Display name, username, permission preview, permission count, status; menu opens account settings (including password reset), enables an account or opens the existing red disable confirmation |
 | Report channels | Channel and visitor count; no operation column                                                                                                                                                  |
