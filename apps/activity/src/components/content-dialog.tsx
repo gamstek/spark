@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import {
-  preparePrivacyAgreement,
+  privacyAgreementNamePlugin,
   privacyAgreementSource,
 } from '../lib/privacy-agreement';
 
@@ -77,10 +77,13 @@ export function PrivacyAgreementContent({
   return (
     <article className="activity-markdown">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[
+          remarkGfm,
+          [privacyAgreementNamePlugin, { activityName }],
+        ]}
         skipHtml
       >
-        {preparePrivacyAgreement(privacyAgreementSource, activityName)}
+        {privacyAgreementSource}
       </ReactMarkdown>
     </article>
   );

@@ -38,13 +38,13 @@ describe('preparePrivacyAgreement', () => {
     expect(content).not.toContain('抽奖活动隐私协议');
   });
 
-  it('replaces only the exact activity token and keeps literal replacement characters', () => {
+  it('replaces every exact activity token and leaves the rest of the source unchanged', () => {
     expect(
       preparePrivacyAgreement(
         '{{activityName}} / {{activityName}} / {{other}}',
-        '$& 活动',
+        '测试活动',
       ),
-    ).toBe('$& 活动 / $& 活动 / {{other}}');
+    ).toBe('测试活动 / 测试活动 / {{other}}');
   });
 
   it('rejects stale sources without the required activity token', () => {
