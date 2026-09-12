@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { ActivityFormAnswers } from '@spark/contracts';
 import ExcelJS from 'exceljs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ExportsHandler } from '../src/exports/exports.handler.js';
@@ -29,19 +30,23 @@ describe('secure lead exports', () => {
       root,
       () => exportNow,
     );
-    const submissionId = randomUUID();
+    const answers: ActivityFormAnswers = {
+      name: '=1+1',
+      organization: '示例科技',
+      department: '研发部',
+      jobTitle: '研究员',
+      phone: '13800138000',
+      email: 'formula@example.com',
+      researchAreas: ['life_sciences'],
+      instrumentInterests: ['chromatography'],
+      visitPurposes: ['new_products'],
+      followUpPreferences: ['product_pdf'],
+      contactPreference: 'call_welcome',
+      onsiteAvailability: 'available',
+    };
     await database.dataSource.query(
-      `INSERT INTO dingtalk_form_submission (id,form_id,record_id,participation_id,fields,submitted_at) VALUES ($1,'form','record',$2,$3,$4)`,
-      [
-        submissionId,
-        scenario.participationIds[0],
-        { name: '=1+1', phone: '13800138000' },
-        scenario.now,
-      ],
-    );
-    await database.dataSource.query(
-      `UPDATE activity_participation SET adopted_submission_id=$2 WHERE id=$1`,
-      [scenario.participationIds[0], submissionId],
+      `INSERT INTO activity_form_submission (id,participation_id,answers,submitted_at) VALUES ($1,$2,$3,$4)`,
+      [randomUUID(), scenario.participationIds[0], answers, scenario.now],
     );
     await database.dataSource.query(
       `UPDATE lottery_record SET prize_name='一等奖',redeem_end_at=$2 WHERE id=$1`,

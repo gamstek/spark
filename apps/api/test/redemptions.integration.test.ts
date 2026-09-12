@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { ActivityFormAnswers } from '@spark/contracts';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { CodeService } from '../src/redemptions/code.service.js';
@@ -24,7 +25,7 @@ describe('redemption recovery and atomic confirmation', () => {
   });
   beforeEach(async () => {
     await database.dataSource.query(
-      `TRUNCATE TABLE audit_event,export_job,stock_adjustment,channel_visit,redemption,lottery_record,activity_prize,prize,background_job,dingtalk_form_submission,webhook_receipt,activity_participation,staff_activity_permission,activity_version,activity,wechat_identity,user_account,app_session,oauth_state,wechat_credential_cache,staff_account,admin_account,media_asset RESTART IDENTITY CASCADE`,
+      `TRUNCATE TABLE audit_event,export_job,stock_adjustment,channel_visit,redemption,lottery_record,activity_prize,prize,background_job,activity_form_submission,activity_participation,staff_activity_permission,activity_version,activity,wechat_identity,user_account,app_session,oauth_state,wechat_credential_cache,staff_account,admin_account,media_asset RESTART IDENTITY CASCADE`,
     );
     scenario = await createScenario(database.dataSource);
     const encrypted = codes.create();
@@ -113,20 +114,24 @@ describe('redemption recovery and atomic confirmation', () => {
   });
 
   it('lists records for permitted activities with masked participant data', async () => {
-    const submissionId = randomUUID();
+    const answers: ActivityFormAnswers = {
+      name: '陈小明',
+      organization: '示例科技',
+      department: '研发部',
+      jobTitle: '研究员',
+      phone: '13812342210',
+      email: 'chen@example.com',
+      researchAreas: ['life_sciences'],
+      instrumentInterests: ['chromatography'],
+      visitPurposes: ['new_products'],
+      followUpPreferences: ['product_pdf'],
+      contactPreference: 'call_welcome',
+      onsiteAvailability: 'available',
+    };
     await database.dataSource.query(
-      `INSERT INTO dingtalk_form_submission (id,form_id,record_id,participation_id,fields,submitted_at)
-       VALUES ($1,'form-1','record-1',$2,$3,$4)`,
-      [
-        submissionId,
-        scenario.participationIds[0],
-        JSON.stringify({ name: '陈小明', phone: '13812342210' }),
-        scenario.now,
-      ],
-    );
-    await database.dataSource.query(
-      `UPDATE activity_participation SET adopted_submission_id=$1 WHERE id=$2`,
-      [submissionId, scenario.participationIds[0]],
+      `INSERT INTO activity_form_submission (id,participation_id,answers,submitted_at)
+       VALUES ($1,$2,$3,$4)`,
+      [randomUUID(), scenario.participationIds[0], answers, scenario.now],
     );
     const records = await service().listRecords(scenario.staffId, null);
     expect(records).toHaveLength(1);

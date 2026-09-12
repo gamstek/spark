@@ -1,3 +1,4 @@
+import type { ActivityFormAnswers } from '@spark/contracts';
 import { Column, Entity, Index, PrimaryColumn, Unique } from 'typeorm';
 
 @Entity({ name: 'activity_participation' })
@@ -10,8 +11,6 @@ export class ActivityParticipation {
   leadCompleted!: boolean;
   @Column({ name: 'lead_completed_at', type: 'timestamptz', nullable: true })
   leadCompletedAt!: Date | null;
-  @Column({ name: 'adopted_submission_id', type: 'uuid', nullable: true })
-  adoptedSubmissionId!: string | null;
   @Column({ name: 'drawn_at', type: 'timestamptz', nullable: true })
   drawnAt!: Date | null;
   @Column({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
@@ -20,30 +19,13 @@ export class ActivityParticipation {
   updatedAt!: Date;
 }
 
-@Entity({ name: 'webhook_receipt' })
-@Unique('webhook_receipt_form_record_key', ['formId', 'recordId'])
-export class WebhookReceipt {
+@Entity({ name: 'activity_form_submission' })
+@Unique('activity_form_submission_participation_key', ['participationId'])
+export class ActivityFormSubmission {
   @PrimaryColumn('uuid') id!: string;
-  @Column({ name: 'form_id', type: 'varchar', length: 128 }) formId!: string;
-  @Column({ name: 'record_id', type: 'varchar', length: 256 })
-  recordId!: string;
   @Column({ name: 'participation_id', type: 'uuid' })
   participationId!: string;
-  @Column({ type: 'jsonb' }) payload!: Record<string, unknown>;
-  @Column({ name: 'received_at', type: 'timestamptz', default: () => 'now()' })
-  receivedAt!: Date;
-}
-
-@Entity({ name: 'dingtalk_form_submission' })
-@Unique('dingtalk_form_submission_form_record_key', ['formId', 'recordId'])
-export class DingtalkFormSubmission {
-  @PrimaryColumn('uuid') id!: string;
-  @Column({ name: 'form_id', type: 'varchar', length: 128 }) formId!: string;
-  @Column({ name: 'record_id', type: 'varchar', length: 256 })
-  recordId!: string;
-  @Column({ name: 'participation_id', type: 'uuid' })
-  participationId!: string;
-  @Column({ type: 'jsonb' }) fields!: Record<string, unknown>;
+  @Column({ type: 'jsonb' }) answers!: ActivityFormAnswers;
   @Column({ name: 'submitted_at', type: 'timestamptz' }) submittedAt!: Date;
   @Column({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
   createdAt!: Date;

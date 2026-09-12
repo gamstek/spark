@@ -67,10 +67,10 @@ export class ExportsHandler implements OnModuleInit {
 
     while (true) {
       const rows: Row[] = await this.dataSource.query(
-        `SELECT p.id,p.user_id,p.created_at,p.lead_completed_at,s.fields,l.prize_name,
+        `SELECT p.id,p.user_id,p.created_at,p.lead_completed_at,s.answers AS fields,l.prize_name,
            CASE WHEN r.status='WAIT_REDEEM' AND r.redeem_end_at<=now() THEN 'EXPIRED' ELSE r.status END AS status,
            r.redeemed_at,(SELECT cv.channel_code FROM channel_visit cv WHERE cv.activity_id=p.activity_id AND cv.user_id=p.user_id ORDER BY cv.visited_at,cv.id LIMIT 1) AS channel_code
-         FROM activity_participation p LEFT JOIN dingtalk_form_submission s ON s.id=p.adopted_submission_id
+         FROM activity_participation p LEFT JOIN activity_form_submission s ON s.participation_id=p.id
          LEFT JOIN lottery_record l ON l.participation_id=p.id LEFT JOIN redemption r ON r.lottery_record_id=l.id
          WHERE p.activity_id=$1 AND p.created_at<=$2 AND ($3::uuid IS NULL OR p.id>$3) ORDER BY p.id LIMIT 500`,
         [job.activity_id, job.snapshot_at, cursor],

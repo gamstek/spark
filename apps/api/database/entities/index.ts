@@ -24,9 +24,8 @@ import {
 import { AuditEvent, BackgroundJob, ExportJob } from './operations.entities.js';
 import {
   ActivityParticipation,
+  ActivityFormSubmission,
   ChannelVisit,
-  DingtalkFormSubmission,
-  WebhookReceipt,
 } from './participation.entities.js';
 
 export * from './accounts.entities.js';
@@ -49,8 +48,7 @@ export const databaseEntities = [
   ActivityVersionPrize,
   StaffActivityPermission,
   ActivityParticipation,
-  WebhookReceipt,
-  DingtalkFormSubmission,
+  ActivityFormSubmission,
   ChannelVisit,
   Prize,
   ActivityPrize,

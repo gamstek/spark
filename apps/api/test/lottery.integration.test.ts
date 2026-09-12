@@ -54,7 +54,7 @@ describe('atomic lottery and inventory', () => {
   });
   beforeEach(async () => {
     await database.dataSource.query(
-      `TRUNCATE TABLE audit_event,export_job,stock_adjustment,channel_visit,redemption,lottery_record,activity_prize,prize,background_job,dingtalk_form_submission,webhook_receipt,activity_participation,staff_activity_permission,activity_version,activity,wechat_identity,user_account,app_session,oauth_state,wechat_credential_cache,staff_account,admin_account,media_asset RESTART IDENTITY CASCADE`,
+      `TRUNCATE TABLE audit_event,export_job,stock_adjustment,channel_visit,redemption,lottery_record,activity_prize,prize,background_job,activity_form_submission,activity_participation,staff_activity_permission,activity_version,activity,wechat_identity,user_account,app_session,oauth_state,wechat_credential_cache,staff_account,admin_account,media_asset RESTART IDENTITY CASCADE`,
     );
     scenario = await createScenario(database.dataSource);
     await database.dataSource.query(`DELETE FROM redemption`);

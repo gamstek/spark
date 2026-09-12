@@ -3,17 +3,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ActivityVersion,
   ActivityVersionPrize,
+  ActivityFormSubmission,
   AdminAccount,
   ChannelVisit,
   StaffActivityPermission,
   StockAdjustment,
-  WebhookReceipt,
 } from '../database/entities/index.js';
 import { createAdminAccount } from '../database/seeds/admin-seed.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 const expectedTables = [
   'activity',
+  'activity_form_submission',
   'activity_participation',
   'activity_prize',
   'activity_version',
@@ -23,7 +24,6 @@ const expectedTables = [
   'audit_event',
   'background_job',
   'channel_visit',
-  'dingtalk_form_submission',
   'export_job',
   'lottery_record',
   'media_asset',
@@ -34,7 +34,6 @@ const expectedTables = [
   'staff_activity_permission',
   'stock_adjustment',
   'user_account',
-  'webhook_receipt',
   'wechat_credential_cache',
   'wechat_identity',
 ];
@@ -58,13 +57,13 @@ describe('TypeORM entity metadata', () => {
     expect(tableNames).toEqual(expectedTables);
   });
 
-  it('fresh migrations omit retired callback entry tables', async () => {
+  it('fresh migrations omit retired submission tables', async () => {
     const rows = await database.dataSource.query<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema()`,
     );
     const tableNames = rows.map((row) => row.table_name);
-    expect(tableNames).not.toContain('wechat_activity_entry_token');
-    expect(tableNames).not.toContain('wechat_callback_receipt');
+    expect(tableNames).not.toContain('webhook_receipt');
+    expect(tableNames).not.toContain('dingtalk_form_submission');
     expect(tableNames).toContain('wechat_identity');
     expect(tableNames).toContain('app_session');
   });
@@ -107,9 +106,9 @@ describe('TypeORM entity metadata', () => {
       staffPermission.primaryColumns.map((column) => column.databaseName),
     ).toEqual(['staff_account_id', 'activity_id']);
 
-    const webhookReceipt = database.dataSource.getMetadata(WebhookReceipt);
-    expect(webhookReceipt.uniques.map((unique) => unique.name)).toContain(
-      'webhook_receipt_form_record_key',
+    const submission = database.dataSource.getMetadata(ActivityFormSubmission);
+    expect(submission.uniques.map((unique) => unique.name)).toContain(
+      'activity_form_submission_participation_key',
     );
 
     const channelVisit = database.dataSource.getMetadata(ChannelVisit);

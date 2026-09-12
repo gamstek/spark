@@ -120,13 +120,13 @@ export class RedemptionsService {
     >(
       `SELECT r.id AS redemption_id,l.activity_id,a.code AS activity_code,a.name AS activity_name,
          l.prize_name,l.prize_image_url,r.status,l.created_at AS won_at,r.redeemed_at,
-         lead.fields AS lead_fields
+         lead.answers AS lead_fields
        FROM redemption r
        JOIN lottery_record l ON l.id=r.lottery_record_id
        JOIN activity a ON a.id=l.activity_id
        JOIN staff_activity_permission p ON p.activity_id=l.activity_id AND p.staff_account_id=$1
        LEFT JOIN activity_participation ap ON ap.id=l.participation_id
-       LEFT JOIN dingtalk_form_submission lead ON lead.id=ap.adopted_submission_id
+       LEFT JOIN activity_form_submission lead ON lead.participation_id=ap.id
        WHERE ($2::uuid IS NULL OR l.activity_id=$2)
        ORDER BY COALESCE(r.redeemed_at,l.created_at) DESC
        LIMIT 500`,
