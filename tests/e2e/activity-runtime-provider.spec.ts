@@ -31,6 +31,36 @@ async function mockSuccessfulActivity(page: Page) {
 }
 
 test.describe('ActivityRuntimeProvider lifecycle', () => {
+  test('announces an ended draw without navigating away from the activity home', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'development-simulation');
+    await page.setViewportSize({ width: 390, height: 844 });
+    let runtimeRequests = 0;
+    await page.route('**/api/activity/demo/runtime**', (route) => {
+      runtimeRequests += 1;
+      return route.fulfill({
+        json: {
+          ...runtime,
+          nextStep: runtimeRequests === 1 ? 'FORM' : 'ENDED',
+        },
+      });
+    });
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({ json: info }),
+    );
+
+    await page.goto('/activity/demo');
+    await page.getByRole('button', { name: '立即参与' }).click();
+
+    await expect(
+      page.getByText('本次抽奖已结束', { exact: true }),
+    ).toBeVisible();
+    await expect.poll(() => runtimeRequests).toBe(2);
+    await expect(page).toHaveURL(/\/activity\/demo\/?$/);
+    await expect(page.getByRole('button', { name: '立即参与' })).toBeVisible();
+  });
+
   test('a returning submitted participant enters lottery directly without showing the local success acknowledgement', async ({
     page,
   }, testInfo) => {

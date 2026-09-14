@@ -235,6 +235,7 @@ export function ActivityRuntimeProvider({
       const data = await refreshRuntime();
       if (data.nextStep === 'NOT_STARTED')
         setMessage('活动尚未开始，请稍后再来');
+      else if (data.nextStep === 'ENDED') setMessage('本次抽奖已结束');
       else openView('flow');
     } catch (error) {
       setMessage(messageForError(error));
