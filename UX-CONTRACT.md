@@ -42,6 +42,27 @@ returns focus to the search input; clear filters resets both. Unknown statuses
 fall back to all. Empty dataset and no matches use distinct messages. This does
 not change other endpoints' dataset contracts.
 
+## Activity lifecycle and dialog action ownership
+
+Activity lifecycle state is API-owned. The shared contract defines the wire
+states and the API derives them from publication, schedule and pause data using
+its server clock. Admin list, editor and workspace-context responses require
+both the authoritative `status` and diagnostic `serverNow`; admin presentation
+and action eligibility consume `status` directly. Schedule timestamps remain
+display and edit data only. Client code must not derive lifecycle state, fall
+back to browser time or use `Date.now()`/`Date.parse()` to decide pause, resume
+or end-draw availability. Successful lifecycle mutations refresh the activity
+detail and shared context so visible surfaces converge on the next API result.
+
+`components/dialog-actions.tsx` is the canonical admin dialog-footer geometry
+owner. It provides right alignment, vertical centering, wrapping, gap and top
+spacing while preserving caller child order: secondary/cancel first, primary or
+destructive confirmation second. Callers retain Radix `Dialog.Close`,
+`AlertDialog.Cancel` and `AlertDialog.Action` ownership because those wrappers
+provide dismissal, focus and pending semantics. A single-action informational
+dialog still uses `DialogActions` and aligns its action to the footer content
+edge.
+
 ## Flow ledger
 
 | Operation                     | Pending and success                                                                                                | Failure and focus                                                                                  |
