@@ -6,7 +6,7 @@ import {
   Text,
   TextField,
 } from '@radix-ui/themes';
-import type { ActivityStatus } from '@spark/contracts';
+import type { AdminActivityDetail } from '@spark/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -15,6 +15,7 @@ import { updateActivityContext } from '../../components/activity-nav';
 import { DateTimePicker } from '../../components/date-time-picker';
 import { DialogActions } from '../../components/dialog-actions';
 import {
+  EmptyState,
   FeedbackCallout,
   LoadingState,
   Notification,
@@ -32,20 +33,6 @@ import {
   type ActivitySchedule,
 } from './schedule-validation';
 import { getActivityActions } from './activity-status';
-
-type Detail = {
-  name: string;
-  code: string;
-  revision: number;
-  starts_at?: string;
-  draw_ends_at?: string;
-  ends_at?: string;
-  redeem_ends_at?: string;
-  config?: Record<string, unknown>;
-  published_version_id?: string | null;
-  status: ActivityStatus;
-  serverNow: string;
-};
 
 const scheduleFields = [
   ['startsAt', '活动开始', '参与者可以进入活动'],
@@ -67,8 +54,9 @@ const fromShanghaiInput = (value: FormDataEntryValue | null) =>
 export function ActivityEditPage() {
   const { id = 'new' } = useParams();
   const navigate = useNavigate();
-  const [detail, setDetail] = useState<Detail | null>(null);
+  const [detail, setDetail] = useState<AdminActivityDetail | null>(null);
   const [loading, setLoading] = useState(id !== 'new');
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [endingDraw, setEndingDraw] = useState(false);
   const [changingRuntimeState, setChangingRuntimeState] = useState(false);
@@ -78,10 +66,11 @@ export function ActivityEditPage() {
     'info',
   );
 
-  const activityStatus = detail?.status ?? 'DRAFT';
-  const { canPause, canResume, canEndDraw } =
-    getActivityActions(activityStatus);
-  const locked = !['DRAFT', 'UPCOMING'].includes(activityStatus);
+  const activityStatus = id === 'new' ? 'DRAFT' : detail?.status;
+  const { canPause, canResume, canEndDraw } = activityStatus
+    ? getActivityActions(activityStatus)
+    : { canPause: false, canResume: false, canEndDraw: false };
+  const locked = activityStatus !== 'DRAFT' && activityStatus !== 'UPCOMING';
   const paused = activityStatus === 'PAUSED';
   const drawEnded = activityStatus === 'DRAW_ENDED';
   const activityEnded = activityStatus === 'ENDED';
@@ -89,17 +78,24 @@ export function ActivityEditPage() {
   async function loadDetail() {
     if (!id || id === 'new') return;
     setLoading(true);
+    setLoadFailed(false);
     try {
-      const nextDetail = await api<Detail>(`admin/activities/${id}`);
+      const nextDetail = await api<AdminActivityDetail>(
+        `admin/activities/${id}`,
+      );
       setDetail(nextDetail);
       updateActivityContext(id, nextDetail);
+    } catch (error) {
+      setDetail(null);
+      setLoadFailed(true);
+      throw error;
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadDetail();
+    void loadDetail().catch(() => undefined);
   }, [id]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -244,6 +240,21 @@ export function ActivityEditPage() {
   }
 
   if (loading) return <LoadingState label="正在加载活动配置" />;
+  if (!activityStatus || (id !== 'new' && (loadFailed || !detail)))
+    return (
+      <EmptyState
+        title="活动配置加载失败"
+        description={message || '请重试后继续操作。'}
+        action={
+          <Button
+            variant="soft"
+            onClick={() => void loadDetail().catch(() => undefined)}
+          >
+            重试
+          </Button>
+        }
+      />
+    );
 
   return (
     <>

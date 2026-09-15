@@ -1,6 +1,8 @@
+import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect, test, type Page } from '@playwright/test';
 
 const activity = {
+  ...adminActivityDefaults,
   id: 'live-expo',
   name: '上海国际消费展',
   code: 'shanghai-expo',

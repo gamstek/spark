@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { deriveActivityStatus, type ActivityStatus } from '@spark/contracts';
 import { getTemplate } from '@spark/templates';
 import { Inject, Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, type EntityManager } from 'typeorm';
 
 import { APP_CLOCK, type Clock, systemClock } from '../common/clock.js';
 
@@ -123,16 +123,7 @@ export class PublishService {
 
   async endDraw(activityId: string, adminId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      const activities = await manager.query<LifecycleRow[]>(
-        `SELECT a.published_version_id,a.paused_at,v.starts_at,v.draw_ends_at,v.ends_at
-         FROM activity a
-         LEFT JOIN activity_version v ON v.id=a.published_version_id
-         WHERE a.id=$1
-         FOR UPDATE OF a`,
-        [activityId],
-      );
-      const activity = activities[0];
-      if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+      const activity = await this.lockLifecycle(manager, activityId);
       const now = this.now();
       const status = this.status(activity, now);
       if (status !== 'RUNNING' && status !== 'PAUSED')
@@ -167,16 +158,7 @@ export class PublishService {
     paused: boolean,
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      const activities = await manager.query<LifecycleRow[]>(
-        `SELECT a.published_version_id,a.paused_at,v.starts_at,v.draw_ends_at,v.ends_at
-         FROM activity a
-         LEFT JOIN activity_version v ON v.id=a.published_version_id
-         WHERE a.id=$1
-         FOR UPDATE OF a`,
-        [activityId],
-      );
-      const activity = activities[0];
-      if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+      const activity = await this.lockLifecycle(manager, activityId);
       const now = this.now();
       const status = this.status(activity, now);
       if (paused && status === 'PAUSED')
@@ -204,6 +186,32 @@ export class PublishService {
 
   private now(): Date {
     return this.clock.now();
+  }
+
+  private async lockLifecycle(
+    manager: EntityManager,
+    activityId: string,
+  ): Promise<LifecycleRow> {
+    const [activity] = await manager.query<
+      Pick<LifecycleRow, 'published_version_id' | 'paused_at'>[]
+    >(
+      `SELECT published_version_id,paused_at FROM activity WHERE id=$1 FOR UPDATE`,
+      [activityId],
+    );
+    if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+    // Read the schedule in a new statement after any preceding mutation commits.
+    const [schedule] = await manager.query<
+      Pick<LifecycleRow, 'starts_at' | 'draw_ends_at' | 'ends_at'>[]
+    >(
+      `SELECT starts_at,draw_ends_at,ends_at FROM activity_version WHERE id=$1`,
+      [activity.published_version_id],
+    );
+    return {
+      ...activity,
+      starts_at: schedule?.starts_at ?? null,
+      draw_ends_at: schedule?.draw_ends_at ?? null,
+      ends_at: schedule?.ends_at ?? null,
+    };
   }
 
   private status(activity: LifecycleRow, now: Date): ActivityStatus {

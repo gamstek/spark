@@ -39,7 +39,6 @@ type PrizeRow = {
   prize_level: string;
   prize_name: string;
   prize_image_url: string | null;
-  half_day_awarded: number;
 };
 type WinRow = {
   id: string;
@@ -69,10 +68,9 @@ export class LotteryService {
     activityCode: string,
     origin = 'http://localhost',
   ): Promise<WinView | null> {
-    const now = this.now();
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return await this.drawOnce(userId, activityCode, origin, now);
+        return await this.drawOnce(userId, activityCode, origin);
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (!code || !retryableCodes.has(code) || attempt >= 2) throw error;
@@ -84,7 +82,6 @@ export class LotteryService {
     userId: string,
     activityCode: string,
     origin: string,
-    now: Date,
   ): Promise<WinView | null> {
     return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
       const activities = await manager.query<ActivityRow[]>(
@@ -93,18 +90,12 @@ export class LotteryService {
       );
       const activity = activities[0];
       if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
-      const status = this.status(activity, now);
-      if (status === 'PAUSED') throw new Error('ACTIVITY_PAUSED');
-      const halfDay = getShanghaiHalfDayWindow(now);
       const prizes = await manager.query<PrizeRow[]>(
-        `SELECT ap.id,ap.total_stock-ap.awarded_stock AS remaining_stock,vp.weight,vp.prize_level,vp.prize_name,vp.prize_image_url,
-           (SELECT count(*)::integer FROM lottery_record l
-            WHERE l.activity_id=$1 AND l.activity_prize_id=ap.id
-              AND l.created_at >= $2 AND l.created_at < $3) AS half_day_awarded
+        `SELECT ap.id,ap.total_stock-ap.awarded_stock AS remaining_stock,vp.weight,vp.prize_level,vp.prize_name,vp.prize_image_url
          FROM activity_version_prize vp JOIN activity_prize ap ON ap.id=vp.activity_prize_id
          WHERE vp.activity_version_id=(SELECT published_version_id FROM activity WHERE id=$1)
          ORDER BY ap.id FOR UPDATE OF ap`,
-        [activity.id, halfDay.startsAt, halfDay.endsAt],
+        [activity.id],
       );
       const participations = await manager.query<
         { id: string; lead_completed: boolean; drawn_at: Date | null }[]
@@ -112,6 +103,10 @@ export class LotteryService {
         `SELECT id,lead_completed,drawn_at FROM activity_participation WHERE activity_id=$1 AND user_id=$2 FOR UPDATE`,
         [activity.id, userId],
       );
+      // Lock waits and serializable retries may cross lifecycle/quota boundaries.
+      const now = this.now();
+      const status = this.status(activity, now);
+      if (status === 'PAUSED') throw new Error('ACTIVITY_PAUSED');
       const existing = await manager.query<WinRow[]>(
         `SELECT l.id,l.prize_level,l.prize_name,l.prize_image_url,l.redeem_end_at,r.status FROM lottery_record l JOIN redemption r ON r.lottery_record_id=l.id WHERE l.activity_id=$1 AND l.user_id=$2`,
         [activity.id, userId],
@@ -149,12 +144,24 @@ export class LotteryService {
         (prize) => Number(prize.remaining_stock) > 0,
       );
       if (stockedPrizes.length === 0) throw new Error('OUT_OF_STOCK');
+      const halfDay = getShanghaiHalfDayWindow(now);
+      const awards = await manager.query<
+        { activity_prize_id: string; awarded: number }[]
+      >(
+        `SELECT activity_prize_id,count(*)::integer AS awarded FROM lottery_record
+         WHERE activity_id=$1 AND created_at >= $2 AND created_at < $3
+         GROUP BY activity_prize_id`,
+        [activity.id, halfDay.startsAt, halfDay.endsAt],
+      );
+      const halfDayAwards = new Map(
+        awards.map((award) => [award.activity_prize_id, award.awarded]),
+      );
       const limits = activity.config.halfDayPrizeLimits ?? {};
       const candidates = stockedPrizes
         .filter((prize) =>
           underHalfDayLimit(
             Number(limits[prize.id] ?? 0),
-            Number(prize.half_day_awarded),
+            halfDayAwards.get(prize.id) ?? 0,
           ),
         )
         .map((prize) => ({

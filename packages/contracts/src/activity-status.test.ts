@@ -13,11 +13,24 @@ const base = {
 describe('deriveActivityStatus', () => {
   it.each([
     [{ ...base, publishedVersionId: null }, 'DRAFT'],
+    [
+      { ...base, publishedVersionId: null, drawEndsAt: now, endsAt: now },
+      'DRAFT',
+    ],
     [{ ...base, startsAt: now }, 'RUNNING'],
     [{ ...base, startsAt: new Date('2026-09-16T00:00:00.000Z') }, 'UPCOMING'],
     [{ ...base, pausedAt: new Date('2026-09-15T01:00:00.000Z') }, 'PAUSED'],
     [{ ...base, drawEndsAt: now }, 'DRAW_ENDED'],
     [{ ...base, endsAt: now }, 'ENDED'],
+    [
+      {
+        ...base,
+        drawEndsAt: now,
+        endsAt: now,
+        pausedAt: new Date('2026-09-15T01:00:00.000Z'),
+      },
+      'ENDED',
+    ],
     [
       {
         ...base,

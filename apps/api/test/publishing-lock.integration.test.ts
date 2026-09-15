@@ -14,7 +14,12 @@ import { PublishService } from '../src/activities/publish.service.js';
 import { ClockModule } from '../src/common/clock.module.js';
 import type { Clock } from '../src/common/clock.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
-import { createScenario, type Scenario } from './support/fixtures.js';
+import {
+  createActivityFixture,
+  createScenario,
+  type Scenario,
+} from './support/fixtures.js';
+import { waitForBlockedQuery } from './support/locks.js';
 
 const validConfig = {
   requireSubscribe: true,
@@ -184,4 +189,78 @@ describe('activity publishing lock', () => {
       await queryRunner.release();
     }
   });
+
+  it.each([
+    ['pause', 'ACTIVITY_NOT_RUNNING'],
+    ['endDraw', 'DRAW_NOT_ACTIVE'],
+  ] as const)(
+    'rejects %s queued behind endDraw using the committed cutoff',
+    async (action, code) => {
+      const cutoff = new Date(scenario.now.getTime() + 3_600_000);
+      const { activityId } = await createActivityFixture(database.dataSource, {
+        startsAt: scenario.now,
+        drawEndsAt: new Date(scenario.now.getTime() + 86_400_000),
+        endsAt: new Date(scenario.now.getTime() + 172_800_000),
+        redeemEndsAt: new Date(scenario.now.getTime() + 259_200_000),
+      });
+      const blocker = database.dataSource.createQueryRunner();
+      await blocker.connect();
+      await blocker.startTransaction();
+      const [backend] = await blocker.manager.query<{ pid: number }[]>(
+        `SELECT pg_backend_pid() AS pid`,
+      );
+      await blocker.query(
+        `SELECT id FROM activity_version WHERE id=(SELECT published_version_id FROM activity WHERE id=$1) FOR UPDATE`,
+        [activityId],
+      );
+      const first = Promise.allSettled([
+        new PublishService(database.dataSource, { now: () => cutoff }).endDraw(
+          activityId,
+          scenario.adminId,
+        ),
+      ]);
+      let queued: Promise<PromiseSettledResult<void>[]> | undefined;
+      const queuedClock: Clock = {
+        now: vi.fn(() => new Date(cutoff.getTime() + 1_000)),
+      };
+      try {
+        const endingPid = await waitForBlockedQuery(
+          database.dataSource,
+          backend!.pid,
+        );
+        queued = Promise.allSettled([
+          new PublishService(database.dataSource, queuedClock)[action](
+            activityId,
+            scenario.adminId,
+          ),
+        ]);
+        await waitForBlockedQuery(database.dataSource, endingPid);
+        await blocker.commitTransaction();
+        expect(await first).toEqual([
+          { status: 'fulfilled', value: undefined },
+        ]);
+        expect(await queued).toMatchObject([
+          { status: 'rejected', reason: { message: code } },
+        ]);
+        expect(queuedClock.now).toHaveBeenCalledTimes(1);
+        const [activity] = await database.dataSource.query<
+          { paused_at: Date | null; draw_ends_at: Date }[]
+        >(
+          `SELECT a.paused_at,v.draw_ends_at FROM activity a JOIN activity_version v ON v.id=a.published_version_id WHERE a.id=$1`,
+          [activityId],
+        );
+        expect(activity).toEqual({ paused_at: null, draw_ends_at: cutoff });
+        const audits = await database.dataSource.query<{ action: string }[]>(
+          `SELECT action FROM audit_event WHERE resource_id=$1`,
+          [activityId],
+        );
+        expect(audits).toEqual([{ action: 'DRAW_ENDED' }]);
+      } finally {
+        if (blocker.isTransactionActive) await blocker.rollbackTransaction();
+        await first;
+        await queued;
+        await blocker.release();
+      }
+    },
+  );
 });

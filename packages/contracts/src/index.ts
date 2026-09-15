@@ -5,6 +5,7 @@ export {
   type LotteryConfig,
 } from './activities.js';
 export * from './activity-status.js';
+export * from './admin-activities.js';
 export * from './activity-form.js';
 export * from './activity-info.js';
 export * from './auth.js';

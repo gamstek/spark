@@ -1,3 +1,4 @@
+import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect, type Locator } from '@playwright/test';
 import { test } from './admin-test';
 
@@ -23,6 +24,7 @@ test('keeps the activity list and detail status consistent after drawing ends', 
     route.fulfill({ json: { csrfToken: 'csrf' } }),
   );
   const activity = {
+    ...adminActivityDefaults,
     id: 'draw-ended',
     name: '秋季抽奖',
     code: 'autumn-draw',
@@ -77,6 +79,7 @@ test('logs in and creates the only supported activity template', async ({
   await page.route('**/api/admin/activities/created', (r) =>
     r.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'created',
         name: '展会活动',
         code: 'generated1',
@@ -291,6 +294,7 @@ test('shows revision conflicts while editing a future activity', async ({
   await page.route('**/api/admin/activities/a1', (r) =>
     r.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         name: '运行活动',
         code: 'running',
@@ -345,6 +349,7 @@ test('locks a running activity', async ({ page }) => {
   await page.route('**/api/admin/activities/a1', (r) =>
     r.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         name: '运行活动',
         code: 'running',
@@ -392,6 +397,7 @@ test('provides a responsive navigation shell and directed empty state', async ({
     route.fulfill({
       json: [
         {
+          ...adminActivityDefaults,
           id: 'a1',
           name: '秋季展会',
           code: 'autumn-expo',
@@ -515,6 +521,7 @@ test('confirms before ending an activity draw', async ({ page }) => {
     detailLoads += 1;
     return route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         name: '运行活动',
         code: 'running',
@@ -557,6 +564,7 @@ test('pauses and resumes a running activity', async ({ page }, testInfo) => {
   await page.route('**/api/admin/activities/a1', (route) =>
     route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         name: '运行活动',
         code: 'running',
@@ -610,6 +618,7 @@ test('keeps prize configuration editable for a server upcoming activity despite 
   await page.route('**/api/admin/activities/a1', (route) =>
     route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         revision: 1,
         published_version_id: 'v1',
@@ -635,6 +644,7 @@ test('adds inventory through a labeled dialog', async ({ page }) => {
   await page.route('**/api/admin/activities/a1', (route) =>
     route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         published_version_id: 'v1',
         status: 'RUNNING',
@@ -688,6 +698,7 @@ test('allows adding a fourth prize and shows its draw-limit rule', async ({
   await page.route('**/api/admin/activities/a1', (route) =>
     route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         revision: 1,
         published_version_id: null,
@@ -745,6 +756,7 @@ test('shows operational loading, empty, status, and export states', async ({
   await page.route('**/api/admin/activities/a1', (route) =>
     route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         name: '现场活动',
         code: 'expo',

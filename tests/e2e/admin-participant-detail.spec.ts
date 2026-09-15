@@ -1,3 +1,4 @@
+import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { test } from './admin-test';
 
@@ -54,6 +55,7 @@ async function mockParticipants(
   await page.route('**/api/admin/activities/a1', (route) =>
     route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         name: '现场活动',
         code: 'expo',

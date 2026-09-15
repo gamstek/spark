@@ -1,3 +1,4 @@
+import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect } from '@playwright/test';
 import { test } from './admin-test';
 
@@ -17,6 +18,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/admin/activities/a1', (route) =>
     route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         name: '展会活动',
         code: 'exhibition',

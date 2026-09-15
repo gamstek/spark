@@ -1,3 +1,4 @@
+import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect } from '@playwright/test';
 import { test } from './admin-test';
 
@@ -26,6 +27,7 @@ test('filters activities and restores mobile navigation focus', async ({
     r.fulfill({
       json: [
         {
+          ...adminActivityDefaults,
           id: 'spring',
           name: '春日品牌展',
           code: 'spring',
@@ -34,11 +36,12 @@ test('filters activities and restores mobile navigation focus', async ({
           serverNow: '2026-09-15T08:00:00.000Z',
         },
         {
+          ...adminActivityDefaults,
           id: 'summer',
           name: '夏季新品发布会',
           code: 'summer',
           published_version_id: 'v1',
-          ends_at: '2020-01-01',
+          ends_at: '2020-01-01T00:00:00.000Z',
           status: 'ENDED',
           serverNow: '2026-09-15T08:00:00.000Z',
         },

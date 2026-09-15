@@ -17,6 +17,7 @@ import { chooseWeightedPrize } from '../src/lottery/weighted-draw.js';
 import { CodeService } from '../src/redemptions/code.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
+import { waitForBlockedQuery } from './support/locks.js';
 
 const fixedClock = (now: Date): Clock => ({ now: () => now });
 
@@ -194,6 +195,125 @@ describe('atomic lottery and inventory', () => {
         'expo-2026',
       ),
     ).rejects.toThrow('ACTIVITY_NOT_RUNNING');
+  });
+
+  it.each(['activity_prize', 'activity_participation'] as const)(
+    'rejects a draw that waits on %s until its draw deadline',
+    async (table) => {
+      const drawEndsAt = new Date(scenario.now.getTime() + 86_400_000);
+      let currentTime = new Date(drawEndsAt.getTime() - 1);
+      const clock: Clock = { now: vi.fn(() => currentTime) };
+      const blocker = database.dataSource.createQueryRunner();
+      await blocker.connect();
+      await blocker.startTransaction();
+      const [backend] = await blocker.manager.query<{ pid: number }[]>(
+        `SELECT pg_backend_pid() AS pid`,
+      );
+      await blocker.query(`SELECT id FROM ${table} WHERE id=$1 FOR UPDATE`, [
+        table === 'activity_prize'
+          ? scenario.activityPrizeId
+          : scenario.participationIds[0],
+      ]);
+      const result = Promise.allSettled([
+        new LotteryService(
+          database.dataSource,
+          codes,
+          'wechat',
+          clock,
+          () => 0,
+        ).draw(scenario.userIds[0], 'expo-2026'),
+      ]);
+      try {
+        await waitForBlockedQuery(database.dataSource, backend!.pid);
+        currentTime = drawEndsAt;
+        await blocker.commitTransaction();
+        expect(await result).toMatchObject([
+          { status: 'rejected', reason: { message: 'ACTIVITY_NOT_RUNNING' } },
+        ]);
+        expect(clock.now).toHaveBeenCalledTimes(1);
+        expect(
+          await database.dataSource.query(`SELECT id FROM lottery_record`),
+        ).toEqual([]);
+        const [participation] = await database.dataSource.query<
+          { drawn_at: Date | null }[]
+        >(`SELECT drawn_at FROM activity_participation WHERE id=$1`, [
+          scenario.participationIds[0],
+        ]);
+        expect(participation?.drawn_at).toBeNull();
+      } finally {
+        if (blocker.isTransactionActive) await blocker.rollbackTransaction();
+        await result;
+        await blocker.release();
+      }
+    },
+  );
+
+  it('uses the post-lock Shanghai half-day and timestamp for a waiting draw', async () => {
+    const noon = scenario.now;
+    const beforeNoon = new Date(noon.getTime() - 1);
+    await database.dataSource.query(
+      `UPDATE activity_prize SET total_stock=2 WHERE id=$1`,
+      [scenario.activityPrizeId],
+    );
+    await database.dataSource.query(
+      `UPDATE activity_version SET starts_at=$2,
+       config=jsonb_set(config,'{halfDayPrizeLimits}',jsonb_build_object($3::text,1),true)
+       WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [
+        scenario.activityId,
+        new Date(noon.getTime() - 3_600_000),
+        scenario.activityPrizeId,
+      ],
+    );
+    await expect(
+      service(beforeNoon).draw(scenario.userIds[0], 'expo-2026'),
+    ).resolves.toMatchObject({ prizeLevel: '一等奖' });
+    let currentTime = beforeNoon;
+    const clock: Clock = { now: vi.fn(() => currentTime) };
+    const blocker = database.dataSource.createQueryRunner();
+    await blocker.connect();
+    await blocker.startTransaction();
+    const [backend] = await blocker.manager.query<{ pid: number }[]>(
+      `SELECT pg_backend_pid() AS pid`,
+    );
+    await blocker.query(
+      `SELECT id FROM activity_prize WHERE id=$1 FOR UPDATE`,
+      [scenario.activityPrizeId],
+    );
+    const result = Promise.allSettled([
+      new LotteryService(
+        database.dataSource,
+        codes,
+        'wechat',
+        clock,
+        () => 0,
+      ).draw(scenario.userIds[1], 'expo-2026'),
+    ]);
+    try {
+      await waitForBlockedQuery(database.dataSource, backend!.pid);
+      currentTime = noon;
+      await blocker.commitTransaction();
+      expect(await result).toMatchObject([
+        { status: 'fulfilled', value: { prizeLevel: '一等奖' } },
+      ]);
+      const [record] = await database.dataSource.query<
+        { created_at: Date; drawn_at: Date; updated_at: Date }[]
+      >(
+        `SELECT l.created_at,p.drawn_at,p.updated_at FROM lottery_record l
+         JOIN activity_participation p ON p.id=l.participation_id WHERE l.user_id=$1`,
+        [scenario.userIds[1]],
+      );
+      expect(record).toEqual({
+        created_at: noon,
+        drawn_at: noon,
+        updated_at: noon,
+      });
+      expect(clock.now).toHaveBeenCalledTimes(1);
+    } finally {
+      if (blocker.isTransactionActive) await blocker.rollbackTransaction();
+      await result;
+      await blocker.release();
+    }
   });
 
   it('stops awarding a prize after its Shanghai half-day limit is reached', async () => {

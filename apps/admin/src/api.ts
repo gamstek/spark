@@ -1,3 +1,8 @@
+import {
+  AdminActivityDetailSchema,
+  AdminActivityListSchema,
+} from '@spark/contracts';
+
 let csrfToken = '';
 export function setCsrf(value: string) {
   csrfToken = value;
@@ -30,5 +35,13 @@ export async function api<T = unknown>(
   }
   if (!response.ok)
     throw new Error((await response.text()) || `HTTP_${response.status}`);
-  return response.json() as Promise<T>;
+  let data: unknown = await response.json();
+  if ((init.method ?? 'GET').toUpperCase() === 'GET') {
+    const pathname = path.split('?')[0]!.replace(/\/$/, '');
+    if (pathname === 'admin/activities')
+      data = AdminActivityListSchema.parse(data);
+    else if (/^admin\/activities\/[^/]+$/.test(pathname))
+      data = AdminActivityDetailSchema.parse(data);
+  }
+  return data as T;
 }

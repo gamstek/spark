@@ -1,3 +1,4 @@
+import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect, type Page } from '@playwright/test';
 import { test } from './admin-test';
 
@@ -19,6 +20,7 @@ async function mockPrizePage(
   await page.route('**/api/admin/activities/a1', (route) =>
     route.fulfill({
       json: {
+        ...adminActivityDefaults,
         id: 'a1',
         published_version_id: 'v1',
         status: 'RUNNING',

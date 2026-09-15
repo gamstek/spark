@@ -1,3 +1,4 @@
+import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect, type Page } from '@playwright/test';
 import { test } from './admin-test';
 
@@ -320,6 +321,7 @@ for (const viewport of viewports) {
       await page.route('**/api/admin/activities/long-activity', (route) =>
         route.fulfill({
           json: {
+            ...adminActivityDefaults,
             name,
             code: 'long-activity',
             revision: 1,
@@ -336,6 +338,7 @@ for (const viewport of viewports) {
         route.fulfill({
           json: [
             {
+              ...adminActivityDefaults,
               id: 'long-activity',
               name,
               code: 'shanghai-international-brand-autumn-product-launch-and-city-lifestyle-experience',

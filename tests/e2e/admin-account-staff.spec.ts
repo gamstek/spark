@@ -1,3 +1,4 @@
+import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect, type Locator } from '@playwright/test';
 import { test } from './admin-test';
 
@@ -107,6 +108,7 @@ test('staff settings preserve activity grants and password reset before enabling
     route.fulfill({
       json: [
         {
+          ...adminActivityDefaults,
           id: 'activity-1',
           name: '上海展会抽奖',
           code: 'expo',
@@ -270,6 +272,7 @@ test('creates staff inside a dialog and retains input on failure', async ({
     r.fulfill({
       json: [
         {
+          ...adminActivityDefaults,
           id: 'activity-1',
           name: '上海展会抽奖',
           code: 'expo',
