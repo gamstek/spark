@@ -7,7 +7,13 @@ import { APP_CLOCK, type Clock, systemClock } from '../common/clock.js';
 
 type LegacyClock = () => Date;
 
-type ActivityStatusRow = {
+type LifecycleScheduleRow = {
+  lifecycle_starts_at: Date | string;
+  lifecycle_draw_ends_at: Date | string;
+  lifecycle_ends_at: Date | string;
+};
+
+type ActivityStatusRow = LifecycleScheduleRow & {
   id: string;
   code: string;
   name: string;
@@ -28,7 +34,7 @@ type ActivityDetailRow = ActivityStatusRow & {
   redeem_ends_at: Date | string;
 };
 
-export type AdminActivityView<T> = T & {
+export type AdminActivityView<T> = Omit<T, keyof LifecycleScheduleRow> & {
   status: ActivityStatus;
   serverNow: string;
 };
@@ -79,14 +85,14 @@ export class ActivitiesService {
   ) {}
   async list() {
     const rows = await this.dataSource.query<ActivityStatusRow[]>(
-      `SELECT a.id,a.code,a.name,a.revision,a.published_version_id,a.draft_version_id,a.paused_at,v.starts_at,v.draw_ends_at,v.ends_at FROM activity a LEFT JOIN activity_version v ON v.id=COALESCE(a.draft_version_id,a.published_version_id) ORDER BY a.created_at DESC`,
+      `SELECT a.id,a.code,a.name,a.revision,a.published_version_id,a.draft_version_id,a.paused_at,editable.starts_at,editable.draw_ends_at,editable.ends_at,lifecycle.starts_at AS lifecycle_starts_at,lifecycle.draw_ends_at AS lifecycle_draw_ends_at,lifecycle.ends_at AS lifecycle_ends_at FROM activity a LEFT JOIN activity_version editable ON editable.id=COALESCE(a.draft_version_id,a.published_version_id) LEFT JOIN activity_version lifecycle ON lifecycle.id=COALESCE(a.published_version_id,a.draft_version_id) ORDER BY a.created_at DESC`,
     );
     const now = this.now();
     return rows.map((row) => this.toAdminActivityView(row, now));
   }
   async get(activityId: string) {
     const rows = await this.dataSource.query<ActivityDetailRow[]>(
-      `SELECT a.id,a.code,a.name,a.revision,a.published_version_id,a.draft_version_id,a.paused_at,v.version,v.template_id,v.template_version,v.config,v.starts_at,v.draw_ends_at,v.ends_at,v.redeem_ends_at FROM activity a LEFT JOIN activity_version v ON v.id=COALESCE(a.draft_version_id,a.published_version_id) WHERE a.id=$1`,
+      `SELECT a.id,a.code,a.name,a.revision,a.published_version_id,a.draft_version_id,a.paused_at,editable.version,editable.template_id,editable.template_version,editable.config,editable.starts_at,editable.draw_ends_at,editable.ends_at,editable.redeem_ends_at,lifecycle.starts_at AS lifecycle_starts_at,lifecycle.draw_ends_at AS lifecycle_draw_ends_at,lifecycle.ends_at AS lifecycle_ends_at FROM activity a LEFT JOIN activity_version editable ON editable.id=COALESCE(a.draft_version_id,a.published_version_id) LEFT JOIN activity_version lifecycle ON lifecycle.id=COALESCE(a.published_version_id,a.draft_version_id) WHERE a.id=$1`,
       [activityId],
     );
     if (!rows[0]) throw new Error('ACTIVITY_NOT_FOUND');
@@ -243,14 +249,20 @@ export class ActivitiesService {
     row: T,
     now: Date,
   ): AdminActivityView<T> {
+    const {
+      lifecycle_starts_at,
+      lifecycle_draw_ends_at,
+      lifecycle_ends_at,
+      ...activity
+    } = row;
     return {
-      ...row,
+      ...activity,
       status: deriveActivityStatus(
         {
           publishedVersionId: row.published_version_id,
-          startsAt: new Date(row.starts_at),
-          drawEndsAt: new Date(row.draw_ends_at),
-          endsAt: new Date(row.ends_at),
+          startsAt: new Date(lifecycle_starts_at),
+          drawEndsAt: new Date(lifecycle_draw_ends_at),
+          endsAt: new Date(lifecycle_ends_at),
           pausedAt: row.paused_at ? new Date(row.paused_at) : null,
         },
         now,

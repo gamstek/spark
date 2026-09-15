@@ -7,7 +7,7 @@ import {
 } from '@nestjs/platform-fastify';
 import type { ActivityFormAnswers } from '@spark/contracts';
 import { DataSource } from 'typeorm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ActivitiesService } from '../src/activities/activities.service.js';
 import { PublishService } from '../src/activities/publish.service.js';
 import { AccountsService } from '../src/auth/accounts.service.js';
@@ -45,7 +45,25 @@ describe('admin operations', () => {
       redeemEndsAt: new Date('2026-09-16T12:00:00.000Z'),
       pausedAt: new Date('2026-09-15T10:30:00.000Z'),
     });
-    const clock = { now: () => fixedNow };
+    const draftVersionId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO activity_version (id, activity_id, version, status, template_id, template_version, config_schema_version, config, starts_at, draw_ends_at, ends_at, redeem_ends_at, activity_name)
+       VALUES ($1, $2, 2, 'DRAFT', 'exhibition-lottery', 1, 1, '{}', $3, $4, $5, $6, '待发布修改')`,
+      [
+        draftVersionId,
+        fixture.activityId,
+        new Date('2026-09-15T10:00:00.000Z'),
+        new Date('2026-09-15T12:30:00.000Z'),
+        new Date('2026-09-15T13:00:00.000Z'),
+        new Date('2026-09-16T12:00:00.000Z'),
+      ],
+    );
+    await database.dataSource.query(
+      `UPDATE activity SET draft_version_id=$1 WHERE id=$2`,
+      [draftVersionId, fixture.activityId],
+    );
+    const now = vi.fn(() => fixedNow);
+    const clock = { now };
     const activities = new ActivitiesService(database.dataSource, clock);
     const draft = await activities.create({
       name: '已开始的草稿活动',
@@ -59,9 +77,12 @@ describe('admin operations', () => {
     });
 
     const list = await activities.list();
+    expect(now).toHaveBeenCalledTimes(1);
     const listItem = list.find((item) => item.id === fixture.activityId);
     const detail = await activities.get(fixture.activityId);
+    expect(now).toHaveBeenCalledTimes(2);
     const draftDetail = await activities.get(draft.id);
+    expect(now).toHaveBeenCalledTimes(3);
 
     expect(listItem).toMatchObject({
       id: fixture.activityId,
@@ -70,9 +91,13 @@ describe('admin operations', () => {
     });
     expect(detail).toMatchObject({
       id: fixture.activityId,
+      version: 2,
       status: 'DRAW_ENDED',
       serverNow: fixedNow.toISOString(),
     });
+    expect(new Date(detail.draw_ends_at)).toEqual(
+      new Date('2026-09-15T12:30:00.000Z'),
+    );
     expect(draftDetail).toMatchObject({
       id: draft.id,
       status: 'DRAFT',
