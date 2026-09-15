@@ -1,11 +1,51 @@
 import { expect } from '@playwright/test';
 import { test } from './admin-test';
 
+test('keeps the activity list and detail status consistent after drawing ends', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date('2019-12-31T00:00:00Z') });
+  await page.route('**/api/admin/auth/me', (route) =>
+    route.fulfill({ json: { csrfToken: 'csrf' } }),
+  );
+  const activity = {
+    id: 'draw-ended',
+    name: '秋季抽奖',
+    code: 'autumn-draw',
+    revision: 1,
+    published_version_id: 'version-1',
+    starts_at: '2020-01-01T00:00:00Z',
+    draw_ends_at: '2020-01-02T00:00:00Z',
+    ends_at: '2099-01-03T00:00:00Z',
+    redeem_ends_at: '2099-01-04T00:00:00Z',
+    paused_at: null,
+    status: 'DRAW_ENDED',
+    serverNow: '2026-09-15T08:00:00.000Z',
+    config: {},
+  };
+  await page.route('**/api/admin/activities', (route) =>
+    route.fulfill({ json: [activity] }),
+  );
+  await page.route('**/api/admin/activities/draw-ended', (route) =>
+    route.fulfill({ json: activity }),
+  );
+
+  await page.goto('/admin/activities');
+  await expect(page.getByRole('row', { name: /秋季抽奖/ })).toContainText(
+    '抽奖已结束',
+  );
+  await page.goto('/admin/activities/draw-ended');
+  await expect(page.getByRole('region', { name: '发布状态' })).toContainText(
+    '抽奖已结束',
+  );
+});
+
 test('logs in and creates the only supported activity template', async ({
   page,
 }) => {
   let prizeCreated = false;
   let published = false;
+  let drawRules: unknown;
   await page.route('**/api/admin/auth/login', (r) =>
     r.fulfill({ json: { id: 'admin', role: 'ADMIN' } }),
   );
@@ -28,13 +68,16 @@ test('logs in and creates the only supported activity template', async ({
         code: 'generated1',
         revision: 0,
         published_version_id: published ? 'version-1' : null,
+        status: published ? 'UPCOMING' : 'DRAFT',
+        serverNow: '2026-09-15T08:00:00.000Z',
         starts_at: '2099-09-17T02:49:00Z',
         draw_ends_at: '2099-09-18T02:49:00Z',
         ends_at: '2099-09-26T02:49:00Z',
         redeem_ends_at: '2099-09-30T02:49:00Z',
         config: {
           requireSubscribe: true,
-          noPrizeWeight: 1,
+          winningProbability: 0,
+          halfDayPrizeLimits: {},
           heroAssetId: 'hero',
           rulesText: '数量有限，先到先得',
         },
@@ -55,6 +98,7 @@ test('logs in and creates the only supported activity template', async ({
         ? [
             {
               id: 'prize-1',
+              prize_level: '一等奖',
               prize_name: '展会礼盒',
               total_stock: 20,
               awarded_stock: 0,
@@ -64,6 +108,13 @@ test('logs in and creates the only supported activity template', async ({
         : [],
     });
   });
+  await page.route(
+    '**/api/admin/prizes/activities/created/draw-rules',
+    (route) => {
+      drawRules = route.request().postDataJSON();
+      return route.fulfill({ json: drawRules });
+    },
+  );
   await page.goto('/admin/login');
   await page.getByLabel('管理员账号').fill('admin');
   await page.getByLabel('密码', { exact: true }).fill('password');
@@ -71,34 +122,63 @@ test('logs in and creates the only supported activity template', async ({
   await page.getByRole('link', { name: '新建活动' }).click();
   await expect(page.getByRole('region', { name: '发布状态' })).toBeVisible();
   await expect(page.getByRole('button', { name: '保存草稿' })).toHaveClass(
-    /rt-variant-ghost/,
+    /rt-variant-outline/,
   );
   await expect(page.locator('.editor-form-content .rt-Card')).toHaveCount(0);
-  await expect(page.locator('.required-field-mark')).toHaveCount(7);
+  await expect(page.locator('.required-field-mark')).toHaveCount(6);
   await page.getByPlaceholder('活动名称').fill('展会活动');
-  await page.getByPlaceholder('主图资源 ID').fill('hero');
   await page.getByPlaceholder('活动规则').fill('数量有限，先到先得');
-  await page.locator('[name="startsAt"]').fill('2026-09-17T10:49');
-  await page.locator('[name="drawEndsAt"]').fill('2026-09-15T10:49');
-  await page.locator('[name="endsAt"]').fill('2026-09-26T10:49');
-  await page.locator('[name="redeemEndsAt"]').fill('2026-09-30T10:49');
+  await page.getByRole('button', { name: '活动开始：选择日期和时间' }).click();
+  await expect(page.locator('.rdp-root')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: '小时' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  for (const [name, value] of Object.entries({
+    startsAt: '2026-09-17T10:49',
+    drawEndsAt: '2026-09-15T10:49',
+    endsAt: '2026-09-26T10:49',
+    redeemEndsAt: '2026-09-30T10:49',
+  })) {
+    await page.locator(`[name="${name}"]`).evaluate((input, nextValue) => {
+      (input as HTMLInputElement).value = nextValue;
+    }, value);
+  }
   await page.getByRole('button', { name: '保存草稿' }).click();
   await expect(
     page.getByText('抽奖截止时间必须晚于活动开始时间。'),
   ).toBeVisible();
+  await expect(page.locator('.notification-viewport')).toContainText(
+    '抽奖截止时间必须晚于活动开始时间。',
+  );
 
-  await page.locator('[name="drawEndsAt"]').fill('2026-09-18T10:49');
+  for (const [name, value] of Object.entries({
+    startsAt: '2026-09-17T10:49',
+    drawEndsAt: '2026-09-18T10:49',
+    endsAt: '2026-09-26T10:49',
+    redeemEndsAt: '2026-09-30T10:49',
+  })) {
+    await page.locator(`[name="${name}"]`).evaluate((input, nextValue) => {
+      (input as HTMLInputElement).value = nextValue;
+    }, value);
+  }
   await page.getByRole('button', { name: '保存草稿' }).click();
   await expect(page).toHaveURL(/\/admin\/activities\/created$/);
   await expect(page.getByText('活动地址：/activity/generated1')).toBeVisible();
   await expect(page.getByRole('navigation', { name: '活动功能' })).toHaveCount(
     1,
   );
-  await expect(page.locator('main .activity-navigation')).toHaveCount(0);
+  await expect(page.locator('main .activity-navigation')).toHaveCount(1);
   await expect(page.locator('.workspace-context')).toContainText('展会活动');
   await expect(page.locator('main .rt-Button.rt-variant-solid')).toHaveText([
     '发布活动',
   ]);
+  const publicationButtonWidths = await page
+    .locator('.editor-action-buttons > .rt-Button')
+    .evaluateAll((buttons) =>
+      buttons.map((button) => button.getBoundingClientRect().width),
+    );
+  expect(
+    Math.max(...publicationButtonWidths) - Math.min(...publicationButtonWidths),
+  ).toBeLessThan(1);
 
   await page.getByRole('navigation', { name: '活动功能' }).evaluate((node) => {
     (window as typeof window & { activityNavNode?: Element }).activityNavNode =
@@ -117,7 +197,7 @@ test('logs in and creates the only supported activity template', async ({
             .activityNavNode === node,
       ),
   ).toBe(true);
-  await page.getByLabel('奖项等级').fill('一等奖');
+  await expect(page.getByText('一等奖', { exact: true })).toBeVisible();
   await page.getByLabel('奖品名称').fill('展会礼盒');
   await page.getByLabel('奖品图片').setInputFiles({
     name: 'prize.png',
@@ -128,21 +208,34 @@ test('logs in and creates the only supported activity template', async ({
     ),
   });
   await page.getByLabel('初始库存').fill('20');
-  await page.getByLabel('抽奖权重').fill('1');
   await page.getByRole('button', { name: '新增奖项' }).click();
   await expect(page.getByText('奖项已新增')).toBeVisible();
   expect(prizeCreated).toBe(true);
   await expect(page.locator('.ghost-table')).toHaveCount(1);
   await expect(page.locator('.rt-Card table')).toHaveCount(0);
+  await page.getByLabel('中奖概率').fill('35');
+  await page.getByLabel('一等奖半天中奖数量').fill('4');
+  await page.getByRole('button', { name: '保存抽奖规则' }).click();
+  await expect(page.getByText('抽奖规则已保存')).toBeVisible();
+  await expect(page.getByRole('button', { name: '保存抽奖规则' })).toHaveClass(
+    /rt-variant-solid/,
+  );
+  await expect(page.locator('.notification-viewport')).toContainText(
+    '抽奖规则已保存',
+  );
+  expect(drawRules).toEqual({
+    winningProbability: 35,
+    halfDayPrizeLimits: { 'prize-1': 4 },
+  });
 
   await page.getByRole('link', { name: '活动设置' }).click();
   await page.getByRole('button', { name: '发布活动' }).click();
   await expect(page.getByText('活动已发布', { exact: true })).toBeVisible();
   expect(published).toBe(true);
   await expect(page.getByRole('region', { name: '发布状态' })).toContainText(
-    '已发布',
+    '未开始',
   );
-  await expect(page.locator('.workspace-context')).toContainText('已发布');
+  await expect(page.locator('.workspace-context')).toContainText('未开始');
   await page.screenshot({
     path: 'test-results/activity-editor-desktop.png',
     fullPage: true,
@@ -167,11 +260,9 @@ test('logs in and creates the only supported activity template', async ({
     path: 'test-results/activity-editor-mobile.png',
     fullPage: true,
   });
-  await page.getByRole('button', { name: '打开导航' }).click();
   await page.getByRole('link', { name: '奖品与库存' }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/prizes$/);
-  await expect(page.getByRole('dialog')).toBeHidden();
 });
 
 test('shows revision conflicts while editing a future activity', async ({
@@ -191,13 +282,16 @@ test('shows revision conflicts while editing a future activity', async ({
         code: 'running',
         revision: 2,
         published_version_id: 'v1',
+        status: 'UPCOMING',
+        serverNow: '2026-09-15T08:00:00.000Z',
         starts_at: '2099-01-01T00:00:00Z',
         draw_ends_at: '2099-01-02T00:00:00Z',
         ends_at: '2099-01-03T00:00:00Z',
         redeem_ends_at: '2099-01-04T00:00:00Z',
         config: {
           requireSubscribe: true,
-          noPrizeWeight: 1,
+          winningProbability: 0,
+          halfDayPrizeLimits: {},
           heroAssetId: 'hero',
           rulesText: 'rules',
         },
@@ -206,10 +300,10 @@ test('shows revision conflicts while editing a future activity', async ({
   );
   await page.goto('/admin/activities/a1');
   await expect(page.getByRole('region', { name: '发布状态' })).toContainText(
-    '已发布',
+    '未开始',
   );
   await expect(page.getByRole('button', { name: '保存草稿' })).toHaveClass(
-    /rt-variant-ghost/,
+    /rt-variant-outline/,
   );
   await expect(page.locator('main .rt-Button.rt-variant-solid')).toHaveText([
     '发布活动',
@@ -242,6 +336,8 @@ test('locks a running activity', async ({ page }) => {
         code: 'running',
         revision: 2,
         published_version_id: 'v1',
+        status: 'RUNNING',
+        serverNow: '2026-09-15T08:00:00.000Z',
         starts_at: '2020-01-01T00:00:00Z',
         draw_ends_at: '2099-01-01T00:00:00Z',
       },
@@ -249,7 +345,7 @@ test('locks a running activity', async ({ page }) => {
   );
   await page.goto('/admin/activities/a1');
   await expect(page.getByText('活动已经开始')).toBeVisible();
-  await expect(page.getByPlaceholder('主图资源 ID')).toBeDisabled();
+  await expect(page.getByText('主图资源 ID')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '保存草稿' })).toBeDisabled();
   await expect(
     page.getByRole('button', { name: '提前结束抽奖' }),
@@ -288,6 +384,8 @@ test('provides a responsive navigation shell and directed empty state', async ({
           published_version_id: null,
           starts_at: null,
           ends_at: null,
+          status: 'DRAFT',
+          serverNow: '2026-09-15T08:00:00.000Z',
         },
       ],
     }),
@@ -408,6 +506,8 @@ test('confirms before ending an activity draw', async ({ page }) => {
         code: 'running',
         revision: 2,
         published_version_id: 'v1',
+        status: ended ? 'DRAW_ENDED' : 'RUNNING',
+        serverNow: '2026-09-15T08:00:00.000Z',
         starts_at: '2020-01-01T00:00:00Z',
         draw_ends_at: ended ? '2020-01-02T00:00:00Z' : '2099-01-01T00:00:00Z',
       },
@@ -426,6 +526,75 @@ test('confirms before ending an activity draw', async ({ page }) => {
   await expect(page.getByRole('button', { name: '提前结束抽奖' })).toBeHidden();
 });
 
+test('pauses and resumes a running activity', async ({ page }, testInfo) => {
+  let paused = false;
+  await page.route('**/api/admin/auth/me', (route) =>
+    route.fulfill({ json: { csrfToken: 'csrf' } }),
+  );
+  await page.route('**/api/admin/activities/a1/pause', (route) => {
+    paused = true;
+    return route.fulfill({ json: { success: true } });
+  });
+  await page.route('**/api/admin/activities/a1/resume', (route) => {
+    paused = false;
+    return route.fulfill({ json: { success: true } });
+  });
+  await page.route('**/api/admin/activities/a1', (route) =>
+    route.fulfill({
+      json: {
+        id: 'a1',
+        name: '运行活动',
+        code: 'running',
+        revision: 2,
+        published_version_id: 'v1',
+        status: paused ? 'PAUSED' : 'RUNNING',
+        serverNow: '2026-09-15T08:00:00.000Z',
+        paused_at: paused ? '2026-09-15T06:00:00Z' : null,
+        starts_at: '2020-01-01T00:00:00Z',
+        draw_ends_at: '2099-01-01T00:00:00Z',
+      },
+    }),
+  );
+
+  await page.goto('/admin/activities/a1');
+  await page.getByRole('button', { name: '暂停活动' }).click();
+  await expect(page.getByRole('alertdialog')).toContainText(
+    '暂停期间不会接受新的参与和抽奖',
+  );
+  await expect
+    .poll(async () => {
+      const cancel = await page
+        .getByRole('button', { name: '取消' })
+        .boundingBox();
+      const confirm = await page
+        .getByRole('button', { name: '确认暂停活动' })
+        .boundingBox();
+      if (!cancel || !confirm) return Number.POSITIVE_INFINITY;
+      return Math.max(
+        Math.abs(cancel.y - confirm.y),
+        Math.abs(cancel.height - confirm.height),
+      );
+    })
+    .toBeLessThanOrEqual(1);
+  await page.getByRole('button', { name: '确认暂停活动' }).click();
+  await expect(page.getByText('活动已暂停', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '恢复活动' })).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('paused-activity-desktop.png'),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('button', { name: '恢复活动' })).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('paused-activity-mobile.png'),
+    fullPage: true,
+  });
+
+  await page.getByRole('button', { name: '恢复活动' }).click();
+  await expect(page.getByText('活动已恢复', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '暂停活动' })).toBeVisible();
+});
+
 test('adds inventory through a labeled dialog', async ({ page }) => {
   await page.route('**/api/admin/auth/me', (route) =>
     route.fulfill({ json: { csrfToken: 'csrf' } }),
@@ -435,6 +604,8 @@ test('adds inventory through a labeled dialog', async ({ page }) => {
       json: {
         id: 'a1',
         published_version_id: 'v1',
+        status: 'RUNNING',
+        serverNow: '2026-09-15T08:00:00.000Z',
         starts_at: '2020-01-01T00:00:00Z',
       },
     }),
@@ -462,15 +633,84 @@ test('adds inventory through a labeled dialog', async ({ page }) => {
   await expect(
     page.getByRole('button', { name: '奖品操作：定制礼盒' }),
   ).toHaveClass(/rt-variant-ghost/);
-  await expect(page.getByRole('button', { name: '保存设置' })).toHaveClass(
-    /rt-variant-ghost/,
+  await expect(page.getByRole('button', { name: '保存抽奖规则' })).toHaveClass(
+    /rt-variant-solid/,
   );
   await page.getByRole('button', { name: '奖品操作：定制礼盒' }).click();
   await page.getByRole('menuitem', { name: '添加库存' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByLabel('增加数量').fill('5');
+  await expect
+    .poll(async () => {
+      const cancel = await page
+        .getByRole('button', { name: '取消' })
+        .boundingBox();
+      const confirm = await page
+        .getByRole('button', { name: '确认添加' })
+        .boundingBox();
+      if (!cancel || !confirm) return Number.POSITIVE_INFINITY;
+      return Math.abs(cancel.y - confirm.y);
+    })
+    .toBeLessThanOrEqual(1);
   await page.getByRole('button', { name: '确认添加' }).click();
   await expect(page.getByText('库存已添加')).toBeVisible();
+});
+
+test('allows adding a fourth prize and shows its draw-limit rule', async ({
+  page,
+}, testInfo) => {
+  await page.route('**/api/admin/auth/me', (route) =>
+    route.fulfill({ json: { csrfToken: 'csrf' } }),
+  );
+  await page.route('**/api/admin/activities/a1', (route) =>
+    route.fulfill({
+      json: {
+        id: 'a1',
+        revision: 1,
+        published_version_id: null,
+        status: 'DRAFT',
+        serverNow: '2026-09-15T08:00:00.000Z',
+        starts_at: '2099-01-01T00:00:00Z',
+        config: { winningProbability: 0, halfDayPrizeLimits: {} },
+      },
+    }),
+  );
+  await page.route('**/api/admin/prizes/activities/a1', (route) =>
+    route.fulfill({
+      json: ['一', '二', '三'].map((level, index) => ({
+        id: `p${index + 1}`,
+        prize_level: `${level}等奖`,
+        prize_name: `奖品 ${index + 1}`,
+        prize_image_url: null,
+        total_stock: 10,
+        awarded_stock: 0,
+      })),
+    }),
+  );
+
+  await page.goto('/admin/activities/a1/prizes');
+
+  await expect(page.getByText('第4等奖', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新增奖项' })).toBeEnabled();
+  await expect(page.locator('.prize-create-panel')).toBeVisible();
+  await expect(page.locator('.draw-rules-probability')).toContainText('%');
+  await expect(page.locator('.draw-rule-list')).toContainText(
+    '一等奖半天中奖数量',
+  );
+  await page.screenshot({
+    path: testInfo.outputPath('draw-rules-desktop.png'),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('draw-rules-mobile.png'),
+    fullPage: true,
+  });
 });
 
 test('shows operational loading, empty, status, and export states', async ({
@@ -487,6 +727,8 @@ test('shows operational loading, empty, status, and export states', async ({
         code: 'expo',
         revision: 1,
         published_version_id: null,
+        status: 'DRAFT',
+        serverNow: '2026-09-15T08:00:00.000Z',
       },
     }),
   );

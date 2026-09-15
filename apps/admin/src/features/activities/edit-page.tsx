@@ -6,12 +6,19 @@ import {
   Text,
   TextField,
 } from '@radix-ui/themes';
+import type { ActivityStatus } from '@spark/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { api } from '../../api';
 import { updateActivityContext } from '../../components/activity-nav';
-import { FeedbackCallout, LoadingState } from '../../components/feedback';
+import { DateTimePicker } from '../../components/date-time-picker';
+import {
+  FeedbackCallout,
+  LoadingState,
+  Notification,
+  NotificationViewport,
+} from '../../components/feedback';
 import { PageHeader } from '../../components/page-header';
 import { RequiredFieldMark } from '../../components/required-field-mark';
 import { StatusBadge } from '../../components/status-badge';
@@ -23,6 +30,7 @@ import {
   getActivityScheduleError,
   type ActivitySchedule,
 } from './schedule-validation';
+import { getActivityActions } from './activity-status';
 
 type Detail = {
   name: string;
@@ -34,6 +42,8 @@ type Detail = {
   redeem_ends_at?: string;
   config?: Record<string, unknown>;
   published_version_id?: string | null;
+  status: ActivityStatus;
+  serverNow: string;
 };
 
 const scheduleFields = [
@@ -53,14 +63,6 @@ const toShanghaiInput = (value?: string) =>
 const fromShanghaiInput = (value: FormDataEntryValue | null) =>
   `${String(value)}:00+08:00`;
 
-const readBase64 = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
-    reader.readAsDataURL(file);
-  });
-
 export function ActivityEditPage() {
   const { id = 'new' } = useParams();
   const navigate = useNavigate();
@@ -68,25 +70,20 @@ export function ActivityEditPage() {
   const [loading, setLoading] = useState(id !== 'new');
   const [saving, setSaving] = useState(false);
   const [endingDraw, setEndingDraw] = useState(false);
+  const [changingRuntimeState, setChangingRuntimeState] = useState(false);
   const savingRef = useRef(false);
   const [message, setMessage] = useState('');
   const [tone, setTone] = useState<'success' | 'error' | 'warning' | 'info'>(
     'info',
   );
 
-  const locked = Boolean(
-    detail?.published_version_id &&
-    detail.starts_at &&
-    new Date(detail.starts_at) <= new Date(),
-  );
-  const now = Date.now();
-  const canEndDraw = Boolean(
-    detail?.published_version_id &&
-    detail.starts_at &&
-    new Date(detail.starts_at).getTime() <= now &&
-    detail.draw_ends_at &&
-    new Date(detail.draw_ends_at).getTime() > now,
-  );
+  const activityStatus = detail?.status ?? 'DRAFT';
+  const { canPause, canResume, canEndDraw } =
+    getActivityActions(activityStatus);
+  const locked = !['DRAFT', 'UPCOMING'].includes(activityStatus);
+  const paused = activityStatus === 'PAUSED';
+  const drawEnded = activityStatus === 'DRAW_ENDED';
+  const activityEnded = activityStatus === 'ENDED';
 
   async function loadDetail() {
     if (!id || id === 'new') return;
@@ -110,8 +107,6 @@ export function ActivityEditPage() {
     savingRef.current = true;
     setSaving(true);
     setMessage('');
-    let uploadingHero = false;
-
     try {
       const form = new FormData(event.currentTarget);
       const schedule = Object.fromEntries(
@@ -123,13 +118,11 @@ export function ActivityEditPage() {
         setMessage(scheduleError);
         return;
       }
-      let heroAssetId = form.get('heroAssetId');
-      const heroFile = form.get('heroFile');
-      const hasHeroFile = heroFile instanceof File && heroFile.size > 0;
       const configFields = {
+        ...detail?.config,
         requireSubscribe: true,
-        noPrizeWeight: Number(detail?.config?.noPrizeWeight ?? 1),
-        heroAssetId: heroAssetId || (hasHeroFile ? 'pending-upload' : ''),
+        winningProbability: Number(detail?.config?.winningProbability ?? 0),
+        halfDayPrizeLimits: detail?.config?.halfDayPrizeLimits ?? {},
         rulesText: form.get('rulesText'),
       };
       const configError = getLotteryConfigError(configFields);
@@ -138,22 +131,7 @@ export function ActivityEditPage() {
         setMessage(configError);
         return;
       }
-      if (hasHeroFile) {
-        uploadingHero = true;
-        const uploaded = await api<{ id: string }>('admin/media', {
-          method: 'POST',
-          body: JSON.stringify({
-            fileName: heroFile.name,
-            contentBase64: await readBase64(heroFile),
-          }),
-        });
-        heroAssetId = uploaded.id;
-        uploadingHero = false;
-      }
-      const config = {
-        ...configFields,
-        heroAssetId,
-      };
+      const config = configFields;
 
       if (id === 'new') {
         const created = await api<{ id: string }>('admin/activities', {
@@ -201,11 +179,9 @@ export function ActivityEditPage() {
     } catch (error) {
       setTone('error');
       setMessage(
-        uploadingHero
-          ? '主图上传失败，请检查图片格式、大小和网络后重试。'
-          : String(error).includes('VERSION_CONFLICT')
-            ? '版本已被其他人修改，请刷新后重试'
-            : '保存失败，请检查配置',
+        String(error).includes('VERSION_CONFLICT')
+          ? '版本已被其他人修改，请刷新后重试'
+          : '保存失败，请检查配置',
       );
     } finally {
       savingRef.current = false;
@@ -243,6 +219,29 @@ export function ActivityEditPage() {
     }
   }
 
+  async function changeRuntimeState(nextPaused: boolean) {
+    if (changingRuntimeState) return;
+    setChangingRuntimeState(true);
+    setMessage('');
+    try {
+      await api(`admin/activities/${id}/${nextPaused ? 'pause' : 'resume'}`, {
+        method: 'POST',
+      });
+      await loadDetail();
+      setTone(nextPaused ? 'warning' : 'success');
+      setMessage(nextPaused ? '活动已暂停' : '活动已恢复');
+    } catch {
+      setTone('error');
+      setMessage(
+        nextPaused
+          ? '暂停失败，活动可能已经暂停或结束。'
+          : '恢复失败，活动可能已经恢复或结束。',
+      );
+    } finally {
+      setChangingRuntimeState(false);
+    }
+  }
+
   if (loading) return <LoadingState label="正在加载活动配置" />;
 
   return (
@@ -259,16 +258,20 @@ export function ActivityEditPage() {
           message="活动已经开始，模板、规则、时间和奖项配置已锁定。"
         />
       )}
-      {message && (
-        <FeedbackCallout
-          tone={tone}
-          message={message}
-        />
-      )}
+      <NotificationViewport>
+        {message && (
+          <Notification
+            tone={tone}
+            message={message}
+            onDismiss={() => setMessage('')}
+          />
+        )}
+      </NotificationViewport>
 
       <form
         className="editor-form"
         onSubmit={submit}
+        noValidate
       >
         <div className="editor-form-content">
           <section className="form-section activity-form-section">
@@ -384,13 +387,10 @@ export function ActivityEditPage() {
                         {description}
                       </Text>
                     </label>
-                    <TextField.Root
-                      size="2"
-                      variant="soft"
-                      color="gray"
+                    <DateTimePicker
                       id={name}
                       name={name}
-                      type="datetime-local"
+                      label={label}
                       defaultValue={toShanghaiInput(source)}
                       required
                       disabled={locked}
@@ -403,9 +403,16 @@ export function ActivityEditPage() {
         </div>
 
         <section
-          className="editor-action-bar"
+          className="editor-action-bar publication-status-panel"
           aria-label="发布状态"
         >
+          <Text
+            className="publication-status-caption"
+            size="1"
+            color="gray"
+          >
+            活动上线
+          </Text>
           <Flex
             justify="between"
             align="center"
@@ -417,13 +424,11 @@ export function ActivityEditPage() {
             >
               发布状态
             </Heading>
-            <StatusBadge
-              status={detail?.published_version_id ? '已发布' : '草稿'}
-            />
+            <StatusBadge status={activityStatus} />
           </Flex>
           <div className="editor-action-summary">
             <span
-              className={`editor-state-dot${locked ? ' is-live' : ''}`}
+              className={`editor-state-dot${paused ? ' is-paused' : locked ? ' is-live' : ''}`}
               aria-hidden="true"
             />
             <div>
@@ -432,22 +437,34 @@ export function ActivityEditPage() {
                 size="2"
                 weight="medium"
               >
-                {locked
-                  ? '活动已开始'
-                  : id === 'new'
-                    ? '准备保存活动'
-                    : '保存与发布'}
+                {activityEnded
+                  ? '活动已结束'
+                  : drawEnded
+                    ? '抽奖已结束'
+                    : locked
+                      ? paused
+                        ? '活动暂停中'
+                        : '活动已开始'
+                      : id === 'new'
+                        ? '准备保存活动'
+                        : '保存与发布'}
               </Text>
               <Text
                 as="p"
                 size="1"
                 color="gray"
               >
-                {locked
-                  ? '活动配置已锁定，可前往奖品页补充库存。'
-                  : id === 'new'
-                    ? '先保存基本配置，再设置奖品并发布。'
-                    : '保存当前修改后，即可发布给参与者。'}
+                {activityEnded
+                  ? '活动已结束，不再接受新的参与或抽奖。'
+                  : drawEnded
+                    ? '活动不再接受新的抽奖，已中奖用户仍可按原期限兑奖。'
+                    : locked
+                      ? paused
+                        ? '新参与和抽奖已停止，兑奖与后台运营不受影响。'
+                        : '活动配置已锁定，可暂停活动或前往奖品页补充库存。'
+                      : id === 'new'
+                        ? '先保存基本配置，再设置奖品并发布。'
+                        : '保存当前修改后，即可发布给参与者。'}
               </Text>
             </div>
           </div>
@@ -457,16 +474,6 @@ export function ActivityEditPage() {
             wrap="wrap"
             justify="end"
           >
-            <Button
-              type="submit"
-              size="2"
-              variant="ghost"
-              color="gray"
-              disabled={locked || saving}
-              loading={saving}
-            >
-              保存草稿
-            </Button>
             {id !== 'new' && (
               <Button
                 variant="solid"
@@ -478,54 +485,127 @@ export function ActivityEditPage() {
                 发布活动
               </Button>
             )}
+            <Button
+              type="submit"
+              size="2"
+              variant="outline"
+              color="gray"
+              disabled={locked || saving}
+              loading={saving}
+            >
+              保存草稿
+            </Button>
+            {(canPause || canResume) &&
+              (paused ? (
+                <Button
+                  type="button"
+                  variant="solid"
+                  color="jade"
+                  size="2"
+                  onClick={() => void changeRuntimeState(false)}
+                  loading={changingRuntimeState}
+                  disabled={changingRuntimeState || endingDraw}
+                >
+                  恢复活动
+                </Button>
+              ) : (
+                <AlertDialog.Root>
+                  <AlertDialog.Trigger>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      color="amber"
+                      size="2"
+                      disabled={changingRuntimeState || endingDraw}
+                    >
+                      暂停活动
+                    </Button>
+                  </AlertDialog.Trigger>
+                  <AlertDialog.Content maxWidth="460px">
+                    <AlertDialog.Title>确认暂停活动？</AlertDialog.Title>
+                    <AlertDialog.Description size="2">
+                      暂停期间不会接受新的参与和抽奖；已中奖用户仍可正常兑奖，活动截止时间不会顺延。
+                    </AlertDialog.Description>
+                    <Flex
+                      gap="3"
+                      mt="5"
+                      justify="end"
+                      align="center"
+                    >
+                      <AlertDialog.Cancel>
+                        <Button
+                          type="button"
+                          variant="soft"
+                          color="gray"
+                        >
+                          取消
+                        </Button>
+                      </AlertDialog.Cancel>
+                      <AlertDialog.Action>
+                        <Button
+                          type="button"
+                          variant="solid"
+                          color="amber"
+                          onClick={() => void changeRuntimeState(true)}
+                        >
+                          确认暂停活动
+                        </Button>
+                      </AlertDialog.Action>
+                    </Flex>
+                  </AlertDialog.Content>
+                </AlertDialog.Root>
+              ))}
             {id !== 'new' && canEndDraw && (
-              <AlertDialog.Root>
-                <AlertDialog.Trigger>
-                  <Button
-                    type="button"
-                    color="red"
-                    variant="outline"
-                    className="editor-danger-action"
-                    size="2"
-                    disabled={saving}
-                  >
-                    提前结束抽奖
-                  </Button>
-                </AlertDialog.Trigger>
-                <AlertDialog.Content maxWidth="460px">
-                  <AlertDialog.Title>确认提前结束抽奖？</AlertDialog.Title>
-                  <AlertDialog.Description size="2">
-                    结束后不会再产生新的中奖结果，现有中奖者仍可在兑奖期限内核销。
-                  </AlertDialog.Description>
-                  <Flex
-                    gap="3"
-                    mt="5"
-                    justify="end"
-                  >
-                    <AlertDialog.Cancel>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        color="gray"
-                      >
-                        取消
-                      </Button>
-                    </AlertDialog.Cancel>
-                    <AlertDialog.Action>
-                      <Button
-                        type="button"
-                        variant="solid"
-                        color="red"
-                        onClick={endDraw}
-                        loading={endingDraw}
-                        disabled={endingDraw}
-                      >
-                        确认结束抽奖
-                      </Button>
-                    </AlertDialog.Action>
-                  </Flex>
-                </AlertDialog.Content>
-              </AlertDialog.Root>
+              <div className="publication-danger-zone">
+                <AlertDialog.Root>
+                  <AlertDialog.Trigger>
+                    <Button
+                      type="button"
+                      color="red"
+                      variant="outline"
+                      className="editor-danger-action"
+                      size="2"
+                      disabled={saving}
+                    >
+                      提前结束抽奖
+                    </Button>
+                  </AlertDialog.Trigger>
+                  <AlertDialog.Content maxWidth="460px">
+                    <AlertDialog.Title>确认提前结束抽奖？</AlertDialog.Title>
+                    <AlertDialog.Description size="2">
+                      结束后不会再产生新的中奖结果，现有中奖者仍可在兑奖期限内核销。
+                    </AlertDialog.Description>
+                    <Flex
+                      gap="3"
+                      mt="5"
+                      justify="end"
+                      align="center"
+                    >
+                      <AlertDialog.Cancel>
+                        <Button
+                          type="button"
+                          variant="soft"
+                          color="gray"
+                        >
+                          取消
+                        </Button>
+                      </AlertDialog.Cancel>
+                      <AlertDialog.Action>
+                        <Button
+                          type="button"
+                          variant="solid"
+                          color="red"
+                          onClick={endDraw}
+                          loading={endingDraw}
+                          disabled={endingDraw}
+                        >
+                          确认结束抽奖
+                        </Button>
+                      </AlertDialog.Action>
+                    </Flex>
+                  </AlertDialog.Content>
+                </AlertDialog.Root>
+              </div>
             )}
           </Flex>
         </section>

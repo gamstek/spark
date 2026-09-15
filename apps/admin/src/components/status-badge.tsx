@@ -1,5 +1,8 @@
+import { ActivityStatusSchema } from '@spark/contracts';
 import { Badge } from '@radix-ui/themes';
 import type { ComponentProps, ReactNode } from 'react';
+
+import { getActivityStatusPresentation } from '../features/activities/activity-status';
 
 type BadgeColor = ComponentProps<typeof Badge>['color'];
 
@@ -14,6 +17,9 @@ const statusPresentation: Record<string, { label: string; color: BadgeColor }> =
     未开始: { label: '未开始', color: 'blue' },
     已发布: { label: '已发布', color: 'iris' },
     进行中: { label: '进行中', color: 'jade' },
+    已暂停: { label: '已暂停', color: 'amber' },
+    抽奖已结束: { label: '抽奖已结束', color: 'gray' },
+    活动已结束: { label: '活动已结束', color: 'gray' },
     已结束: { label: '已结束', color: 'gray' },
     已完成: { label: '已完成', color: 'jade' },
     处理中: { label: '处理中', color: 'amber' },
@@ -38,10 +44,13 @@ const statusPresentation: Record<string, { label: string; color: BadgeColor }> =
 
 export function StatusBadge({ status, children }: StatusBadgeProps) {
   const normalizedStatus = status.toLowerCase();
-  const presentation = statusPresentation[normalizedStatus] ?? {
-    label: status,
-    color: 'gray' as const,
-  };
+  const activityStatus = ActivityStatusSchema.safeParse(status);
+  const presentation = activityStatus.success
+    ? getActivityStatusPresentation(activityStatus.data)
+    : (statusPresentation[normalizedStatus] ?? {
+        label: status,
+        color: 'gray' as const,
+      });
 
   return (
     <Badge

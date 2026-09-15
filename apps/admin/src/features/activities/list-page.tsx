@@ -15,6 +15,7 @@ import {
   Text,
   TextField,
 } from '@radix-ui/themes';
+import type { ActivityStatus } from '@spark/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -24,6 +25,7 @@ import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
 import { PageHeader } from '../../components/page-header';
 import { StatusBadge } from '../../components/status-badge';
 import { TableRowActions } from '../../components/table-row-actions';
+import { getActivityStatusPresentation } from './activity-status';
 
 type Activity = {
   id: string;
@@ -31,18 +33,11 @@ type Activity = {
   name: string;
   published_version_id: string | null;
   starts_at: string | null;
+  draw_ends_at: string | null;
   ends_at: string | null;
+  status: ActivityStatus;
+  serverNow: string;
 };
-
-function statusOf(activity: Activity): string {
-  if (!activity.published_version_id) return '草稿';
-  const now = Date.now();
-  if (activity.starts_at && now < new Date(activity.starts_at).getTime())
-    return '未开始';
-  if (activity.ends_at && now >= new Date(activity.ends_at).getTime())
-    return '已结束';
-  return '进行中';
-}
 
 function formatDate(value: string | null): string {
   if (!value) return '未设置';
@@ -62,8 +57,18 @@ export function ActivitiesListPage() {
   const [failed, setFailed] = useState(false);
   const [params, setParams] = useSearchParams();
   const query = params.get('q') ?? '';
-  const statuses = ['草稿', '未开始', '进行中', '已结束'];
-  const status = statuses.includes(params.get('status') ?? '')
+  const statuses: ActivityStatus[] = [
+    'DRAFT',
+    'UPCOMING',
+    'RUNNING',
+    'PAUSED',
+    'DRAW_ENDED',
+    'ENDED',
+  ];
+  const status = statuses.some(
+    (value) =>
+      getActivityStatusPresentation(value).label === params.get('status'),
+  )
     ? params.get('status')!
     : 'all';
   const filtered = rows.filter(
@@ -71,7 +76,8 @@ export function ActivitiesListPage() {
       `${row.name} ${row.code}`
         .toLowerCase()
         .includes(query.trim().toLowerCase()) &&
-      (status === 'all' || statusOf(row) === status),
+      (status === 'all' ||
+        getActivityStatusPresentation(row.status).label === status),
   );
   function updateFilter(key: string, value: string) {
     setParams(
@@ -123,17 +129,19 @@ export function ActivitiesListPage() {
             },
             {
               label: '进行中',
-              value: rows.filter((row) => statusOf(row) === '进行中').length,
+              value: rows.filter((row) => row.status === 'RUNNING').length,
               note: '已发布并开放参与',
             },
             {
               label: '草稿',
-              value: rows.filter((row) => statusOf(row) === '草稿').length,
+              value: rows.filter((row) => row.status === 'DRAFT').length,
               note: '配置完成后即可发布',
             },
             {
               label: '已结束',
-              value: rows.filter((row) => statusOf(row) === '已结束').length,
+              value: rows.filter((row) =>
+                ['DRAW_ENDED', 'ENDED'].includes(row.status),
+              ).length,
               note: '可继续查看运营记录',
             },
           ].map((metric) => (
@@ -226,9 +234,9 @@ export function ActivitiesListPage() {
                   {statuses.map((value) => (
                     <Select.Item
                       key={value}
-                      value={value}
+                      value={getActivityStatusPresentation(value).label}
                     >
-                      {value}
+                      {getActivityStatusPresentation(value).label}
                     </Select.Item>
                   ))}
                 </Select.Content>
@@ -281,7 +289,7 @@ export function ActivitiesListPage() {
                 <span>2</span>
                 <div>
                   <h3>设置奖品与库存</h3>
-                  <p>配置奖项、库存数量和抽奖权重。</p>
+                  <p>配置奖项、库存数量和中奖规则。</p>
                 </div>
               </li>
               <li>
@@ -355,7 +363,7 @@ export function ActivitiesListPage() {
                       </Text>
                     </Table.Cell>
                     <Table.Cell>
-                      <StatusBadge status={statusOf(row)} />
+                      <StatusBadge status={row.status} />
                     </Table.Cell>
                     <Table.Cell>
                       <Text

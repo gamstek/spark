@@ -6,11 +6,7 @@ import { Button, Text } from '@radix-ui/themes';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import {
-  ActivityNav,
-  activityContextEvent,
-  type ActivityIdentity,
-} from './activity-nav';
+import { activityContextEvent, type ActivityIdentity } from './activity-nav';
 import { StatusBadge } from './status-badge';
 import {
   failedJobsContextEvent,
@@ -24,16 +20,6 @@ const jobLabels: Record<string, string> = {
   EXPORT: '线索导出',
   EXPIRE_REDEMPTION: '核销凭证过期',
 };
-
-function isRunning(activity: ContextActivity) {
-  const now = Date.now();
-  return Boolean(
-    activity.published_version_id &&
-    activity.starts_at &&
-    Date.parse(activity.starts_at) <= now &&
-    (!activity.ends_at || Date.parse(activity.ends_at) > now),
-  );
-}
 
 export function WorkspaceContext({ pathname }: { pathname: string }) {
   const routeId = /^\/activities\/([^/]+)/.exec(pathname)?.[1];
@@ -70,7 +56,7 @@ export function WorkspaceContext({ pathname }: { pathname: string }) {
       : routeId === 'new'
         ? Promise.resolve(null)
         : api<ContextActivity[]>('admin/activities').then(
-            (items) => items.find(isRunning) ?? null,
+            (items) => items.find((item) => item.status === 'RUNNING') ?? null,
           );
     void request
       .then((detail) => {
@@ -199,15 +185,7 @@ export function WorkspaceContext({ pathname }: { pathname: string }) {
               >
                 {activity.name}
               </Text>
-              <StatusBadge
-                status={
-                  isRunning(activity)
-                    ? '进行中'
-                    : activity.published_version_id
-                      ? '已发布'
-                      : '草稿'
-                }
-              />
+              <StatusBadge status={activity.status} />
               <Text
                 as="p"
                 size="1"
@@ -263,7 +241,6 @@ export function WorkspaceContext({ pathname }: { pathname: string }) {
               )}
         </div>
       </section>
-      {activityId && <ActivityNav activityId={activityId} />}
       <section
         className="context-panel context-panel--tasks"
         aria-label="待处理"

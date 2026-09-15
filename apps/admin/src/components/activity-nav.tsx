@@ -1,4 +1,5 @@
 import { TabNav } from '@radix-ui/themes';
+import type { ActivityStatus } from '@spark/contracts';
 import { Link, useLocation } from 'react-router-dom';
 
 type ActivityNavProps = {
@@ -8,9 +9,8 @@ type ActivityNavProps = {
 export type ActivityIdentity = {
   name: string;
   code: string;
-  published_version_id?: string | null;
-  starts_at?: string;
-  ends_at?: string;
+  status: ActivityStatus;
+  serverNow: string;
 };
 
 export const activityContextEvent = 'spark:activity-context-updated';
