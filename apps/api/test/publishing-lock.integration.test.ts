@@ -11,13 +11,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { PublishService } from '../src/activities/publish.service.js';
+import { ClockModule } from '../src/common/clock.module.js';
+import type { Clock } from '../src/common/clock.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
 
 const validConfig = {
   requireSubscribe: true,
-  noPrizeWeight: 1,
-  heroAssetId: 'hero-asset',
+  winningProbability: 0,
+  halfDayPrizeLimits: {},
   rulesText: '活动规则',
 } satisfies LotteryConfig;
 
@@ -84,6 +86,7 @@ describe('activity publishing lock', () => {
     );
     class PublishAssemblyModule {}
     Module({
+      imports: [ClockModule],
       providers: [
         { provide: DataSource, useValue: database.dataSource },
         publishProvider as Provider,
@@ -111,11 +114,9 @@ describe('activity publishing lock', () => {
 
   it('rejects a saved draft at the published activity start without partial writes', async () => {
     await expect(
-      new PublishService(database.dataSource, () => scenario.now).publish(
-        scenario.activityId,
-        4,
-        scenario.adminId,
-      ),
+      new PublishService(database.dataSource, {
+        now: () => scenario.now,
+      } satisfies Clock).publish(scenario.activityId, 4, scenario.adminId),
     ).rejects.toThrow('ACTIVITY_LOCKED');
 
     const activity = await database.dataSource.query<

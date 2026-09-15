@@ -11,11 +11,14 @@ import {
 } from 'vitest';
 import type { DataSource } from 'typeorm';
 
+import type { Clock } from '../src/common/clock.js';
 import { LotteryService } from '../src/lottery/lottery.service.js';
 import { chooseWeightedPrize } from '../src/lottery/weighted-draw.js';
 import { CodeService } from '../src/redemptions/code.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
+
+const fixedClock = (now: Date): Clock => ({ now: () => now });
 
 function forbidWechatIdentityAccess(dataSource: DataSource): () => void {
   const createQueryRunner = dataSource.createQueryRunner.bind(dataSource);
@@ -85,7 +88,7 @@ describe('atomic lottery and inventory', () => {
       database.dataSource,
       codeService,
       identityMode,
-      () => now,
+      fixedClock(now),
       () => 0,
     );
 
@@ -130,14 +133,14 @@ describe('atomic lottery and inventory', () => {
 
   it('records a no-prize result and does not allow another draw', async () => {
     await database.dataSource.query(
-      `UPDATE activity_version SET config=config || '{"noPrizeWeight":1000}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      `UPDATE activity_version SET config=config || '{"winningProbability":0}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
       [scenario.activityId],
     );
     const noPrizeService = new LotteryService(
       database.dataSource,
       codes,
       'wechat',
-      () => scenario.now,
+      fixedClock(scenario.now),
       (maxExclusive) => maxExclusive - 1,
     );
 
@@ -158,21 +161,85 @@ describe('atomic lottery and inventory', () => {
     expect(participation[0]?.drawn_at).toBeInstanceOf(Date);
   });
 
-  it('does not consume eligibility when empty and succeeds after stock is added', async () => {
+  it('rejects a draw while the activity is paused', async () => {
+    await expect(
+      service().draw(scenario.userIds[0], 'expo-2026'),
+    ).resolves.toMatchObject({ prizeLevel: '一等奖' });
+    await database.dataSource.query(
+      `UPDATE activity SET paused_at=$2 WHERE id=$1`,
+      [scenario.activityId, scenario.now],
+    );
+
+    try {
+      await expect(
+        service().draw(scenario.userIds[0], 'expo-2026'),
+      ).rejects.toThrow('ACTIVITY_PAUSED');
+    } finally {
+      await database.dataSource.query(
+        `UPDATE activity SET paused_at=NULL WHERE id=$1`,
+        [scenario.activityId],
+      );
+    }
+  });
+
+  it('rejects a paused draw at the exact draw deadline as not running', async () => {
+    await database.dataSource.query(
+      `UPDATE activity SET paused_at=$2 WHERE id=$1`,
+      [scenario.activityId, scenario.now],
+    );
+
+    await expect(
+      service(new Date(scenario.now.getTime() + 86_400_000)).draw(
+        scenario.userIds[0],
+        'expo-2026',
+      ),
+    ).rejects.toThrow('ACTIVITY_NOT_RUNNING');
+  });
+
+  it('stops awarding a prize after its Shanghai half-day limit is reached', async () => {
+    await database.dataSource.query(
+      `UPDATE activity_prize SET total_stock=2 WHERE id=$1`,
+      [scenario.activityPrizeId],
+    );
+    await database.dataSource.query(
+      `UPDATE activity_version
+       SET config=jsonb_set(config,'{halfDayPrizeLimits}',jsonb_build_object($2::text,1),true)
+       WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId, scenario.activityPrizeId],
+    );
+
+    await expect(
+      service().draw(scenario.userIds[0], 'expo-2026'),
+    ).resolves.toMatchObject({ prizeLevel: '一等奖' });
+    await expect(
+      service().draw(scenario.userIds[1], 'expo-2026'),
+    ).resolves.toBeNull();
+    expect(
+      await database.dataSource.query(
+        `SELECT id FROM lottery_record WHERE activity_id=$1`,
+        [scenario.activityId],
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('records a no-prize result when stock is empty and winning is not possible', async () => {
     await database.dataSource.query(
       `UPDATE activity_prize SET total_stock=0 WHERE activity_id=$1`,
       [scenario.activityId],
     );
-    await expect(
-      service().draw(scenario.userIds[0], 'expo-2026'),
-    ).rejects.toThrow('OUT_OF_STOCK');
     await database.dataSource.query(
-      `UPDATE activity_prize SET total_stock=1 WHERE activity_id=$1`,
+      `UPDATE activity_version SET config=config || '{"winningProbability":0}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
       [scenario.activityId],
     );
     await expect(
       service().draw(scenario.userIds[0], 'expo-2026'),
-    ).resolves.toMatchObject({ prizeName: '一等奖' });
+    ).resolves.toBeNull();
+    const [participation] = await database.dataSource.query<
+      { drawn_at: Date | null }[]
+    >(`SELECT drawn_at FROM activity_participation WHERE user_id=$1`, [
+      scenario.userIds[0],
+    ]);
+    expect(participation?.drawn_at).not.toBeNull();
   });
 
   it('skips WeChat identity access for anonymous draw when subscription is required', async () => {
@@ -240,7 +307,7 @@ describe('atomic lottery and inventory', () => {
         scenario.userIds[1],
         'expo-2026',
       ),
-    ).rejects.toThrow('ACTIVITY_ENDED');
+    ).rejects.toThrow('ACTIVITY_NOT_RUNNING');
   });
 
   it('rolls stock back when creating the win fails', async () => {

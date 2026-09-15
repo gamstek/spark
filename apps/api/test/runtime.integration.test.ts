@@ -3,10 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { DataSource } from 'typeorm';
 
+import type { Clock } from '../src/common/clock.js';
 import { ParticipantsService } from '../src/participants/participants.service.js';
 import { RuntimeService } from '../src/runtime/runtime.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
+
+const fixedClock = (now: Date): Clock => ({ now: () => now });
 
 function forbidWechatIdentityAccess(dataSource: DataSource): () => void {
   const createQueryRunner = dataSource.createQueryRunner.bind(dataSource);
@@ -48,7 +51,7 @@ describe('activity runtime', () => {
       new ParticipantsService(database.dataSource),
       subscriptions as never,
       'wechat',
-      () => new Date(scenario.now.getTime() + 1_000),
+      fixedClock(new Date(scenario.now.getTime() + 1_000)),
     );
 
     const result = await runtime.get(
@@ -85,7 +88,7 @@ describe('activity runtime', () => {
         },
       } as never,
       'anonymous',
-      () => new Date(scenario.now.getTime() + 1_000),
+      fixedClock(new Date(scenario.now.getTime() + 1_000)),
     );
     const restore = forbidWechatIdentityAccess(database.dataSource);
 
@@ -118,7 +121,7 @@ describe('activity runtime', () => {
       new ParticipantsService(database.dataSource),
       { isSubscribed: async () => true } as never,
       'wechat',
-      () => new Date(scenario.now.getTime() + 1_000),
+      fixedClock(new Date(scenario.now.getTime() + 1_000)),
     );
 
     await expect(
@@ -134,7 +137,7 @@ describe('activity runtime', () => {
       new ParticipantsService(database.dataSource),
       { isSubscribed: async () => true } as never,
       'wechat',
-      () => new Date(scenario.now.getTime() + 1_000),
+      fixedClock(new Date(scenario.now.getTime() + 1_000)),
     );
     const result = await runtime.get(scenario.userIds[0], 'expo-2026');
     expect(result.nextStep).toBe('PRIZE');
@@ -151,7 +154,7 @@ describe('activity runtime', () => {
       new ParticipantsService(database.dataSource),
       { isSubscribed: async () => true } as never,
       'wechat',
-      () => new Date(scenario.now.getTime() + 1_000),
+      fixedClock(new Date(scenario.now.getTime() + 1_000)),
     );
 
     const result = await runtime.get(scenario.userIds[1], 'expo-2026');
@@ -181,7 +184,7 @@ describe('activity runtime', () => {
       code: 'expo-2026',
       name: '展会抽奖',
       rulesText: '每人一次抽奖机会',
-      noPrizeWeight: 0,
+      winningProbability: 0,
     });
     expect(info.prizes).toHaveLength(1);
     expect(info.prizes[0]?.name).toBe('一等奖');
@@ -189,5 +192,110 @@ describe('activity runtime', () => {
     await expect(runtime.getInfo('missing')).rejects.toThrow(
       'ACTIVITY_NOT_FOUND',
     );
+  });
+
+  it('returns PAUSED while an active activity is paused', async () => {
+    const userId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO user_account (id) VALUES ($1)`,
+      [userId],
+    );
+    await database.dataSource.query(
+      `UPDATE activity SET paused_at=$2 WHERE id=$1`,
+      [scenario.activityId, scenario.now],
+    );
+
+    try {
+      const runtime = new RuntimeService(
+        database.dataSource,
+        new ParticipantsService(database.dataSource),
+        { isSubscribed: async () => true } as never,
+        'anonymous',
+        fixedClock(new Date(scenario.now.getTime() + 1_000)),
+      );
+      const result = await runtime.get(userId, 'expo-2026');
+      expect(result.nextStep).toBe('PAUSED');
+    } finally {
+      await database.dataSource.query(
+        `UPDATE activity SET paused_at=NULL WHERE id=$1`,
+        [scenario.activityId],
+      );
+    }
+  });
+
+  it('treats the exact start boundary as active', async () => {
+    const userId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO user_account (id) VALUES ($1)`,
+      [userId],
+    );
+    const runtime = new RuntimeService(
+      database.dataSource,
+      new ParticipantsService(database.dataSource),
+      { isSubscribed: async () => true } as never,
+      'anonymous',
+      fixedClock(scenario.now),
+    );
+
+    await expect(runtime.get(userId, 'expo-2026')).resolves.toMatchObject({
+      nextStep: 'FORM',
+    });
+  });
+
+  it('returns ENDED at the exact draw deadline even while paused', async () => {
+    const userId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO user_account (id) VALUES ($1)`,
+      [userId],
+    );
+    await database.dataSource.query(
+      `UPDATE activity SET paused_at=$2 WHERE id=$1`,
+      [scenario.activityId, scenario.now],
+    );
+
+    try {
+      const runtime = new RuntimeService(
+        database.dataSource,
+        new ParticipantsService(database.dataSource),
+        { isSubscribed: async () => true } as never,
+        'anonymous',
+        fixedClock(new Date(scenario.now.getTime() + 86_400_000)),
+      );
+      await expect(runtime.get(userId, 'expo-2026')).resolves.toMatchObject({
+        nextStep: 'ENDED',
+      });
+    } finally {
+      await database.dataSource.query(
+        `UPDATE activity SET paused_at=NULL WHERE id=$1`,
+        [scenario.activityId],
+      );
+    }
+  });
+
+  it('returns ENDED when a paused activity passes its draw deadline', async () => {
+    const userId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO user_account (id) VALUES ($1)`,
+      [userId],
+    );
+    await database.dataSource.query(
+      `UPDATE activity SET paused_at=$2 WHERE id=$1`,
+      [scenario.activityId, scenario.now],
+    );
+    try {
+      const runtime = new RuntimeService(
+        database.dataSource,
+        new ParticipantsService(database.dataSource),
+        { isSubscribed: async () => true } as never,
+        'anonymous',
+        fixedClock(new Date(scenario.now.getTime() + 3 * 86_400_000)),
+      );
+      expect((await runtime.get(userId, 'expo-2026')).nextStep).toBe('ENDED');
+    } finally {
+      await database.dataSource.query(
+        `UPDATE activity SET paused_at=NULL WHERE id=$1`,
+        [scenario.activityId],
+      );
+    }
   });
 });

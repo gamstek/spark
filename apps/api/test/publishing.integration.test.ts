@@ -7,15 +7,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ActivitiesService } from '../src/activities/activities.service.js';
 import { PublishService } from '../src/activities/publish.service.js';
+import type { Clock } from '../src/common/clock.js';
 import { MediaService } from '../src/media/media.service.js';
 import { PrizesService } from '../src/prizes/prizes.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
 
+const fixedClock = (now: Date): Clock => ({ now: () => now });
+
 const validConfig = {
   requireSubscribe: true,
-  noPrizeWeight: 1,
-  heroAssetId: 'hero-asset',
+  winningProbability: 0,
+  halfDayPrizeLimits: {},
   rulesText: '活动规则',
 };
 
@@ -95,7 +98,7 @@ describe('activity publishing and mutable inventory', () => {
     );
     const published = await new PublishService(
       database.dataSource,
-      () => scenario.now,
+      fixedClock(scenario.now),
     ).publish(scenario.activityId, 1, scenario.adminId);
     const snapshot = await database.dataSource.query<{ prize_name: string }[]>(
       `SELECT prize_name FROM activity_prize WHERE id=$1`,
@@ -135,7 +138,10 @@ describe('activity publishing and mutable inventory', () => {
     );
     expect(stock[0]?.total_stock).toBe(13);
     const activeNow = new Date(scenario.now.getTime() + 2 * 3_600_000);
-    const publishing = new PublishService(database.dataSource, () => activeNow);
+    const publishing = new PublishService(
+      database.dataSource,
+      fixedClock(activeNow),
+    );
     await publishing.endDraw(scenario.activityId, scenario.adminId);
     const rows = await database.dataSource.query<{ draw_ends_at: Date }[]>(
       `SELECT draw_ends_at FROM activity_version WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
@@ -145,6 +151,101 @@ describe('activity publishing and mutable inventory', () => {
     await expect(
       publishing.endDraw(scenario.activityId, scenario.adminId),
     ).rejects.toThrow('DRAW_NOT_ACTIVE');
+  });
+
+  it('pauses and resumes an active draw without changing its schedule', async () => {
+    const activeNow = new Date(scenario.now.getTime() + 2 * 3_600_000);
+    const publishing = new PublishService(
+      database.dataSource,
+      fixedClock(activeNow),
+    );
+    await database.dataSource.query(
+      `UPDATE activity_version SET draw_ends_at=$2,ends_at=GREATEST(ends_at,$2) WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId, new Date(activeNow.getTime() + 3_600_000)],
+    );
+    const before = await database.dataSource.query<{ draw_ends_at: Date }[]>(
+      `SELECT draw_ends_at FROM activity_version WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId],
+    );
+
+    await publishing.pause(scenario.activityId, scenario.adminId);
+    await expect(
+      publishing.pause(scenario.activityId, scenario.adminId),
+    ).rejects.toThrow('ACTIVITY_ALREADY_PAUSED');
+    await publishing.resume(scenario.activityId, scenario.adminId);
+
+    const activity = await database.dataSource.query<
+      { paused_at: Date | null }[]
+    >(`SELECT paused_at FROM activity WHERE id=$1`, [scenario.activityId]);
+    const after = await database.dataSource.query<{ draw_ends_at: Date }[]>(
+      `SELECT draw_ends_at FROM activity_version WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId],
+    );
+    const audits = await database.dataSource.query<{ action: string }[]>(
+      `SELECT action FROM audit_event WHERE resource_id=$1 AND action IN ('ACTIVITY_PAUSED','ACTIVITY_RESUMED') ORDER BY created_at`,
+      [scenario.activityId],
+    );
+
+    expect(activity[0]?.paused_at).toBeNull();
+    expect(after[0]?.draw_ends_at).toEqual(before[0]?.draw_ends_at);
+    expect(audits.map((row) => row.action)).toEqual([
+      'ACTIVITY_PAUSED',
+      'ACTIVITY_RESUMED',
+    ]);
+  });
+
+  it('allows pause at the exact start boundary', async () => {
+    const startsAt = new Date(scenario.now.getTime() + 3 * 3_600_000);
+    await database.dataSource.query(
+      `UPDATE activity SET paused_at=NULL WHERE id=$1`,
+      [scenario.activityId],
+    );
+    await database.dataSource.query(
+      `UPDATE activity_version
+       SET starts_at=$2,draw_ends_at=$3,ends_at=$4
+       WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [
+        scenario.activityId,
+        startsAt,
+        new Date(startsAt.getTime() + 3_600_000),
+        new Date(startsAt.getTime() + 7_200_000),
+      ],
+    );
+    const publishing = new PublishService(
+      database.dataSource,
+      fixedClock(startsAt),
+    );
+
+    await expect(
+      publishing.pause(scenario.activityId, scenario.adminId),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects resume at the exact draw deadline as not running', async () => {
+    const drawEndsAt = new Date(scenario.now.getTime() + 4 * 3_600_000);
+    await database.dataSource.query(
+      `UPDATE activity SET paused_at=$2 WHERE id=$1`,
+      [scenario.activityId, scenario.now],
+    );
+    await database.dataSource.query(
+      `UPDATE activity_version
+       SET starts_at=$2,draw_ends_at=$3,ends_at=$4
+       WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [
+        scenario.activityId,
+        new Date(scenario.now.getTime() + 3 * 3_600_000),
+        drawEndsAt,
+        new Date(drawEndsAt.getTime() + 3_600_000),
+      ],
+    );
+    const publishing = new PublishService(
+      database.dataSource,
+      fixedClock(drawEndsAt),
+    );
+
+    await expect(
+      publishing.resume(scenario.activityId, scenario.adminId),
+    ).rejects.toThrow('ACTIVITY_NOT_RUNNING');
   });
 
   it('accepts real PNG bytes and rejects disguised or oversized media', async () => {

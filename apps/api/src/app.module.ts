@@ -139,8 +139,9 @@ import { APP_CLOCK, type Clock } from './common/clock.js';
     },
     {
       provide: PublishService,
-      inject: [DataSource],
-      useFactory: (dataSource: DataSource) => new PublishService(dataSource),
+      inject: [DataSource, APP_CLOCK],
+      useFactory: (dataSource: DataSource, clock: Clock) =>
+        new PublishService(dataSource, clock),
     },
     PrizesService,
     MediaService,
@@ -149,12 +150,13 @@ import { APP_CLOCK, type Clock } from './common/clock.js';
     CodeService,
     {
       provide: LotteryService,
-      inject: [DataSource, CodeService, ACTIVITY_IDENTITY_MODE],
+      inject: [DataSource, CodeService, ACTIVITY_IDENTITY_MODE, APP_CLOCK],
       useFactory: (
         dataSource: DataSource,
         codes: CodeService,
         identityMode: ActivityIdentityMode,
-      ) => new LotteryService(dataSource, codes, identityMode),
+        clock: Clock,
+      ) => new LotteryService(dataSource, codes, identityMode, clock),
     },
     {
       provide: RedemptionsService,
@@ -183,18 +185,21 @@ import { APP_CLOCK, type Clock } from './common/clock.js';
         ParticipantsService,
         SubscriptionService,
         ACTIVITY_IDENTITY_MODE,
+        APP_CLOCK,
       ],
       useFactory: (
         dataSource: DataSource,
         participants: ParticipantsService,
         subscriptions: SubscriptionService,
         identityMode: ActivityIdentityMode,
+        clock: Clock,
       ) =>
         new RuntimeService(
           dataSource,
           participants,
           subscriptions,
           identityMode,
+          clock,
         ),
     },
     MaintenanceService,

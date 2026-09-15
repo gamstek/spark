@@ -1,19 +1,36 @@
 import { randomInt, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
-import type { WinView } from '@spark/contracts';
+import {
+  deriveActivityStatus,
+  type ActivityStatus,
+  type WinView,
+} from '@spark/contracts';
 import { DataSource } from 'typeorm';
 
 import type { ActivityIdentityMode } from '../auth/activity-identity-mode.js';
+import { APP_CLOCK, type Clock, systemClock } from '../common/clock.js';
 import { CodeService } from '../redemptions/code.service.js';
+import {
+  getShanghaiHalfDayWindow,
+  isWinningRoll,
+  underHalfDayLimit,
+} from './draw-rules.js';
 import { chooseWeightedPrize } from './weighted-draw.js';
 
 type ActivityRow = {
   id: string;
+  published_version_id: string;
+  paused_at: Date | null;
   starts_at: Date;
   draw_ends_at: Date;
+  ends_at: Date;
   redeem_ends_at: Date;
-  config: { noPrizeWeight?: number; requireSubscribe?: boolean };
+  config: {
+    winningProbability?: number;
+    halfDayPrizeLimits?: Record<string, number>;
+    requireSubscribe?: boolean;
+  };
 };
 type PrizeRow = {
   id: string;
@@ -22,6 +39,7 @@ type PrizeRow = {
   prize_level: string;
   prize_name: string;
   prize_image_url: string | null;
+  half_day_awarded: number;
 };
 type WinRow = {
   id: string;
@@ -33,15 +51,14 @@ type WinRow = {
 };
 
 const retryableCodes = new Set(['40001', '40P01']);
-const NO_PRIZE_ID = '__NO_PRIZE__';
-
 @Injectable()
 export class LotteryService {
   constructor(
     @Inject(DataSource) private readonly dataSource: DataSource,
     @Inject(CodeService) private readonly codes: CodeService,
     private readonly identityMode: ActivityIdentityMode,
-    private readonly now: () => Date = () => new Date(),
+    @Inject(APP_CLOCK)
+    private readonly clock: Clock = systemClock,
     private readonly randomInteger: (
       maxExclusive: number,
     ) => number = randomInt,
@@ -52,9 +69,10 @@ export class LotteryService {
     activityCode: string,
     origin = 'http://localhost',
   ): Promise<WinView | null> {
+    const now = this.now();
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return await this.drawOnce(userId, activityCode, origin);
+        return await this.drawOnce(userId, activityCode, origin, now);
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (!code || !retryableCodes.has(code) || attempt >= 2) throw error;
@@ -66,20 +84,27 @@ export class LotteryService {
     userId: string,
     activityCode: string,
     origin: string,
+    now: Date,
   ): Promise<WinView | null> {
     return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
       const activities = await manager.query<ActivityRow[]>(
-        `SELECT a.id,v.starts_at,v.draw_ends_at,v.redeem_ends_at,v.config FROM activity a JOIN activity_version v ON v.id=a.published_version_id WHERE a.code=$1`,
+        `SELECT a.id,a.published_version_id,a.paused_at,v.starts_at,v.draw_ends_at,v.ends_at,v.redeem_ends_at,v.config FROM activity a JOIN activity_version v ON v.id=a.published_version_id WHERE a.code=$1`,
         [activityCode],
       );
       const activity = activities[0];
       if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+      const status = this.status(activity, now);
+      if (status === 'PAUSED') throw new Error('ACTIVITY_PAUSED');
+      const halfDay = getShanghaiHalfDayWindow(now);
       const prizes = await manager.query<PrizeRow[]>(
-        `SELECT ap.id,ap.total_stock-ap.awarded_stock AS remaining_stock,vp.weight,vp.prize_level,vp.prize_name,vp.prize_image_url
+        `SELECT ap.id,ap.total_stock-ap.awarded_stock AS remaining_stock,vp.weight,vp.prize_level,vp.prize_name,vp.prize_image_url,
+           (SELECT count(*)::integer FROM lottery_record l
+            WHERE l.activity_id=$1 AND l.activity_prize_id=ap.id
+              AND l.created_at >= $2 AND l.created_at < $3) AS half_day_awarded
          FROM activity_version_prize vp JOIN activity_prize ap ON ap.id=vp.activity_prize_id
          WHERE vp.activity_version_id=(SELECT published_version_id FROM activity WHERE id=$1)
          ORDER BY ap.id FOR UPDATE OF ap`,
-        [activity.id],
+        [activity.id, halfDay.startsAt, halfDay.endsAt],
       );
       const participations = await manager.query<
         { id: string; lead_completed: boolean; drawn_at: Date | null }[]
@@ -92,6 +117,12 @@ export class LotteryService {
         [activity.id, userId],
       );
       if (existing[0]) return this.toView(existing[0], origin);
+      switch (status) {
+        case 'RUNNING':
+          break;
+        default:
+          throw new Error('ACTIVITY_NOT_RUNNING');
+      }
       const participation = participations[0];
       if (!participation?.lead_completed) throw new Error('LEAD_REQUIRED');
       if (participation.drawn_at) return null;
@@ -102,31 +133,41 @@ export class LotteryService {
         );
         if (!subscribed[0]) throw new Error('SUBSCRIPTION_REQUIRED');
       }
-      const now = this.now();
       if (
-        now < new Date(activity.starts_at) ||
-        now >= new Date(activity.draw_ends_at)
-      )
-        throw new Error('ACTIVITY_ENDED');
-      const candidates = prizes.map((prize) => ({
-        id: prize.id,
-        remainingStock: Number(prize.remaining_stock),
-        weight: Number(prize.weight),
-      }));
-      const noPrizeWeight = Number(activity.config.noPrizeWeight ?? 0);
-      if (noPrizeWeight > 0)
-        candidates.push({
-          id: NO_PRIZE_ID,
-          remainingStock: 1,
-          weight: noPrizeWeight,
-        });
+        !isWinningRoll(
+          Number(activity.config.winningProbability ?? 0),
+          this.randomInteger,
+        )
+      ) {
+        await manager.query(
+          `UPDATE activity_participation SET drawn_at=$2,updated_at=$2 WHERE id=$1`,
+          [participation.id, now],
+        );
+        return null;
+      }
+      const stockedPrizes = prizes.filter(
+        (prize) => Number(prize.remaining_stock) > 0,
+      );
+      if (stockedPrizes.length === 0) throw new Error('OUT_OF_STOCK');
+      const limits = activity.config.halfDayPrizeLimits ?? {};
+      const candidates = stockedPrizes
+        .filter((prize) =>
+          underHalfDayLimit(
+            Number(limits[prize.id] ?? 0),
+            Number(prize.half_day_awarded),
+          ),
+        )
+        .map((prize) => ({
+          id: prize.id,
+          remainingStock: Number(prize.remaining_stock),
+          weight: Number(prize.weight),
+        }));
       const selected = chooseWeightedPrize(candidates, this.randomInteger);
-      if (!selected) throw new Error('OUT_OF_STOCK');
       await manager.query(
         `UPDATE activity_participation SET drawn_at=$2,updated_at=$2 WHERE id=$1`,
         [participation.id, now],
       );
-      if (selected.id === NO_PRIZE_ID) return null;
+      if (!selected) return null;
       const prize = prizes.find((candidate) => candidate.id === selected.id)!;
       const updated = await manager.query(
         `UPDATE activity_prize SET awarded_stock=awarded_stock+1 WHERE id=$1 AND awarded_stock<total_stock`,
@@ -141,7 +182,7 @@ export class LotteryService {
       const redemptionId = randomUUID();
       const code = this.codes.create();
       await manager.query(
-        `INSERT INTO lottery_record (id,activity_id,user_id,participation_id,activity_prize_id,prize_level,prize_name,prize_image_url,redeem_end_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        `INSERT INTO lottery_record (id,activity_id,user_id,participation_id,activity_prize_id,prize_level,prize_name,prize_image_url,redeem_end_at,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [
           lotteryId,
           activity.id,
@@ -152,6 +193,7 @@ export class LotteryService {
           prize.prize_name,
           prize.prize_image_url,
           activity.redeem_ends_at,
+          now,
         ],
       );
       await manager.query(
@@ -189,5 +231,22 @@ export class LotteryService {
       redeemEndAt: new Date(row.redeem_end_at).toISOString(),
       redemptionStatus: row.status,
     };
+  }
+
+  private now(): Date {
+    return this.clock.now();
+  }
+
+  private status(activity: ActivityRow, now: Date): ActivityStatus {
+    return deriveActivityStatus(
+      {
+        publishedVersionId: activity.published_version_id,
+        startsAt: new Date(activity.starts_at),
+        drawEndsAt: new Date(activity.draw_ends_at),
+        endsAt: new Date(activity.ends_at),
+        pausedAt: activity.paused_at ? new Date(activity.paused_at) : null,
+      },
+      now,
+    );
   }
 }

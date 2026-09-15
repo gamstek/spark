@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
+import { deriveActivityStatus } from '@spark/contracts';
 import type {
+  ActivityStatus,
   ActivityInfo,
   ActivityRuntime,
   RuntimeStep,
@@ -11,16 +13,19 @@ import { DataSource } from 'typeorm';
 import { ChannelVisit, WechatIdentity } from '../../database/entities/index.js';
 
 import type { ActivityIdentityMode } from '../auth/activity-identity-mode.js';
+import { APP_CLOCK, type Clock, systemClock } from '../common/clock.js';
 import { ParticipantsService } from '../participants/participants.service.js';
 import { SubscriptionService } from '../wechat/subscription.service.js';
 
 type RuntimeRow = {
   id: string;
+  published_version_id: string;
+  paused_at: Date | null;
   template_id: string;
   template_version: number;
   config: {
     requireSubscribe?: boolean;
-    noPrizeWeight?: number;
+    winningProbability?: number;
     rulesText?: string;
   };
   starts_at: Date;
@@ -37,7 +42,8 @@ export class RuntimeService {
     @Inject(SubscriptionService)
     private readonly subscriptions: SubscriptionService,
     private readonly identityMode: ActivityIdentityMode,
-    private readonly clock: () => Date = () => new Date(),
+    @Inject(APP_CLOCK)
+    private readonly clock: Clock = systemClock,
   ) {}
 
   async get(
@@ -47,8 +53,9 @@ export class RuntimeService {
     recordVisit = true,
     origin = 'http://localhost',
   ): Promise<ActivityRuntime> {
+    const now = this.now();
     const rows = await this.dataSource.query<RuntimeRow[]>(
-      `SELECT a.id,v.template_id,v.template_version,v.config,v.starts_at,v.draw_ends_at,v.ends_at
+      `SELECT a.id,a.published_version_id,a.paused_at,v.template_id,v.template_version,v.config,v.starts_at,v.draw_ends_at,v.ends_at
        FROM activity a JOIN activity_version v ON v.id=a.published_version_id WHERE a.code=$1`,
       [activityCode],
     );
@@ -71,10 +78,10 @@ export class RuntimeService {
       });
     }
 
-    const now = this.clock();
+    const status = this.status(activity, now);
     let nextStep: RuntimeStep;
     let win: WinView | null = null;
-    if (now < new Date(activity.starts_at)) {
+    if (status === 'UPCOMING') {
       nextStep = 'NOT_STARTED';
     } else {
       win = await this.getWin(activity.id, userId, now, origin);
@@ -87,11 +94,10 @@ export class RuntimeService {
               : 'PRIZE';
       } else if (participation.drawnAt) {
         nextStep = 'NO_PRIZE';
-      } else if (
-        now >= new Date(activity.ends_at) ||
-        now >= new Date(activity.draw_ends_at)
-      ) {
+      } else if (status === 'DRAW_ENDED' || status === 'ENDED') {
         nextStep = 'ENDED';
+      } else if (status === 'PAUSED') {
+        nextStep = 'PAUSED';
       } else if (
         this.identityMode === 'wechat' &&
         activity.config.requireSubscribe &&
@@ -112,7 +118,7 @@ export class RuntimeService {
         nextStep = !state[0]?.lead_completed
           ? 'FORM'
           : (state[0]?.available ?? 0) <= 0
-            ? Number(activity.config.noPrizeWeight ?? 0) > 0
+            ? Number(activity.config.winningProbability ?? 0) < 100
               ? 'LOTTERY'
               : 'OUT_OF_STOCK'
             : 'LOTTERY';
@@ -133,6 +139,23 @@ export class RuntimeService {
     return url ? new URL(url, origin).toString() : null;
   }
 
+  private now(): Date {
+    return this.clock.now();
+  }
+
+  private status(activity: RuntimeRow, now: Date): ActivityStatus {
+    return deriveActivityStatus(
+      {
+        publishedVersionId: activity.published_version_id,
+        startsAt: new Date(activity.starts_at),
+        drawEndsAt: new Date(activity.draw_ends_at),
+        endsAt: new Date(activity.ends_at),
+        pausedAt: activity.paused_at ? new Date(activity.paused_at) : null,
+      },
+      now,
+    );
+  }
+
   /** Display data for the participant H5: name, time window, rules, prize wall. */
   async getInfo(
     activityCode: string,
@@ -145,7 +168,7 @@ export class RuntimeService {
         starts_at: Date;
         ends_at: Date;
         draw_ends_at: Date;
-        config: { rulesText?: string; noPrizeWeight?: number };
+        config: { rulesText?: string; winningProbability?: number };
       }[]
     >(
       `SELECT a.code,a.name,v.starts_at,v.ends_at,v.draw_ends_at,v.config
@@ -174,7 +197,7 @@ export class RuntimeService {
       endsAt: new Date(activity.ends_at).toISOString(),
       drawEndsAt: new Date(activity.draw_ends_at).toISOString(),
       rulesText: activity.config.rulesText ?? '',
-      noPrizeWeight: Number(activity.config.noPrizeWeight ?? 0),
+      winningProbability: Number(activity.config.winningProbability ?? 0),
       prizes: prizes.map((prize) => ({
         prizeLevel: prize.prize_level,
         name: prize.prize_name,

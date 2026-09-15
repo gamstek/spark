@@ -21,6 +21,7 @@ import { ACTIVITY_IDENTITY_MODE } from '../src/auth/activity-identity-mode.js';
 import { SessionService } from '../src/auth/session.service.js';
 import { ActivityFormService } from '../src/activity-form/activity-form.service.js';
 import { ApiExceptionFilter } from '../src/common/api-exception.filter.js';
+import { ClockModule } from '../src/common/clock.module.js';
 import { ExportsHandler } from '../src/exports/exports.handler.js';
 import { ExportsService } from '../src/exports/exports.service.js';
 import { JobsService } from '../src/jobs/jobs.service.js';
@@ -107,6 +108,7 @@ describe('production module providers', () => {
       ) as Provider[];
       class ApplicationRoutesModule {}
       Module({
+        imports: Reflect.getMetadata(MODULE_METADATA.IMPORTS, AppModule),
         controllers: Reflect.getMetadata(
           MODULE_METADATA.CONTROLLERS,
           AppModule,
@@ -292,6 +294,7 @@ describe('production module providers', () => {
 
     class ProviderAssemblyModule {}
     Module({
+      imports: [ClockModule],
       providers: [
         { provide: DataSource, useValue: {} },
         { provide: CodeService, useValue: new CodeService() },
