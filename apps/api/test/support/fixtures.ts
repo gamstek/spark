@@ -122,3 +122,44 @@ export async function createScenario(
     now,
   };
 }
+
+export async function createActivityFixture(
+  dataSource: DataSource,
+  input: {
+    startsAt: Date;
+    drawEndsAt: Date;
+    endsAt: Date;
+    redeemEndsAt: Date;
+    pausedAt?: Date | null;
+  },
+): Promise<{ activityId: string }> {
+  const activityId = randomUUID();
+  const versionId = randomUUID();
+  await dataSource.transaction(async (manager) => {
+    await manager.query(
+      `INSERT INTO activity (id, code, name, paused_at) VALUES ($1, $2, '生命周期夹具', $3)`,
+      [
+        activityId,
+        `activity-${randomUUID().slice(0, 8)}`,
+        input.pausedAt ?? null,
+      ],
+    );
+    await manager.query(
+      `INSERT INTO activity_version (id, activity_id, version, status, template_id, template_version, config_schema_version, config, starts_at, draw_ends_at, ends_at, redeem_ends_at, published_at, activity_name)
+       VALUES ($1, $2, 1, 'PUBLISHED', 'exhibition-lottery', 1, 1, '{}', $3, $4, $5, $6, $3, '生命周期夹具')`,
+      [
+        versionId,
+        activityId,
+        input.startsAt,
+        input.drawEndsAt,
+        input.endsAt,
+        input.redeemEndsAt,
+      ],
+    );
+    await manager.query(
+      `UPDATE activity SET published_version_id=$1 WHERE id=$2`,
+      [versionId, activityId],
+    );
+  });
+  return { activityId };
+}

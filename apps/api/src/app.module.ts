@@ -63,8 +63,11 @@ import {
   MAINTENANCE_INTERVAL_MS,
   MaintenanceService,
 } from './maintenance/maintenance.service.js';
+import { ClockModule } from './common/clock.module.js';
+import { APP_CLOCK, type Clock } from './common/clock.js';
 
 @Module({
+  imports: [ClockModule],
   controllers: [
     HealthController,
     AdminAuthController,
@@ -130,8 +133,9 @@ import {
     SubscriptionService,
     {
       provide: ActivitiesService,
-      inject: [DataSource],
-      useFactory: (dataSource: DataSource) => new ActivitiesService(dataSource),
+      inject: [DataSource, APP_CLOCK],
+      useFactory: (dataSource: DataSource, clock: Clock) =>
+        new ActivitiesService(dataSource, clock),
     },
     {
       provide: PublishService,

@@ -17,7 +17,11 @@ import { ParticipantsAdminController } from '../src/participants/participants-ad
 import { PrizesService } from '../src/prizes/prizes.service.js';
 import { StaffService } from '../src/staff/staff.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
-import { createScenario, type Scenario } from './support/fixtures.js';
+import {
+  createActivityFixture,
+  createScenario,
+  type Scenario,
+} from './support/fixtures.js';
 const config = {
   requireSubscribe: true,
   noPrizeWeight: 1,
@@ -32,6 +36,49 @@ describe('admin operations', () => {
     scenario = await createScenario(database.dataSource);
   });
   afterAll(async () => database.close());
+  it('returns one authoritative lifecycle snapshot for list and detail', async () => {
+    const fixedNow = new Date('2026-09-15T12:00:00.000Z');
+    const fixture = await createActivityFixture(database.dataSource, {
+      startsAt: new Date('2026-09-15T10:00:00.000Z'),
+      drawEndsAt: new Date('2026-09-15T11:00:00.000Z'),
+      endsAt: new Date('2026-09-15T13:00:00.000Z'),
+      redeemEndsAt: new Date('2026-09-16T12:00:00.000Z'),
+      pausedAt: new Date('2026-09-15T10:30:00.000Z'),
+    });
+    const clock = { now: () => fixedNow };
+    const activities = new ActivitiesService(database.dataSource, clock);
+    const draft = await activities.create({
+      name: '已开始的草稿活动',
+      templateId: 'exhibition-lottery',
+      templateVersion: 1,
+      config,
+      startsAt: '2026-09-15T10:00:00.000Z',
+      drawEndsAt: '2026-09-15T11:00:00.000Z',
+      endsAt: '2026-09-15T13:00:00.000Z',
+      redeemEndsAt: '2026-09-16T12:00:00.000Z',
+    });
+
+    const list = await activities.list();
+    const listItem = list.find((item) => item.id === fixture.activityId);
+    const detail = await activities.get(fixture.activityId);
+    const draftDetail = await activities.get(draft.id);
+
+    expect(listItem).toMatchObject({
+      id: fixture.activityId,
+      status: 'DRAW_ENDED',
+      serverNow: fixedNow.toISOString(),
+    });
+    expect(detail).toMatchObject({
+      id: fixture.activityId,
+      status: 'DRAW_ENDED',
+      serverNow: fixedNow.toISOString(),
+    });
+    expect(draftDetail).toMatchObject({
+      id: draft.id,
+      status: 'DRAFT',
+      serverNow: fixedNow.toISOString(),
+    });
+  });
   it('returns complete local answers only to administrators and keeps missing submissions null', async () => {
     const answers: ActivityFormAnswers = {
       name: '登记用户',

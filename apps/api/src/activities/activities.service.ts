@@ -1,8 +1,37 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
+import { deriveActivityStatus, type ActivityStatus } from '@spark/contracts';
 import { getTemplate } from '@spark/templates';
 import { DataSource } from 'typeorm';
-type Clock = () => Date;
+import { APP_CLOCK, type Clock, systemClock } from '../common/clock.js';
+
+type LegacyClock = () => Date;
+
+type ActivityStatusRow = {
+  id: string;
+  code: string;
+  name: string;
+  revision: number;
+  published_version_id: string | null;
+  draft_version_id: string | null;
+  starts_at: Date | string;
+  draw_ends_at: Date | string;
+  ends_at: Date | string;
+  paused_at: Date | string | null;
+};
+
+type ActivityDetailRow = ActivityStatusRow & {
+  version: number;
+  template_id: string;
+  template_version: number;
+  config: unknown;
+  redeem_ends_at: Date | string;
+};
+
+export type AdminActivityView<T> = T & {
+  status: ActivityStatus;
+  serverNow: string;
+};
 type DraftPatch = {
   name?: string;
   config?: unknown;
@@ -45,20 +74,24 @@ function parseTimeline(input: {
 export class ActivitiesService {
   constructor(
     @Inject(DataSource) private readonly dataSource: DataSource,
-    private readonly clock: Clock = () => new Date(),
+    @Inject(APP_CLOCK)
+    private readonly clock: Clock | LegacyClock = systemClock,
   ) {}
-  list() {
-    return this.dataSource.query(
-      `SELECT a.id,a.code,a.name,a.revision,a.published_version_id,a.draft_version_id,v.starts_at,v.draw_ends_at,v.ends_at FROM activity a LEFT JOIN activity_version v ON v.id=COALESCE(a.draft_version_id,a.published_version_id) ORDER BY a.created_at DESC`,
+  async list() {
+    const rows = await this.dataSource.query<ActivityStatusRow[]>(
+      `SELECT a.id,a.code,a.name,a.revision,a.published_version_id,a.draft_version_id,a.paused_at,v.starts_at,v.draw_ends_at,v.ends_at FROM activity a LEFT JOIN activity_version v ON v.id=COALESCE(a.draft_version_id,a.published_version_id) ORDER BY a.created_at DESC`,
     );
+    const now = this.now();
+    return rows.map((row) => this.toAdminActivityView(row, now));
   }
   async get(activityId: string) {
-    const rows = await this.dataSource.query(
-      `SELECT a.id,a.code,a.name,a.revision,a.published_version_id,a.draft_version_id,v.version,v.template_id,v.template_version,v.config,v.starts_at,v.draw_ends_at,v.ends_at,v.redeem_ends_at FROM activity a LEFT JOIN activity_version v ON v.id=COALESCE(a.draft_version_id,a.published_version_id) WHERE a.id=$1`,
+    const rows = await this.dataSource.query<ActivityDetailRow[]>(
+      `SELECT a.id,a.code,a.name,a.revision,a.published_version_id,a.draft_version_id,a.paused_at,v.version,v.template_id,v.template_version,v.config,v.starts_at,v.draw_ends_at,v.ends_at,v.redeem_ends_at FROM activity a LEFT JOIN activity_version v ON v.id=COALESCE(a.draft_version_id,a.published_version_id) WHERE a.id=$1`,
       [activityId],
     );
     if (!rows[0]) throw new Error('ACTIVITY_NOT_FOUND');
-    return rows[0];
+    const now = this.now();
+    return this.toAdminActivityView(rows[0], now);
   }
   async create(input: {
     name: string;
@@ -128,7 +161,7 @@ export class ActivitiesService {
         throw new Error('VERSION_CONFLICT');
       if (
         activity.starts_at &&
-        new Date(activity.starts_at).getTime() <= this.clock().getTime()
+        new Date(activity.starts_at).getTime() <= this.now().getTime()
       )
         throw new Error('ACTIVITY_LOCKED');
       let draftVersionId = activity.draft_version_id;
@@ -200,5 +233,29 @@ export class ActivitiesService {
       );
       return { revision };
     });
+  }
+
+  private now(): Date {
+    return typeof this.clock === 'function' ? this.clock() : this.clock.now();
+  }
+
+  private toAdminActivityView<T extends ActivityStatusRow>(
+    row: T,
+    now: Date,
+  ): AdminActivityView<T> {
+    return {
+      ...row,
+      status: deriveActivityStatus(
+        {
+          publishedVersionId: row.published_version_id,
+          startsAt: new Date(row.starts_at),
+          drawEndsAt: new Date(row.draw_ends_at),
+          endsAt: new Date(row.ends_at),
+          pausedAt: row.paused_at ? new Date(row.paused_at) : null,
+        },
+        now,
+      ),
+      serverNow: now.toISOString(),
+    };
   }
 }
