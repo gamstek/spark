@@ -26,6 +26,7 @@ import {
   type FormEvent,
 } from 'react';
 import { api } from '../../api';
+import { DialogActions } from '../../components/dialog-actions';
 import { EmptyState } from '../../components/empty-state';
 import { FeedbackCallout } from '../../components/feedback-callout';
 import { LoadingState } from '../../components/loading-state';
@@ -349,11 +350,7 @@ export function StaffPage() {
                 />
               </div>
             )}
-            <Flex
-              justify="end"
-              gap="3"
-              className="dialog-actions"
-            >
+            <DialogActions>
               <Dialog.Close>
                 <Button
                   type="button"
@@ -371,7 +368,7 @@ export function StaffPage() {
               >
                 创建并授权
               </Button>
-            </Flex>
+            </DialogActions>
           </Flex>
         </form>
       </Dialog.Content>
@@ -612,11 +609,7 @@ export function StaffPage() {
             {disablingStaff?.display_name}
             将立即无法登录核销平台，已有核销记录不会受到影响。
           </AlertDialog.Description>
-          <Flex
-            gap="3"
-            mt="4"
-            justify="end"
-          >
+          <DialogActions>
             <AlertDialog.Cancel>
               <Button
                 type="button"
@@ -639,7 +632,7 @@ export function StaffPage() {
                 确认停用
               </Button>
             </AlertDialog.Action>
-          </Flex>
+          </DialogActions>
         </AlertDialog.Content>
       </AlertDialog.Root>
 
@@ -743,11 +736,7 @@ export function StaffPage() {
                     placeholder="留空则不修改"
                   />
                 </Text>
-                <Flex
-                  justify="end"
-                  gap="3"
-                  className="dialog-actions"
-                >
+                <DialogActions>
                   <Dialog.Close>
                     <Button
                       type="button"
@@ -765,7 +754,7 @@ export function StaffPage() {
                   >
                     保存设置
                   </Button>
-                </Flex>
+                </DialogActions>
               </Flex>
             </form>
           )}

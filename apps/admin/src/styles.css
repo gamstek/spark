@@ -1086,9 +1086,12 @@ a {
   margin-top: 20px;
 }
 .dialog-actions {
-  padding-top: 20px;
-  margin-top: 8px;
-  border-top: 1px solid var(--gray-a5);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
 }
 .error {
   margin: 0;

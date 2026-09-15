@@ -1,5 +1,19 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { test } from './admin-test';
+
+async function expectDialogActionsAligned(dialog: Locator) {
+  const actions = dialog.locator('.dialog-actions').getByRole('button');
+  const firstBox = await actions.first().boundingBox();
+  const lastBox = await actions.last().boundingBox();
+
+  expect(firstBox).not.toBeNull();
+  expect(lastBox).not.toBeNull();
+  expect(
+    Math.abs(
+      firstBox!.y + firstBox!.height / 2 - (lastBox!.y + lastBox!.height / 2),
+    ),
+  ).toBeLessThanOrEqual(1);
+}
 
 const answers = {
   name: '张三',
@@ -87,6 +101,7 @@ for (const theme of ['light', 'dark'] as const) {
     const close = dialog.getByRole('button', { name: '关闭', exact: true });
     await expect(dialog).toBeVisible();
     await expect(close).toBeFocused();
+    await expectDialogActionsAligned(dialog);
     await expect(body.getByRole('term')).toHaveText([
       '01 姓名',
       '02 单位（公司/院校/研究所）全称',

@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { api } from '../../api';
+import { DialogActions } from '../../components/dialog-actions';
 import {
   EmptyState,
   FeedbackCallout,
@@ -684,11 +685,7 @@ export function PrizesPage() {
                 />
               </Flex>
             )}
-            <Flex
-              gap="3"
-              mt="5"
-              justify="end"
-            >
+            <DialogActions>
               <Dialog.Close>
                 <Button
                   type="button"
@@ -706,7 +703,7 @@ export function PrizesPage() {
               >
                 {currentStockAttemptIsUncertain ? '重试添加' : '确认添加'}
               </Button>
-            </Flex>
+            </DialogActions>
           </form>
         </Dialog.Content>
       </Dialog.Root>

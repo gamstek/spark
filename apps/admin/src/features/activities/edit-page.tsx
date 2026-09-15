@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { updateActivityContext } from '../../components/activity-nav';
 import { DateTimePicker } from '../../components/date-time-picker';
+import { DialogActions } from '../../components/dialog-actions';
 import {
   FeedbackCallout,
   LoadingState,
@@ -526,12 +527,7 @@ export function ActivityEditPage() {
                     <AlertDialog.Description size="2">
                       暂停期间不会接受新的参与和抽奖；已中奖用户仍可正常兑奖，活动截止时间不会顺延。
                     </AlertDialog.Description>
-                    <Flex
-                      gap="3"
-                      mt="5"
-                      justify="end"
-                      align="center"
-                    >
+                    <DialogActions>
                       <AlertDialog.Cancel>
                         <Button
                           type="button"
@@ -551,7 +547,7 @@ export function ActivityEditPage() {
                           确认暂停活动
                         </Button>
                       </AlertDialog.Action>
-                    </Flex>
+                    </DialogActions>
                   </AlertDialog.Content>
                 </AlertDialog.Root>
               ))}
@@ -575,12 +571,7 @@ export function ActivityEditPage() {
                     <AlertDialog.Description size="2">
                       结束后不会再产生新的中奖结果，现有中奖者仍可在兑奖期限内核销。
                     </AlertDialog.Description>
-                    <Flex
-                      gap="3"
-                      mt="5"
-                      justify="end"
-                      align="center"
-                    >
+                    <DialogActions>
                       <AlertDialog.Cancel>
                         <Button
                           type="button"
@@ -602,7 +593,7 @@ export function ActivityEditPage() {
                           确认结束抽奖
                         </Button>
                       </AlertDialog.Action>
-                    </Flex>
+                    </DialogActions>
                   </AlertDialog.Content>
                 </AlertDialog.Root>
               </div>

@@ -1,9 +1,10 @@
-import { Button, Dialog, Flex } from '@radix-ui/themes';
+import { Button, Dialog } from '@radix-ui/themes';
 import {
   formatActivityFormAnswers,
   type ActivityFormAnswers,
 } from '@spark/contracts';
 import { useRef, type ComponentProps } from 'react';
+import { DialogActions } from '../../components/dialog-actions';
 import { EmptyState } from '../../components/empty-state';
 
 type ParticipantDetailDialogProps = {
@@ -65,10 +66,7 @@ export function ParticipantDetailDialog({
             />
           )}
         </div>
-        <Flex
-          justify="end"
-          mt="4"
-        >
+        <DialogActions>
           <Dialog.Close>
             <Button
               ref={closeRef}
@@ -79,7 +77,7 @@ export function ParticipantDetailDialog({
               关闭
             </Button>
           </Dialog.Close>
-        </Flex>
+        </DialogActions>
       </Dialog.Content>
     </Dialog.Root>
   );

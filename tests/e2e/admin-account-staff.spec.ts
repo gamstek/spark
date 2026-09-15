@@ -1,5 +1,19 @@
-import { expect } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
 import { test } from './admin-test';
+
+async function expectDialogActionsAligned(dialog: Locator) {
+  const actions = dialog.locator('.dialog-actions').getByRole('button');
+  const firstBox = await actions.first().boundingBox();
+  const lastBox = await actions.last().boundingBox();
+
+  expect(firstBox).not.toBeNull();
+  expect(lastBox).not.toBeNull();
+  expect(
+    Math.abs(
+      firstBox!.y + firstBox!.height / 2 - (lastBox!.y + lastBox!.height / 2),
+    ),
+  ).toBeLessThanOrEqual(1);
+}
 
 test('staff table stays unframed with compact Ghost row menus in both themes', async ({
   page,
@@ -144,6 +158,7 @@ test('staff settings preserve activity grants and password reset before enabling
   await dialog
     .getByLabel('重置密码', { exact: true })
     .fill('updated-password-123');
+  await expectDialogActionsAligned(dialog);
   await dialog.getByRole('button', { name: '保存设置' }).click();
   await expect(dialog).toBeHidden();
   await expect(
@@ -275,6 +290,7 @@ test('creates staff inside a dialog and retains input on failure', async ({
   await dialog.getByRole('button', { name: '可操作活动' }).click();
   await page.getByRole('menuitemcheckbox', { name: '上海展会抽奖' }).click();
   await page.keyboard.press('Escape');
+  await expectDialogActionsAligned(dialog);
   await dialog.getByRole('button', { name: '创建并授权' }).click();
   await expect(
     dialog.getByText('工作人员创建失败，请检查登录名、密码和活动授权。'),

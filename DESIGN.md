@@ -268,6 +268,7 @@ and disables smooth scrolling. Global scrollbars use thin standard properties,
 | Primary action        | Radix Button Solid, at most one per page/independent operation group, size2                 |
 | Secondary/row/account | Radix Ghost Button/IconButton, size1 or size2; deliberate Soft/Outline exceptions           |
 | Dangerous action      | Separated red Ghost/Outline entry; red Solid final AlertDialog action                       |
+| Dialog actions        | DialogActions owns footer alignment, gap, wrap and top spacing; caller-owned Radix Dialog.Close, AlertDialog.Cancel and AlertDialog.Action retain dismissal and focus semantics, with cancel first and confirm second |
 | TextField/TextArea    | Radix Soft gray size2; login size3/40px; TextArea `resize="none"`                           |
 | Select/Listbox        | Authored Radix Select; activity status Ghost Trigger/Popper Content, form selects Soft gray |
 | Dataset               | GhostTable wraps Radix semantic Table; GhostTableFooter announces actual count/range        |

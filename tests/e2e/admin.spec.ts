@@ -1,5 +1,19 @@
-import { expect } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
 import { test } from './admin-test';
+
+async function expectDialogActionsAligned(dialog: Locator) {
+  const actions = dialog.locator('.dialog-actions').getByRole('button');
+  const firstBox = await actions.first().boundingBox();
+  const lastBox = await actions.last().boundingBox();
+
+  expect(firstBox).not.toBeNull();
+  expect(lastBox).not.toBeNull();
+  expect(
+    Math.abs(
+      firstBox!.y + firstBox!.height / 2 - (lastBox!.y + lastBox!.height / 2),
+    ),
+  ).toBeLessThanOrEqual(1);
+}
 
 test('keeps the activity list and detail status consistent after drawing ends', async ({
   page,
@@ -559,24 +573,9 @@ test('pauses and resumes a running activity', async ({ page }, testInfo) => {
 
   await page.goto('/admin/activities/a1');
   await page.getByRole('button', { name: '暂停活动' }).click();
-  await expect(page.getByRole('alertdialog')).toContainText(
-    '暂停期间不会接受新的参与和抽奖',
-  );
-  await expect
-    .poll(async () => {
-      const cancel = await page
-        .getByRole('button', { name: '取消' })
-        .boundingBox();
-      const confirm = await page
-        .getByRole('button', { name: '确认暂停活动' })
-        .boundingBox();
-      if (!cancel || !confirm) return Number.POSITIVE_INFINITY;
-      return Math.max(
-        Math.abs(cancel.y - confirm.y),
-        Math.abs(cancel.height - confirm.height),
-      );
-    })
-    .toBeLessThanOrEqual(1);
+  const pauseDialog = page.getByRole('alertdialog');
+  await expect(pauseDialog).toContainText('暂停期间不会接受新的参与和抽奖');
+  await expectDialogActionsAligned(pauseDialog);
   await page.getByRole('button', { name: '确认暂停活动' }).click();
   await expect(page.getByText('活动已暂停', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '恢复活动' })).toBeVisible();
@@ -672,20 +671,10 @@ test('adds inventory through a labeled dialog', async ({ page }) => {
   );
   await page.getByRole('button', { name: '奖品操作：定制礼盒' }).click();
   await page.getByRole('menuitem', { name: '添加库存' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  const stockDialog = page.getByRole('dialog');
+  await expect(stockDialog).toBeVisible();
   await page.getByLabel('增加数量').fill('5');
-  await expect
-    .poll(async () => {
-      const cancel = await page
-        .getByRole('button', { name: '取消' })
-        .boundingBox();
-      const confirm = await page
-        .getByRole('button', { name: '确认添加' })
-        .boundingBox();
-      if (!cancel || !confirm) return Number.POSITIVE_INFINITY;
-      return Math.abs(cancel.y - confirm.y);
-    })
-    .toBeLessThanOrEqual(1);
+  await expectDialogActionsAligned(stockDialog);
   await page.getByRole('button', { name: '确认添加' }).click();
   await expect(page.getByText('库存已添加')).toBeVisible();
 });

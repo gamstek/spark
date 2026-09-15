@@ -1,6 +1,20 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { test } from './admin-test';
 
+async function expectDialogActionsAligned(dialog: Locator) {
+  const actions = dialog.locator('.dialog-actions').getByRole('button');
+  const firstBox = await actions.first().boundingBox();
+  const lastBox = await actions.last().boundingBox();
+
+  expect(firstBox).not.toBeNull();
+  expect(lastBox).not.toBeNull();
+  expect(
+    Math.abs(
+      firstBox!.y + firstBox!.height / 2 - (lastBox!.y + lastBox!.height / 2),
+    ),
+  ).toBeLessThanOrEqual(1);
+}
+
 async function mockContext(page: Page) {
   await page.route('**/api/admin/auth/me', (route) =>
     route.fulfill({ json: { csrfToken: 'csrf' } }),
@@ -379,6 +393,7 @@ test('staff uses separate compact columns and a keyboard-accessible edit and sta
     name: '停用工作人员账号？',
   });
   await expect(confirmation).toContainText('已有核销记录不会受到影响');
+  await expectDialogActionsAligned(confirmation);
   await expect(
     confirmation.getByRole('button', { name: '取消' }),
   ).toBeFocused();
