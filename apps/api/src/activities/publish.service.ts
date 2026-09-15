@@ -28,7 +28,6 @@ export class PublishService {
     expectedRevision: number,
     adminId: string,
   ): Promise<{ version: number; revision: number }> {
-    const now = this.now();
     return this.dataSource.transaction(async (manager) => {
       const activities = await manager.query<
         {
@@ -43,6 +42,7 @@ export class PublishService {
       );
       const activity = activities[0];
       if (!activity?.draft_version_id) throw new Error('DRAFT_NOT_FOUND');
+      const now = this.now();
       if (activity.revision !== expectedRevision)
         throw new Error('VERSION_CONFLICT');
       if (
@@ -122,7 +122,6 @@ export class PublishService {
   }
 
   async endDraw(activityId: string, adminId: string): Promise<void> {
-    const now = this.now();
     await this.dataSource.transaction(async (manager) => {
       const activities = await manager.query<LifecycleRow[]>(
         `SELECT a.published_version_id,a.paused_at,v.starts_at,v.draw_ends_at,v.ends_at
@@ -134,6 +133,7 @@ export class PublishService {
       );
       const activity = activities[0];
       if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+      const now = this.now();
       const status = this.status(activity, now);
       if (status !== 'RUNNING' && status !== 'PAUSED')
         throw new Error('DRAW_NOT_ACTIVE');
@@ -166,7 +166,6 @@ export class PublishService {
     adminId: string,
     paused: boolean,
   ): Promise<void> {
-    const now = this.now();
     await this.dataSource.transaction(async (manager) => {
       const activities = await manager.query<LifecycleRow[]>(
         `SELECT a.published_version_id,a.paused_at,v.starts_at,v.draw_ends_at,v.ends_at
@@ -178,6 +177,7 @@ export class PublishService {
       );
       const activity = activities[0];
       if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+      const now = this.now();
       const status = this.status(activity, now);
       if (paused && status === 'PAUSED')
         throw new Error('ACTIVITY_ALREADY_PAUSED');

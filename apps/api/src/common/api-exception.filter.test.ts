@@ -72,4 +72,27 @@ describe('ApiExceptionFilter', () => {
       requestId: 'request-3',
     });
   });
+
+  it.each(['ACTIVITY_PAUSED', 'ACTIVITY_NOT_RUNNING'])(
+    'maps lifecycle error %s to a conflict response',
+    (code) => {
+      const send = vi.fn();
+      const status = vi.fn(() => ({ send }));
+      const host = {
+        switchToHttp: () => ({
+          getRequest: () => ({ id: 'request-lifecycle' }),
+          getResponse: () => ({ status }),
+        }),
+      };
+
+      new ApiExceptionFilter().catch(new Error(code), host as never);
+
+      expect(status).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+      expect(send).toHaveBeenCalledWith({
+        code,
+        message: code,
+        requestId: 'request-lifecycle',
+      });
+    },
+  );
 });

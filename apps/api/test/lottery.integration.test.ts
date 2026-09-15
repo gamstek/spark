@@ -242,6 +242,28 @@ describe('atomic lottery and inventory', () => {
     expect(participation?.drawn_at).not.toBeNull();
   });
 
+  it('does not consume eligibility when empty and succeeds after stock is added', async () => {
+    await database.dataSource.query(
+      `UPDATE activity_version SET config=config || '{"winningProbability":100}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+      [scenario.activityId],
+    );
+    await database.dataSource.query(
+      `UPDATE activity_prize SET total_stock=0 WHERE activity_id=$1`,
+      [scenario.activityId],
+    );
+
+    await expect(
+      service().draw(scenario.userIds[0], 'expo-2026'),
+    ).rejects.toThrow('OUT_OF_STOCK');
+    await database.dataSource.query(
+      `UPDATE activity_prize SET total_stock=1 WHERE activity_id=$1`,
+      [scenario.activityId],
+    );
+    await expect(
+      service().draw(scenario.userIds[0], 'expo-2026'),
+    ).resolves.toMatchObject({ prizeName: '一等奖' });
+  });
+
   it('skips WeChat identity access for anonymous draw when subscription is required', async () => {
     await database.dataSource.query(
       `UPDATE activity_version SET config=config || '{"requireSubscribe":true}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,

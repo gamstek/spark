@@ -7,7 +7,7 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { NestFactory } from '@nestjs/core';
 import type { LotteryConfig } from '@spark/templates';
 import { DataSource } from 'typeorm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { PublishService } from '../src/activities/publish.service.js';
@@ -152,5 +152,36 @@ describe('activity publishing lock', () => {
       ]),
     );
     expect(audits).toEqual([]);
+  });
+
+  it('samples the clock after acquiring the activity row lock', async () => {
+    const queryRunner = database.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    await queryRunner.query(`SELECT id FROM activity WHERE id=$1 FOR UPDATE`, [
+      scenario.activityId,
+    ]);
+    let currentTime = new Date(scenario.now.getTime() - 1);
+    const clock: Clock = {
+      now: vi.fn(() => currentTime),
+    };
+
+    try {
+      const publishing = new PublishService(database.dataSource, clock);
+      const result = publishing.publish(
+        scenario.activityId,
+        4,
+        scenario.adminId,
+      );
+      currentTime = scenario.now;
+      await queryRunner.commitTransaction();
+
+      await expect(result).rejects.toThrow('ACTIVITY_LOCKED');
+      expect(clock.now).toHaveBeenCalledTimes(1);
+    } finally {
+      if (queryRunner.isTransactionActive)
+        await queryRunner.rollbackTransaction();
+      await queryRunner.release();
+    }
   });
 });
