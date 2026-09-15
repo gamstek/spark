@@ -1,4 +1,10 @@
-export * from './activities.js';
+export {
+  ActivityInputSchema,
+  type ActivityInput,
+  LotteryConfigSchema,
+  type LotteryConfig,
+} from './activities.js';
+export * from './activity-status.js';
 export * from './activity-form.js';
 export * from './activity-info.js';
 export * from './auth.js';
