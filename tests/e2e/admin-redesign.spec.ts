@@ -30,6 +30,8 @@ test('filters activities and restores mobile navigation focus', async ({
           name: '春日品牌展',
           code: 'spring',
           published_version_id: null,
+          status: 'DRAFT',
+          serverNow: '2026-09-15T08:00:00.000Z',
         },
         {
           id: 'summer',
@@ -37,6 +39,8 @@ test('filters activities and restores mobile navigation focus', async ({
           code: 'summer',
           published_version_id: 'v1',
           ends_at: '2020-01-01',
+          status: 'ENDED',
+          serverNow: '2026-09-15T08:00:00.000Z',
         },
       ],
     }),

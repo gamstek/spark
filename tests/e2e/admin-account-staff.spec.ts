@@ -99,6 +99,8 @@ test('staff settings preserve activity grants and password reset before enabling
           published_version_id: null,
           starts_at: null,
           ends_at: null,
+          status: 'DRAFT',
+          serverNow: '2026-09-15T08:00:00.000Z',
         },
       ],
     }),
@@ -251,7 +253,15 @@ test('creates staff inside a dialog and retains input on failure', async ({
   });
   await page.route('**/api/admin/activities', (r) =>
     r.fulfill({
-      json: [{ id: 'activity-1', name: '上海展会抽奖' }],
+      json: [
+        {
+          id: 'activity-1',
+          name: '上海展会抽奖',
+          code: 'expo',
+          status: 'DRAFT',
+          serverNow: '2026-09-15T08:00:00.000Z',
+        },
+      ],
     }),
   );
   await page.goto('/admin/staff');

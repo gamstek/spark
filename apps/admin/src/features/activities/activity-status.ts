@@ -5,6 +5,12 @@ export type ActivityStatusPresentation = {
   color: 'gray' | 'blue' | 'jade' | 'amber';
 };
 
+export type ActivityActions = {
+  canPause: boolean;
+  canResume: boolean;
+  canEndDraw: boolean;
+};
+
 const activityStatusPresentations: Record<
   ActivityStatus,
   ActivityStatusPresentation
@@ -23,14 +29,15 @@ export function getActivityStatusPresentation(
   return activityStatusPresentations[status];
 }
 
-export function getActivityActions(status: ActivityStatus): {
-  canPause: boolean;
-  canResume: boolean;
-  canEndDraw: boolean;
-} {
-  return {
-    canPause: status === 'RUNNING',
-    canResume: status === 'PAUSED',
-    canEndDraw: status === 'RUNNING' || status === 'PAUSED',
-  };
+const activityActions: Record<ActivityStatus, ActivityActions> = {
+  DRAFT: { canPause: false, canResume: false, canEndDraw: false },
+  UPCOMING: { canPause: false, canResume: false, canEndDraw: false },
+  RUNNING: { canPause: true, canResume: false, canEndDraw: true },
+  PAUSED: { canPause: false, canResume: true, canEndDraw: true },
+  DRAW_ENDED: { canPause: false, canResume: false, canEndDraw: false },
+  ENDED: { canPause: false, canResume: false, canEndDraw: false },
+};
+
+export function getActivityActions(status: ActivityStatus): ActivityActions {
+  return activityActions[status];
 }

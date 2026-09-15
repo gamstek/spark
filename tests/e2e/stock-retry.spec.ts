@@ -21,6 +21,8 @@ async function mockPrizePage(
       json: {
         id: 'a1',
         published_version_id: 'v1',
+        status: 'RUNNING',
+        serverNow: '2026-09-15T08:00:00.000Z',
         starts_at: '2020-01-01T00:00:00Z',
       },
     }),

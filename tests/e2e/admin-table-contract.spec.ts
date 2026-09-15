@@ -13,6 +13,8 @@ async function mockContext(page: Page) {
         code: 'expo',
         revision: 1,
         published_version_id: 'v1',
+        status: 'RUNNING',
+        serverNow: '2026-09-15T08:00:00.000Z',
         starts_at: '2020-01-01T00:00:00Z',
         config: {},
       },
@@ -302,7 +304,17 @@ test('staff uses separate compact columns and a keyboard-accessible edit and sta
     disabled_at: null as string | null,
   };
   await page.route('**/api/admin/activities', (route) =>
-    route.fulfill({ json: [{ id: 'a1', name: '现场活动', code: 'expo' }] }),
+    route.fulfill({
+      json: [
+        {
+          id: 'a1',
+          name: '现场活动',
+          code: 'expo',
+          status: 'DRAFT',
+          serverNow: '2026-09-15T08:00:00.000Z',
+        },
+      ],
+    }),
   );
   await page.route('**/api/admin/staff', (route) =>
     route.fulfill({ json: [staff] }),

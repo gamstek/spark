@@ -9,6 +9,7 @@ import {
   Text,
   TextField,
 } from '@radix-ui/themes';
+import type { ActivityStatus } from '@spark/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
@@ -41,6 +42,8 @@ type StockAttempt = {
 type ActivityDetail = {
   revision: number;
   published_version_id: string | null;
+  status: ActivityStatus;
+  serverNow: string;
   starts_at: string | null;
   config: Record<string, unknown>;
 };
@@ -61,7 +64,6 @@ export function PrizesPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [started, setStarted] = useState(false);
   const [activity, setActivity] = useState<ActivityDetail | null>(null);
   const [noPrizeWeight, setNoPrizeWeight] = useState('1');
   const [savingNoPrizeWeight, setSavingNoPrizeWeight] = useState(false);
@@ -87,13 +89,6 @@ export function PrizesPage() {
       api<ActivityDetail>(`admin/activities/${id}`).then((activity) => {
         setActivity(activity);
         setNoPrizeWeight(String(activity.config?.noPrizeWeight ?? 1));
-        setStarted(
-          Boolean(
-            activity.published_version_id &&
-            activity.starts_at &&
-            new Date(activity.starts_at) <= new Date(),
-          ),
-        );
       }),
     ])
       .catch(() => setError('奖品数据加载失败，请刷新后重试。'))
@@ -255,6 +250,9 @@ export function PrizesPage() {
   const currentStockValidationFailed = stockPrize
     ? stockValidationErrorPrizeId === stockPrize.id
     : false;
+  const started = Boolean(
+    activity && !['DRAFT', 'UPCOMING'].includes(activity.status),
+  );
   const prizeLimitReached = rows.length >= MAX_PRIZE_COUNT;
 
   if (loading) return <LoadingState label="正在加载奖品与库存" />;

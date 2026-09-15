@@ -524,6 +524,7 @@ test('confirms before ending an activity draw', async ({ page }) => {
   await expect.poll(() => detailLoads).toBeGreaterThan(loadsBeforeEnd);
   await expect(page.getByText('抽奖已提前结束')).toBeVisible();
   await expect(page.getByRole('button', { name: '提前结束抽奖' })).toBeHidden();
+  await expect(page.locator('.workspace-context')).toContainText('抽奖已结束');
 });
 
 test('pauses and resumes a running activity', async ({ page }, testInfo) => {
@@ -579,6 +580,10 @@ test('pauses and resumes a running activity', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: '确认暂停活动' }).click();
   await expect(page.getByText('活动已暂停', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '恢复活动' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: '提前结束抽奖' }),
+  ).toBeVisible();
+  await expect(page.locator('.workspace-context')).toContainText('已暂停');
   await page.screenshot({
     path: testInfo.outputPath('paused-activity-desktop.png'),
     fullPage: true,
@@ -593,6 +598,35 @@ test('pauses and resumes a running activity', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: '恢复活动' }).click();
   await expect(page.getByText('活动已恢复', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '暂停活动' })).toBeVisible();
+  await expect(page.locator('.workspace-context')).toContainText('进行中');
+});
+
+test('keeps prize configuration editable for a server upcoming activity despite past browser time', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date('2100-01-01T00:00:00Z') });
+  await page.route('**/api/admin/auth/me', (route) =>
+    route.fulfill({ json: { csrfToken: 'csrf' } }),
+  );
+  await page.route('**/api/admin/activities/a1', (route) =>
+    route.fulfill({
+      json: {
+        id: 'a1',
+        revision: 1,
+        published_version_id: 'v1',
+        status: 'UPCOMING',
+        serverNow: '2026-09-15T08:00:00.000Z',
+        starts_at: '2020-01-01T00:00:00Z',
+        config: { winningProbability: 0, halfDayPrizeLimits: {} },
+      },
+    }),
+  );
+  await page.route('**/api/admin/prizes/activities/a1', (route) =>
+    route.fulfill({ json: [] }),
+  );
+
+  await page.goto('/admin/activities/a1/prizes');
+  await expect(page.getByRole('button', { name: '新增奖项' })).toBeEnabled();
 });
 
 test('adds inventory through a labeled dialog', async ({ page }) => {

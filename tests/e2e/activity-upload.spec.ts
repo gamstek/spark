@@ -22,6 +22,8 @@ test.beforeEach(async ({ page }) => {
         code: 'exhibition',
         revision: 0,
         published_version_id: null,
+        status: 'DRAFT',
+        serverNow: '2026-09-15T08:00:00.000Z',
         starts_at: '2099-01-01T00:00:00Z',
         draw_ends_at: '2099-01-02T00:00:00Z',
         ends_at: '2099-01-03T00:00:00Z',

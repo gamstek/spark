@@ -42,4 +42,15 @@ describe('activity status actions', () => {
       canEndDraw: false,
     });
   });
+
+  it.each(['DRAFT', 'UPCOMING', 'DRAW_ENDED', 'ENDED'] as const)(
+    'exposes no lifecycle actions for %s',
+    (status) => {
+      expect(getActivityActions(status)).toEqual({
+        canPause: false,
+        canResume: false,
+        canEndDraw: false,
+      });
+    },
+  );
 });

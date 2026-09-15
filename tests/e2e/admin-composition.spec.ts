@@ -6,6 +6,8 @@ const activity = {
   code: 'shanghai-expo',
   revision: 2,
   published_version_id: 'published-1',
+  status: 'RUNNING',
+  serverNow: '2026-09-15T08:00:00.000Z',
   starts_at: '2020-09-08T02:00:00Z',
   draw_ends_at: '2099-09-10T10:00:00Z',
   ends_at: '2099-09-10T12:00:00Z',

@@ -319,7 +319,14 @@ for (const viewport of viewports) {
         '上海国际品牌新品发布暨秋季城市生活方式体验活动——线上预约与线下互动抽奖特别场';
       await page.route('**/api/admin/activities/long-activity', (route) =>
         route.fulfill({
-          json: { name, code: 'long-activity', revision: 1, config: {} },
+          json: {
+            name,
+            code: 'long-activity',
+            revision: 1,
+            status: 'DRAFT',
+            serverNow: '2026-09-15T08:00:00.000Z',
+            config: {},
+          },
         }),
       );
       await page.route('**/api/admin/auth/me', (route) =>
@@ -335,6 +342,8 @@ for (const viewport of viewports) {
               published_version_id: null,
               starts_at: null,
               ends_at: null,
+              status: 'DRAFT',
+              serverNow: '2026-09-15T08:00:00.000Z',
             },
           ],
         }),
