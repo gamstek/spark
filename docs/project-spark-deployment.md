@@ -47,7 +47,8 @@ Cookie 在生产环境使用 `Secure`、`HttpOnly` 和
 
 ## 自有报名表版本的数据库重建
 
-本次初始迁移已重写，不提供已有数据库的前向升级。不会迁移、保留或回填旧报名记录；由获授权运维人员手动清空该应用数据库后，再运行 `pnpm --filter @spark/api db:migrate` 创建当前结构。
+本次初始迁移已重写，不提供已有数据库的前向升级。不会迁移、保留或回填旧报名记录；由获授权运维人员手动清空该应用数据库后，再运行
+`pnpm --filter @spark/api db:migrate` 创建当前结构。
 
 1. 停止 API 写入并核对准备重建的数据库实例和库名。
 2. 由获授权的运维人员手动清空该应用数据库，确保该库为空；不要删除媒体卷或其他应用数据库。
@@ -71,7 +72,8 @@ curl -fsS https://spark.gamstek.com/api/health/ready
 ```
 
 依次验证 `/activity/`、`/staff/`、`/admin/` 和
-`/api/health/ready`。HTTPS 可用后，再配置微信公众号网页授权域名、接口 IP 白名单（保留的 OAuth 与工作人员 JS-SDK 能力）。
+`/api/health/ready`。HTTPS 可用后，再配置微信公众号网页授权域名、接口 IP 白名单（保留的 OAuth、access
+token 和关注状态查询能力）。工作人员 H5 扫码也依赖 HTTPS 和浏览器相机权限；相机不可用时可手动输入兑奖码。
 
 ## 自动化验证与镜像发布
 

@@ -101,20 +101,4 @@ export class WechatGateway {
     );
     return body.subscribe === 1;
   }
-
-  async fetchJsApiTicket(
-    accessToken: string,
-  ): Promise<{ ticket: string; expiresIn: number }> {
-    const url = new URL('https://api.weixin.qq.com/cgi-bin/ticket/getticket');
-    url.search = new URLSearchParams({
-      access_token: accessToken,
-      type: 'jsapi',
-    }).toString();
-    const body = await this.requestJson<{
-      ticket: string;
-      expires_in: number;
-    }>('js_sdk.fetch_ticket', url);
-    if (!body.ticket) throw new Error('WECHAT_RESPONSE_INVALID');
-    return { ticket: body.ticket, expiresIn: body.expires_in };
-  }
 }

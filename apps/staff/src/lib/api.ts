@@ -117,13 +117,6 @@ export const staffApi = {
       headers: { 'x-csrf-token': csrfToken },
       body: { code },
     }),
-  wechatJsSdkConfig: (url: string) =>
-    request<{
-      appId: string;
-      timestamp: number;
-      nonceStr: string;
-      signature: string;
-    }>(`/api/staff/wechat/js-sdk-config?url=${encodeURIComponent(url)}`),
 };
 
 export type RedemptionStatus = StaffRecordView['status'];

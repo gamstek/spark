@@ -26,8 +26,6 @@ import { OAuthStateService } from './wechat/oauth-state.service.js';
 import { SubscriptionService } from './wechat/subscription.service.js';
 import { WechatTokenService } from './wechat/token.service.js';
 import { WechatGateway } from './wechat/wechat.gateway.js';
-import { WechatJsSdkController } from './wechat/js-sdk.controller.js';
-import { WechatJsSdkService } from './wechat/js-sdk.service.js';
 import { WechatIdentityService } from './wechat/wechat-identity.service.js';
 import { ActivitiesController } from './activities/activities.controller.js';
 import { ActivitiesService } from './activities/activities.service.js';
@@ -76,7 +74,6 @@ import { APP_CLOCK, type Clock } from './common/clock.js';
     StaffAdminController,
     ParticipantsAdminController,
     OAuthController,
-    WechatJsSdkController,
     ActivitiesController,
     PrizesController,
     MediaController,
@@ -124,12 +121,6 @@ import { APP_CLOCK, type Clock } from './common/clock.js';
     StaffService,
     ParticipantsService,
     WechatTokenService,
-    {
-      provide: WechatJsSdkService,
-      inject: [WechatTokenService, WechatGateway],
-      useFactory: (tokens: WechatTokenService, gateway: WechatGateway) =>
-        new WechatJsSdkService(tokens, gateway),
-    },
     SubscriptionService,
     {
       provide: ActivitiesService,

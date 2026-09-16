@@ -15,12 +15,11 @@ https://spark.gamstek.com/activity/<activityCode>
 
 ## 保留的微信能力
 
-工作人员端仍可使用微信 JS-SDK 的 `scanQRCode`
-完成兑奖扫码。公众号后台的「JS 接口安全域名」配置
-`spark.gamstek.com`（不带协议和路径），域名验证文件必须能从域名根路径访问，正式页面使用 HTTPS。
+工作人员端使用浏览器内置的 H5 相机扫码，不加载微信 JS-SDK，也不需要配置公众号后台的「JS 接口安全域名」。扫码页必须通过 HTTPS 打开，并由工作人员在浏览器中授予相机权限；优先使用后置相机。设备或嵌入式浏览器不能提供相机、权限被拒绝或相机被占用时，应使用页面的重试提示或手动输入兑奖码。
 
 `WECHAT_APP_ID`、`WECHAT_APP_SECRET` 和 `WECHAT_TOKEN_ENCRYPTION_KEY`
-仍由服务器保存，用于保留的 OAuth 与 JS-SDK 能力；不要写入浏览器代码、URL、截图或日志。`wechat`
+仍由服务器保存，用于保留的 OAuth、access
+token 和关注状态查询能力；不要写入浏览器代码、URL、截图或日志。`wechat`
 身份模式仅为未来具备保留 OAuth 流程能力的公众号账户预留，当前生产部署不要启用它。完整变量说明见[配置说明](project-spark-configuration.md)。
 
 ## 验证步骤
@@ -28,5 +27,5 @@ https://spark.gamstek.com/activity/<activityCode>
 1. 部署后确认 API 容器环境中的 `ACTIVITY_IDENTITY_MODE` 为 `anonymous`。
 2. 从普通浏览器和微信内分别打开已发布活动的分享链接，确认都能进入对应活动。
 3. 同一浏览器在 7 天内再次打开链接，确认会话按 Cookie 恢复；清除 Cookie 或更换设备后，确认会建立新的匿名会话，并按运营规则评估重复参与风险。
-4. 使用工作人员账号在微信内打开
-   `/staff/scan`，确认微信原生扫一扫能返回兑奖码；取消扫码后应留在当前页，并可改用手动输入。
+4. 使用工作人员账号在 HTTPS 环境的目标手机浏览器中打开
+   `/staff/scan`，授予相机权限并扫描兑奖码；确认设备不能使用相机或权限被拒绝时，仍可手动输入兑奖码完成核销。
