@@ -196,6 +196,22 @@ describe('redemption recovery and atomic confirmation', () => {
     ).rejects.toThrow('PRIZE_CODE_NOT_AVAILABLE');
   });
 
+  it('rejects confirmation when the request crosses the redemption deadline before the locked update', async () => {
+    const deadline = new Date(scenario.now.getTime() + 86_400_000);
+    const moments = [
+      new Date(deadline.getTime() - 1),
+      new Date(deadline.getTime() + 1),
+    ];
+    const crossingService = new RedemptionsService(
+      database.dataSource,
+      codes,
+      () => moments.shift() ?? moments[0] ?? deadline,
+    );
+    await expect(
+      crossingService.confirm(code, scenario.staffId),
+    ).rejects.toThrow('REDEMPTION_EXPIRED');
+  });
+
   it('fails closed with a missing or incorrect encryption key', async () => {
     const savedKeys = process.env.REDEEM_CODE_KEYS;
     process.env.REDEEM_CODE_KEYS = JSON.stringify({

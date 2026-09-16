@@ -33,13 +33,21 @@ export class PrizesController {
   ) {
     return this.prizes.create(activityId, body);
   }
-  @Patch('activities/:activityId/no-prize-weight')
+  @Patch('activities/:activityId/draw-rules')
   @UseGuards(CsrfGuard)
-  updateNoPrizeWeight(
+  updateDrawRules(
     @Param('activityId') activityId: string,
-    @Body() body: { noPrizeWeight: number },
+    @Body()
+    body: {
+      winningProbability: number;
+      halfDayPrizeLimits: Record<string, number>;
+    },
   ) {
-    return this.prizes.updateNoPrizeWeight(activityId, body.noPrizeWeight);
+    return this.prizes.updateDrawRules(
+      activityId,
+      body.winningProbability,
+      body.halfDayPrizeLimits,
+    );
   }
   @Post('activity-prizes/:id/stock') @UseGuards(CsrfGuard) async addStock(
     @Param('id') id: string,

@@ -10,8 +10,8 @@ import {
 
 const validConfig = {
   requireSubscribe: true,
-  noPrizeWeight: 1,
-  heroAssetId: 'asset-hero-001',
+  winningProbability: 25,
+  halfDayPrizeLimits: {},
   rulesText: '填写信息后参与抽奖，每人每场活动限一次。',
 };
 
@@ -116,13 +116,28 @@ describe('template registry', () => {
   });
 
   it('accepts a complete exhibition lottery configuration', () => {
-    expect(LotteryConfigSchema.safeParse(validConfig).success).toBe(true);
+    expect(LotteryConfigSchema.parse(validConfig)).toMatchObject({
+      winningProbability: 25,
+      halfDayPrizeLimits: {},
+    });
+  });
+
+  it('defaults the winning probability and prize limits to zero', () => {
+    expect(
+      LotteryConfigSchema.parse({
+        requireSubscribe: true,
+        rulesText: validConfig.rulesText,
+      }),
+    ).toMatchObject({ winningProbability: 0, halfDayPrizeLimits: {} });
   });
 
   it.each([
-    [{ ...validConfig, heroAssetId: ' ' }, 'missing hero asset'],
     [{ ...validConfig, rulesText: ' ' }, 'missing rules'],
-    [{ ...validConfig, noPrizeWeight: -1 }, 'negative weight'],
+    [{ ...validConfig, winningProbability: 101 }, 'probability over 100'],
+    [
+      { ...validConfig, halfDayPrizeLimits: { prize: -1 } },
+      'negative half-day limit',
+    ],
     [
       { ...validConfig, callbackSecret: 'must-not-be-configurable' },
       'unknown secret field',

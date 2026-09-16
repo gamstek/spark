@@ -156,7 +156,11 @@ export function ParticipantsPage() {
             </Table.Body>
           </GhostTable>
           <GhostTableFooter
-            range={`共 ${rows.length.toLocaleString('zh-CN')} 位参与者`}
+            range={
+              rows.length >= 500
+                ? '最近 500 位参与者（完整数据请使用导出）'
+                : `共 ${rows.length.toLocaleString('zh-CN')} 位参与者`
+            }
           />
         </div>
       )}

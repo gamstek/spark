@@ -162,6 +162,8 @@ export class RedemptionsService {
       if (row.status === 'REDEEMED') return this.toView(row);
       if (row.status === 'EXPIRED') throw new Error('REDEMPTION_EXPIRED');
       const redeemedAt = this.now();
+      if (redeemedAt >= new Date(row.redeem_end_at))
+        throw new Error('REDEMPTION_EXPIRED');
       await manager.query(
         `UPDATE redemption SET status='REDEEMED',redeemed_at=$2,redeemed_by_staff_id=$3 WHERE id=$1 AND status='WAIT_REDEEM'`,
         [row.redemption_id, redeemedAt, staffId],

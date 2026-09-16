@@ -81,7 +81,11 @@ export function RedemptionsListPage() {
             </Table.Body>
           </GhostTable>
           <GhostTableFooter
-            range={`共 ${rows.length.toLocaleString('zh-CN')} 条核销记录`}
+            range={
+              rows.length >= 500
+                ? '最近 500 条核销记录'
+                : `共 ${rows.length.toLocaleString('zh-CN')} 条核销记录`
+            }
           />
         </div>
       )}

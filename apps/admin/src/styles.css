@@ -898,7 +898,146 @@ a {
 }
 .activity-navigation {
   overflow-x: auto;
-  margin: -4px 0 28px;
+  margin: -8px 0 20px;
+  border-bottom: 1px solid var(--spark-border);
+}
+.date-time-trigger {
+  width: 100%;
+  min-height: var(--space-7);
+  justify-content: flex-start;
+  font-weight: 400;
+}
+.date-time-popover {
+  max-height: min(680px, calc(100vh - 32px));
+  overflow-y: auto;
+}
+.date-time-popover .rdp-root {
+  --rdp-accent-color: var(--accent-9);
+  margin: 0;
+}
+.date-time-controls {
+  padding-top: 12px;
+  border-top: 1px solid var(--spark-border);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.notification-viewport {
+  position: fixed;
+  z-index: 50;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  width: min(400px, calc(100vw - 32px));
+  flex-direction: column;
+  gap: 10px;
+}
+.notification-card {
+  position: relative;
+  filter: drop-shadow(0 12px 24px rgba(25, 20, 50, 0.16));
+  animation: notification-enter 180ms ease-out;
+}
+.notification-card .rt-CalloutRoot {
+  padding-right: 44px;
+  border: 1px solid var(--spark-border);
+  background: var(--spark-surface);
+}
+.notification-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+@keyframes notification-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.draw-rules-form {
+  min-width: 0;
+}
+.draw-rules-probability {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 20px;
+  border-left: 3px solid var(--spark-primary);
+  background: var(--spark-tint);
+}
+.draw-rules-probability p {
+  margin: 5px 0 0;
+  line-height: 1.6;
+}
+.probability-input {
+  flex: 0 0 auto;
+}
+.probability-input .rt-TextFieldRoot {
+  width: 112px;
+}
+.draw-rule-list {
+  margin-top: 24px;
+  border-top: 1px solid var(--spark-border);
+}
+.draw-rule-list-heading,
+.draw-rule-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(250px, auto);
+  align-items: center;
+  gap: 24px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--spark-border);
+}
+.draw-rule-list-heading {
+  padding-block: 12px;
+}
+.draw-rule-list-heading > :last-child {
+  text-align: right;
+}
+.draw-rule-prize {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.draw-rule-limit-label {
+  display: grid;
+  grid-template-columns: 1px 96px auto;
+  align-items: center;
+  gap: 10px;
+}
+.draw-rule-limit-label > span:first-child {
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.draw-rule-empty {
+  display: block;
+  padding: 24px 4px;
+  border-bottom: 1px solid var(--spark-border);
+}
+.draw-rules-actions {
+  padding-top: 16px;
+}
+.prize-level-preview {
+  min-height: var(--space-7);
+  display: flex;
+  align-items: center;
+  color: var(--accent-11);
 }
 .empty-state {
   min-height: 280px;
@@ -985,10 +1124,36 @@ a {
   grid-column: 1 / -1;
 }
 .form-grid-prize {
-  grid-template-columns: repeat(2, minmax(0, 1.2fr)) repeat(
-      2,
-      minmax(90px, 0.75fr)
-    );
+  grid-template-columns:
+    minmax(96px, 0.65fr) minmax(0, 1.1fr) minmax(0, 1.3fr)
+    minmax(96px, 0.7fr);
+}
+.form-grid-prize > * {
+  min-width: 0;
+}
+.form-grid-prize .file-input,
+.form-grid-prize .rt-TextFieldRoot {
+  width: 100%;
+  max-width: 100%;
+}
+.prize-create-panel {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--spark-border);
+  border-radius: var(--radius-3);
+  background: color-mix(in srgb, var(--spark-tint) 55%, transparent);
+}
+.prize-level-block {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+.prize-create-action {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  padding-top: 16px;
+  border-top: 1px solid var(--spark-border);
 }
 .field-label {
   display: flex;
@@ -1009,6 +1174,7 @@ a {
 }
 .form-grid .rt-TextAreaInput {
   min-height: 144px;
+  resize: none;
 }
 .file-input {
   height: var(--space-6);
@@ -1050,21 +1216,37 @@ a {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 20px;
-  padding: 24px 0 0 24px;
-  border-top: 1px solid var(--spark-border);
-  border-left: 1px solid var(--spark-border);
-  background: transparent;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--spark-border);
+  border-top: 3px solid var(--spark-primary);
+  border-radius: var(--radius-3);
+  background: color-mix(in srgb, var(--spark-surface) 88%, transparent);
+}
+.publication-status-caption {
+  margin-bottom: -10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 .editor-action-buttons {
   width: 100%;
   flex-direction: column;
   align-items: stretch;
 }
+.editor-action-buttons > .rt-Button {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  flex: 0 0 auto;
+  align-self: stretch;
+  margin-inline: 0;
+}
 .editor-action-summary {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding-block: 16px;
+  border-block: 1px solid var(--spark-border);
 }
 .editor-action-summary p {
   margin: 5px 0 0;
@@ -1082,8 +1264,18 @@ a {
   background: var(--teal-9);
   box-shadow: 0 0 0 5px var(--teal-a3);
 }
+.editor-state-dot.is-paused {
+  background: var(--amber-9);
+  box-shadow: 0 0 0 5px var(--amber-a3);
+}
 .editor-danger-action {
-  margin-top: 20px;
+  width: 100%;
+}
+.publication-danger-zone {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--red-a5);
 }
 .dialog-actions {
   display: flex;
@@ -1320,16 +1512,18 @@ a {
   }
   .editor-action-bar {
     position: static;
-    padding: 24px 0 0;
-    border-left: 0;
+    padding: 22px;
   }
   .editor-action-buttons {
-    flex-direction: row;
-    justify-content: flex-start;
+    flex-direction: column;
   }
   .form-section {
     grid-template-columns: 1fr;
     gap: 24px;
+  }
+  .draw-rule-list-heading,
+  .draw-rule-row {
+    grid-template-columns: minmax(140px, 1fr) auto;
   }
   .activity-onboarding {
     gap: 32px;
@@ -1395,6 +1589,40 @@ a {
   }
   .editor-danger-action {
     margin-left: 0;
+  }
+  .draw-rules-probability {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .probability-input .rt-TextFieldRoot {
+    width: min(160px, 100%);
+  }
+  .draw-rule-list-heading {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .draw-rule-list-heading > :last-child {
+    text-align: left;
+  }
+  .draw-rule-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .draw-rule-limit-label {
+    justify-content: start;
+  }
+  .notification-viewport {
+    top: 12px;
+    right: 16px;
+  }
+  .prize-create-panel {
+    padding: 16px;
+  }
+  .prize-create-action .rt-Button {
+    width: 100%;
   }
   .activity-metrics {
     margin-bottom: 20px;

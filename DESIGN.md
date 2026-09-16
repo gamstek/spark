@@ -195,11 +195,17 @@ actual responses. The empty list uses directed onboarding with one Solid
 creation action.
 
 Editor configuration uses open sections and a 264px publication column with a
-36px gap above 1150px. Its transparent summary is sticky at 24px. Save is Ghost,
-publish Solid, and end-draw a separated red Outline entry. Other wide form
-sections use 220px explanations plus flexible fields. Staff uses a compact Ghost
-table with open metrics; create/edit use controlled dialogs. Jobs and activity
-child datasets share GhostTable.
+36px gap above 1150px. Its bounded status panel is sticky at 24px, with a slim
+brand top edge and a quiet surface tint. Save is Outline, publish Solid, and
+end-draw a separated red Outline entry. Other wide form sections use 220px
+explanations plus flexible fields. Staff uses a compact Ghost table with open
+metrics; create/edit use controlled dialogs. Jobs and activity child datasets
+share GhostTable.
+
+An active activity may be paused and resumed from the publication panel. Pause
+is an amber, confirmed, reversible operation; resume is a jade Solid action. The
+red end-draw action remains separate and irreversible. Pausing blocks new
+participation and draws without changing scheduled deadlines or redemption.
 
 ### Responsive rules
 
@@ -260,23 +266,23 @@ and disables smooth scrolling. Global scrollbars use thin standard properties,
 
 ## Components
 
-| Capability            | Canonical owner and variants                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| Shell/context         | AppShell + WorkspaceContext; shared desktop/drawer content and honest data states           |
-| Theme                 | theme-preference + Vite bootstrap + ThemeProvider; system/light/dark                        |
-| Header                | PageHeader; one h1, supporting description, compact actions                                 |
-| Primary action        | Radix Button Solid, at most one per page/independent operation group, size2                 |
-| Secondary/row/account | Radix Ghost Button/IconButton, size1 or size2; deliberate Soft/Outline exceptions           |
-| Dangerous action      | Separated red Ghost/Outline entry; red Solid final AlertDialog action                       |
+| Capability            | Canonical owner and variants                                                                                                                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell/context         | AppShell + WorkspaceContext; shared desktop/drawer content and honest data states                                                                                                                                     |
+| Theme                 | theme-preference + Vite bootstrap + ThemeProvider; system/light/dark                                                                                                                                                  |
+| Header                | PageHeader; one h1, supporting description, compact actions                                                                                                                                                           |
+| Primary action        | Radix Button Solid, at most one per page/independent operation group, size2                                                                                                                                           |
+| Secondary/row/account | Radix Ghost Button/IconButton, size1 or size2; deliberate Soft/Outline exceptions                                                                                                                                     |
+| Dangerous action      | Separated red Ghost/Outline entry; red Solid final AlertDialog action                                                                                                                                                 |
 | Dialog actions        | DialogActions owns footer alignment, gap, wrap and top spacing; caller-owned Radix Dialog.Close, AlertDialog.Cancel and AlertDialog.Action retain dismissal and focus semantics, with cancel first and confirm second |
-| TextField/TextArea    | Radix Soft gray size2; login size3/40px; TextArea `resize="none"`                           |
-| Select/Listbox        | Authored Radix Select; activity status Ghost Trigger/Popper Content, form selects Soft gray |
-| Dataset               | GhostTable wraps Radix semantic Table; GhostTableFooter announces actual count/range        |
-| Table row actions     | TableRowActions owns size1 gray Ghost ellipsis IconButton + accessible Radix DropdownMenu   |
-| Staff grants          | ActivityPermissionSelect with Radix DropdownMenu checkboxes                                 |
-| Route navigation      | ActivityNav/Radix TabNav in the context zone, once per visible navigation surface           |
-| Feedback              | EmptyState, LoadingState, FeedbackCallout, StatusBadge; semantic tone and explicit text     |
-| Dialog/account        | Radix Dialog/AlertDialog/DropdownMenu; focus placement/trap, Escape and restoration         |
+| TextField/TextArea    | Radix Soft gray size2; login size3/40px; TextArea `resize="none"`                                                                                                                                                     |
+| Select/Listbox        | Authored Radix Select; activity status Ghost Trigger/Popper Content, form selects Soft gray                                                                                                                           |
+| Dataset               | GhostTable wraps Radix semantic Table; GhostTableFooter announces actual count/range                                                                                                                                  |
+| Table row actions     | TableRowActions owns size1 gray Ghost ellipsis IconButton + accessible Radix DropdownMenu                                                                                                                             |
+| Staff grants          | ActivityPermissionSelect with Radix DropdownMenu checkboxes                                                                                                                                                           |
+| Route navigation      | ActivityNav/Radix TabNav below the activity page header, once per visible content surface                                                                                                                             |
+| Feedback              | Notification for page actions; inline FeedbackCallout for field/dialog recovery; semantic tone and explicit text                                                                                                      |
+| Dialog/account        | Radix Dialog/AlertDialog/DropdownMenu; focus placement/trap, Escape and restoration                                                                                                                                   |
 
 GhostTable owns transparent surfaces, one 1px horizontal divider (no doubled
 Radix cell shadow), 12px/500 muted headers, compact 10px row block padding,
@@ -326,12 +332,13 @@ clear button returning focus to search. Other datasets show returned records;
 export shows the latest task created in the current view. Do not invent server
 totals, pagination, sort or per-row metrics that the endpoint does not provide.
 
-Native datetime-local and file pickers retain approved platform ownership.
-Login/staff creation use app validation; editor, prize and staff-edit validation
-remains a documented migration boundary. Do not add `noValidate` without
-implementing/testing replacement required-field behavior. Preserve pending
-guards, rejected values, revision conflicts, upload/stock retries and current
-save destinations. No browser alert/confirm/prompt is used.
+Activity scheduling uses the shared authored zh-CN DateTimePicker; prize image
+selection retains approved platform ownership. Login/staff creation use app
+validation; editor, prize and staff-edit validation remains a documented
+migration boundary. Do not add `noValidate` without implementing/testing
+replacement required-field behavior. Preserve pending guards, rejected values,
+revision conflicts, upload/stock retries and current save destinations. No
+browser alert/confirm/prompt is used.
 
 ## Do's and Don'ts
 

@@ -18,7 +18,7 @@ export const ActivityInfoSchema = z
     endsAt: z.iso.datetime(),
     drawEndsAt: z.iso.datetime(),
     rulesText: z.string().trim().min(1).max(4_000),
-    noPrizeWeight: z.number().min(0),
+    winningProbability: z.number().min(0).max(100),
     prizes: z.array(ActivityPrizeViewSchema).max(64),
   })
   .strict();

@@ -15,7 +15,7 @@ export interface ActivityDisplay {
   dates: string;
   organizer: string;
   rulesText: string;
-  noPrizeWeight: number;
+  winningProbability: number;
   prizes: { prizeLevel: string; name: string; imageUrl?: string }[];
 }
 

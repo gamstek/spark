@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 
 type ActivityRow = {
   id: string;
+  paused_at: Date | null;
   template_id: string;
   template_version: number;
   starts_at: Date;
@@ -38,13 +39,14 @@ export class ActivityFormService {
 
     return this.dataSource.transaction(async (manager) => {
       const activities = await manager.query<ActivityRow[]>(
-        `SELECT a.id,v.template_id,v.template_version,v.starts_at,v.draw_ends_at
+        `SELECT a.id,a.paused_at,v.template_id,v.template_version,v.starts_at,v.draw_ends_at
          FROM activity a JOIN activity_version v ON v.id=a.published_version_id
          WHERE a.code=$1`,
         [activityCode],
       );
       const activity = activities[0];
       if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
+      if (activity.paused_at) throw new Error('ACTIVITY_PAUSED');
       if (
         activity.template_id !== 'exhibition-lottery' ||
         activity.template_version !== 1

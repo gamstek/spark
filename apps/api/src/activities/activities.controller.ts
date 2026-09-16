@@ -72,4 +72,18 @@ export class ActivitiesController {
     await this.publishing.endDraw(id, request.session.subjectId);
     return { success: true };
   }
+  @Post(':id/pause') @UseGuards(CsrfGuard) async pause(
+    @Param('id') id: string,
+    @Req() request: AdminRequest,
+  ) {
+    await this.publishing.pause(id, request.session.subjectId);
+    return { success: true };
+  }
+  @Post(':id/resume') @UseGuards(CsrfGuard) async resume(
+    @Param('id') id: string,
+    @Req() request: AdminRequest,
+  ) {
+    await this.publishing.resume(id, request.session.subjectId);
+    return { success: true };
+  }
 }

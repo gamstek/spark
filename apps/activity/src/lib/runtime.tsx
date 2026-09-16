@@ -28,6 +28,7 @@ const NETWORK_ERROR_MESSAGE = '网络异常，请稍后重试';
 const ERROR_MESSAGES: Record<string, string> = {
   ACTIVITY_NOT_FOUND: '活动不存在',
   ACTIVITY_ENDED: '活动已结束',
+  ACTIVITY_PAUSED: '活动已暂停，请稍后再试',
   SUBSCRIPTION_REQUIRED: '请先关注公众号',
   LEAD_REQUIRED: '请先填写活动信息',
   OUT_OF_STOCK: '奖品已抽完',
@@ -71,7 +72,7 @@ const EMPTY_ACTIVITY: ActivityDisplay = {
   dates: '',
   organizer: '',
   rulesText: '',
-  noPrizeWeight: 0,
+  winningProbability: 0,
   prizes: [],
 };
 
@@ -193,7 +194,7 @@ export function ActivityRuntimeProvider({
       dates: `${formatDate(info.startsAt)} - ${formatDate(info.endsAt)}`,
       organizer: '',
       rulesText: info.rulesText,
-      noPrizeWeight: info.noPrizeWeight,
+      winningProbability: info.winningProbability,
       prizes: info.prizes.map((prize) => ({
         prizeLevel: prize.prizeLevel,
         name: prize.name,
@@ -235,6 +236,7 @@ export function ActivityRuntimeProvider({
       const data = await refreshRuntime();
       if (data.nextStep === 'NOT_STARTED')
         setMessage('活动尚未开始，请稍后再来');
+      else if (data.nextStep === 'PAUSED') setMessage('活动已暂停，请稍后再试');
       else if (data.nextStep === 'ENDED') setMessage('本次抽奖已结束');
       else openView('flow');
     } catch (error) {
@@ -300,6 +302,7 @@ export function ActivityRuntimeProvider({
         else if (error.code === 'SUBSCRIPTION_REQUIRED')
           setStepOverride('SUBSCRIBE');
         else if (error.code === 'LEAD_REQUIRED') setStepOverride('FORM');
+        else if (error.code === 'ACTIVITY_PAUSED') setStepOverride('PAUSED');
         else if (error.code === 'ACTIVITY_ENDED')
           await refreshRuntime().catch(() => undefined);
         else setMessage(messageForError(error));

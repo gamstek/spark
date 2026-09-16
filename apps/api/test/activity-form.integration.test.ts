@@ -379,6 +379,26 @@ describe('atomic activity form submission', () => {
     });
   });
 
+  it('rejects a first submission while the activity is paused', async () => {
+    const participationId = scenario.participationIds[0];
+    await database.dataSource.query(
+      `UPDATE activity SET paused_at=$2 WHERE id=$1`,
+      [scenario.activityId, scenario.now],
+    );
+
+    try {
+      await expect(
+        service().submit(scenario.userIds[0], 'expo-2026', validForm),
+      ).rejects.toThrow('ACTIVITY_PAUSED');
+      expect(await readSubmission(participationId)).toBeUndefined();
+    } finally {
+      await database.dataSource.query(
+        `UPDATE activity SET paused_at=NULL WHERE id=$1`,
+        [scenario.activityId],
+      );
+    }
+  });
+
   it('rolls a submission back when completing participation fails', async () => {
     const participationId = scenario.participationIds[0];
 

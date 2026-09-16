@@ -12,6 +12,8 @@ import { LotteryNoPrizeOutcome1788739207000 } from './migrations/1788739207000-L
 import { WechatActivityEntryTokens1788739208000 } from './migrations/1788739208000-WechatActivityEntryTokens.js';
 import { WechatCallbackReceipts1788739209000 } from './migrations/1788739209000-WechatCallbackReceipts.js';
 import { DropWechatEventActivityEntry1788739210000 } from './migrations/1788739210000-DropWechatEventActivityEntry.js';
+import { LotteryDrawRules1788739211000 } from './migrations/1788739211000-LotteryDrawRules.js';
+import { ActivityPause1788739212000 } from './migrations/1788739212000-ActivityPause.js';
 
 export function createDataSource(
   options: { url?: string; schema?: string } = {},
@@ -39,6 +41,8 @@ export function createDataSource(
       WechatActivityEntryTokens1788739208000,
       WechatCallbackReceipts1788739209000,
       DropWechatEventActivityEntry1788739210000,
+      LotteryDrawRules1788739211000,
+      ActivityPause1788739212000,
     ],
     entities: databaseEntities,
     synchronize: false,

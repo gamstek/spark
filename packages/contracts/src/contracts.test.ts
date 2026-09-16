@@ -108,6 +108,7 @@ describe('shared API contracts', () => {
 
   it('does not expose an asynchronous external-form runtime step', () => {
     expect(RuntimeStepSchema.safeParse('WAITING_FORM').success).toBe(false);
+    expect(RuntimeStepSchema.parse('PAUSED')).toBe('PAUSED');
   });
 
   it('accepts Shanghai-offset activity times and rejects a client code', () => {
@@ -121,7 +122,7 @@ describe('shared API contracts', () => {
       redeemEndsAt: '2026-09-11T09:00:00+08:00',
       config: {
         requireSubscribe: true,
-        noPrizeWeight: 1,
+        winningProbability: 0,
         heroAssetId: 'hero',
         rulesText: '活动规则',
       },
@@ -135,6 +136,7 @@ describe('shared API contracts', () => {
   it.each([
     'OUT_OF_STOCK',
     'ACTIVITY_ENDED',
+    'ACTIVITY_PAUSED',
     'NOT_QUALIFIED',
     'UNAUTHORIZED',
     'FORBIDDEN',

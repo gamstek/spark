@@ -22,10 +22,10 @@ be checked across every admin route.
 | Capability          | Canonical owner                           | Contract                                                                  |
 | ------------------- | ----------------------------------------- | ------------------------------------------------------------------------- |
 | Navigation          | components/app-shell.tsx                  | Desktop sidebar; Radix Dialog drawer below 900px; Escape and focus return |
-| Route tabs          | components/activity-nav.tsx               | Real links, selected route, scrollable overflow                           |
+| Route tabs          | components/activity-nav.tsx               | Content-header tabs; real links, selected route, scrollable overflow      |
 | Header              | components/page-header.tsx                | One h1, supporting description, primary action group                      |
 | Select              | Radix Themes Select                       | Accessible trigger, portal popup, keyboard and selected states            |
-| Dates               | Existing datetime-local fields            | Platform-owned picker; existing Shanghai conversion preserved             |
+| Dates               | components/date-time-picker.tsx           | Authored zh-CN calendar/time picker; Shanghai conversion preserved        |
 | Forms               | Existing feature forms + shared CSS       | Keep form values on rejected writes; inline feedback; busy guards         |
 | Feedback            | EmptyState, LoadingState, FeedbackCallout | Loading/error/empty are distinct; no invented successful data             |
 | Tables              | Radix Table + table-panel                 | Readable names, container scrolling on narrow screens                     |

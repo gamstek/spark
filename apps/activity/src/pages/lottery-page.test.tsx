@@ -6,7 +6,7 @@ import { LotteryPage } from './lottery-page';
 const runtime = vi.hoisted(() => ({
   activity: {
     title: '幸运抽奖',
-    noPrizeWeight: 1,
+    winningProbability: 0,
     prizes: [
       { prizeLevel: '一等奖', name: '小米充电宝' },
       { prizeLevel: '二等奖', name: '定制保温杯' },

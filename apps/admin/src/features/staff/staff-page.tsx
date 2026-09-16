@@ -656,6 +656,7 @@ export function StaffPage() {
           {editingStaff && (
             <form
               onSubmit={(event) => update(editingStaff, event)}
+              noValidate
               aria-busy={busyId === editingStaff.id}
             >
               <Flex

@@ -30,6 +30,9 @@ vi.mock('./lottery-page', () => ({ LotteryPage: () => <div>抽奖</div> }));
 vi.mock('./redemption-page', () => ({
   RedemptionPage: () => <div>我的奖品</div>,
 }));
+vi.mock('./activity-paused-page', () => ({
+  ActivityPausedPage: () => <div>活动已暂停</div>,
+}));
 
 describe('RuntimeScene', () => {
   beforeEach(() => {
@@ -72,5 +75,12 @@ describe('RuntimeScene', () => {
     runtime.step = 'PRIZE';
 
     expect(renderToStaticMarkup(<RuntimeScene />)).toContain('我的奖品');
+  });
+
+  it('shows a dedicated paused state in the participation flow', () => {
+    runtime.view = 'home';
+    runtime.step = 'PAUSED';
+
+    expect(renderToStaticMarkup(<RuntimeScene />)).toContain('活动已暂停');
   });
 });

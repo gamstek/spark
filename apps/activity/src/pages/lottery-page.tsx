@@ -1,15 +1,19 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ActionButton } from '../components/action-button';
 import { PageShell } from '../components/page-shell';
 import { useDocumentTitle } from '../hooks/use-document-title';
 import { useRuntime } from '../hooks/use-runtime';
 import { SLICES } from '../lib/assets';
+import {
+  createWheelDeceleration,
+  sampleWheelDeceleration,
+} from '../lib/wheel-motion';
 
 const WHEEL_SPIN_CYCLE_MS = 720;
 const WHEEL_MINIMUM_SPIN_MS = WHEEL_SPIN_CYCLE_MS * 2;
-const WHEEL_SETTLE_MS = 1_800;
-const WHEEL_STOP_MS = 600;
+const WHEEL_ACCELERATION_MS = 480;
+const WHEEL_SPIN_VELOCITY = 360 / WHEEL_SPIN_CYCLE_MS;
 
 type WheelPhase = 'idle' | 'spinning' | 'settling' | 'stopping';
 
@@ -33,12 +37,14 @@ export function LotteryPage() {
   const drawAttemptRef = useRef(0);
   const drawStartedAtRef = useRef(0);
   const reducedMotionRef = useRef(false);
+  const wheelRef = useRef<HTMLDivElement>(null);
+  const wheelAngleRef = useRef(0);
   const visualPhase =
     wheelPhase === 'idle' && drawing ? 'spinning' : wheelPhase;
   const animating = drawing || wheelPhase !== 'idle';
   const disabled = animating || soldOut || Boolean(win) || noPrize;
   const wheelOptions = (
-    activity.noPrizeWeight > 0
+    activity.winningProbability < 100
       ? activity.prizes.flatMap((prize) => [
           prize,
           { prizeLevel: '', name: '谢谢参与' },
@@ -64,10 +70,7 @@ export function LotteryPage() {
     const elapsed = performance.now() - drawStartedAtRef.current;
     const boundary = reducedMotionRef.current
       ? elapsed
-      : Math.max(
-          WHEEL_MINIMUM_SPIN_MS,
-          Math.ceil(elapsed / WHEEL_SPIN_CYCLE_MS) * WHEEL_SPIN_CYCLE_MS,
-        );
+      : Math.max(WHEEL_MINIMUM_SPIN_MS, elapsed);
     const timer = window.setTimeout(
       () => setWheelPhase(win || noPrize ? 'settling' : 'stopping'),
       Math.max(0, boundary - elapsed),
@@ -76,19 +79,77 @@ export function LotteryPage() {
   }, [drawRequestSettled, noPrize, wheelPhase, win]);
 
   useEffect(() => {
+    if (wheelPhase !== 'spinning') return;
+
+    let animationFrame = 0;
+    let previousTime = performance.now();
+    const animate = (time: number) => {
+      const elapsed = time - drawStartedAtRef.current;
+      const progress = Math.min(1, elapsed / WHEEL_ACCELERATION_MS);
+      const smoothProgress = progress * progress * (3 - 2 * progress);
+      const velocity = WHEEL_SPIN_VELOCITY * smoothProgress;
+      wheelAngleRef.current += velocity * Math.min(time - previousTime, 40);
+      previousTime = time;
+      if (wheelRef.current) {
+        wheelRef.current.style.transform = `rotate(${wheelAngleRef.current}deg)`;
+      }
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    animationFrame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [wheelPhase]);
+
+  useEffect(() => {
     if (wheelPhase !== 'settling' && wheelPhase !== 'stopping') return;
 
-    const duration = reducedMotionRef.current
-      ? 120
-      : wheelPhase === 'settling'
-        ? WHEEL_SETTLE_MS
-        : WHEEL_STOP_MS;
-    const timer = window.setTimeout(() => {
-      setOutcomeRevealed(wheelPhase === 'settling');
-      setWheelPhase('idle');
-    }, duration);
-    return () => window.clearTimeout(timer);
-  }, [wheelPhase]);
+    if (reducedMotionRef.current) {
+      wheelAngleRef.current = restingRotation;
+      if (wheelRef.current) {
+        wheelRef.current.style.transform = `rotate(${restingRotation}deg)`;
+      }
+      const timer = window.setTimeout(() => {
+        setOutcomeRevealed(wheelPhase === 'settling');
+        setWheelPhase('idle');
+      }, 120);
+      return () => window.clearTimeout(timer);
+    }
+
+    const targetRotation =
+      wheelPhase === 'settling'
+        ? restingRotation
+        : ((wheelAngleRef.current % 360) + 360) % 360;
+    const plan = createWheelDeceleration({
+      startAngle: wheelAngleRef.current,
+      targetRotation,
+      startVelocity: WHEEL_SPIN_VELOCITY,
+    });
+    const startedAt = performance.now();
+    let animationFrame = 0;
+
+    const animate = (time: number) => {
+      const sample = sampleWheelDeceleration(plan, time - startedAt);
+      wheelAngleRef.current = sample.angle;
+      if (wheelRef.current) {
+        wheelRef.current.style.transform = `rotate(${sample.angle}deg)`;
+      }
+      if (sample.complete) {
+        setOutcomeRevealed(wheelPhase === 'settling');
+        setWheelPhase('idle');
+        return;
+      }
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    animationFrame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [restingRotation, wheelPhase]);
+
+  useEffect(() => {
+    if (wheelPhase !== 'idle' || !wheelRef.current) return;
+    wheelAngleRef.current = restingRotation;
+    wheelRef.current.style.transform = `rotate(${restingRotation}deg)`;
+  }, [restingRotation, wheelPhase]);
 
   useEffect(
     () => () => {
@@ -126,13 +187,8 @@ export function LotteryPage() {
 
       <div className="absolute left-[15px] top-[211px] size-[345px]">
         <div
+          ref={wheelRef}
           className={`relative size-full ${visualPhase === 'spinning' ? 'lottery-wheel--spinning' : ''} ${visualPhase === 'settling' ? 'lottery-wheel--settling' : ''} ${visualPhase === 'stopping' ? 'lottery-wheel--stopping' : ''}`}
-          style={
-            {
-              '--lottery-wheel-target': `${restingRotation}deg`,
-              transform: `rotate(${restingRotation}deg)`,
-            } as CSSProperties
-          }
           aria-label="抽奖转盘"
         >
           <img

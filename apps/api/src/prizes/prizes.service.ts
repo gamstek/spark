@@ -68,12 +68,23 @@ export class PrizesService {
     });
     return { id };
   }
-  async updateNoPrizeWeight(
+  async updateDrawRules(
     activityId: string,
-    noPrizeWeight: number,
-  ): Promise<{ noPrizeWeight: number }> {
-    if (!Number.isFinite(noPrizeWeight) || noPrizeWeight < 0)
-      throw new Error('INVALID_NO_PRIZE_WEIGHT');
+    winningProbability: number,
+    halfDayPrizeLimits: Record<string, number>,
+  ): Promise<{
+    winningProbability: number;
+    halfDayPrizeLimits: Record<string, number>;
+  }> {
+    if (
+      !Number.isFinite(winningProbability) ||
+      winningProbability < 0 ||
+      winningProbability > 100 ||
+      Object.values(halfDayPrizeLimits).some(
+        (limit) => !Number.isSafeInteger(limit) || limit < 0,
+      )
+    )
+      throw new Error('INVALID_DRAW_RULES');
     await this.dataSource.transaction(async (manager) => {
       const activities = await manager.query<
         {
@@ -100,12 +111,17 @@ export class PrizesService {
       if (!versionId) throw new Error('DRAFT_NOT_FOUND');
       await manager.query(
         `UPDATE activity_version
-         SET config=jsonb_set(config,'{noPrizeWeight}',to_jsonb($2::double precision),true)
+         SET config=jsonb_set(
+           jsonb_set(config,'{winningProbability}',to_jsonb($2::double precision),true),
+           '{halfDayPrizeLimits}',
+           $3::jsonb,
+           true
+         )
          WHERE id=$1`,
-        [versionId, noPrizeWeight],
+        [versionId, winningProbability, JSON.stringify(halfDayPrizeLimits)],
       );
     });
-    return { noPrizeWeight };
+    return { winningProbability, halfDayPrizeLimits };
   }
   async addStock(
     activityPrizeId: string,

@@ -23,6 +23,7 @@ import { WinViewSchema } from './redemptions.js';
 
 export const RuntimeStepSchema = z.enum([
   'NOT_STARTED',
+  'PAUSED',
   'SUBSCRIBE',
   'FORM',
   'LOTTERY',

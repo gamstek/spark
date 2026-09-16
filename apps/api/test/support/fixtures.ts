@@ -90,6 +90,10 @@ export async function createScenario(
       [randomUUID(), versionId, activityPrizeId],
     );
     await manager.query(
+      `UPDATE activity_version SET config=jsonb_build_object('winningProbability',100,'halfDayPrizeLimits',jsonb_build_object($2::text,10)) WHERE id=$1`,
+      [versionId, activityPrizeId],
+    );
+    await manager.query(
       `INSERT INTO lottery_record (id, activity_id, user_id, participation_id, activity_prize_id) VALUES ($1,$2,$3,$4,$5)`,
       [
         lotteryRecordId,

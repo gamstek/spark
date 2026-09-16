@@ -84,7 +84,7 @@ async function mockForm(
         drawEndsAt: '2026-09-12T00:00:00.000Z',
         endsAt: '2026-09-12T12:00:00.000Z',
         rulesText: '活动规则',
-        noPrizeWeight: 0,
+        winningProbability: 0,
         prizes: [],
       },
     }),

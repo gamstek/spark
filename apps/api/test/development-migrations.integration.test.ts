@@ -140,7 +140,9 @@ it('retires populated callback entry tables on upgrade and preserves OAuth data'
       await source.query(
         `SELECT name FROM typeorm_migrations ORDER BY timestamp DESC LIMIT 1`,
       ),
-    ).toEqual([{ name: 'DropWechatEventActivityEntry1788739210000' }]);
+    ).toEqual([{ name: 'ActivityPause1788739212000' }]);
+    await source.undoLastMigration();
+    await source.undoLastMigration();
     await source.undoLastMigration();
     expect(await schemaShape()).toEqual(originalSchema);
     await source.runMigrations();

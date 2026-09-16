@@ -21,6 +21,8 @@ export class Activity {
   draftVersionId!: string | null;
   @Column({ name: 'published_version_id', type: 'uuid', nullable: true })
   publishedVersionId!: string | null;
+  @Column({ name: 'paused_at', type: 'timestamptz', nullable: true })
+  pausedAt!: Date | null;
   @Column({ type: 'integer', default: 0 }) revision!: number;
   @Column({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
   createdAt!: Date;

@@ -7,6 +7,7 @@ import { SubmitSuccessPage } from './submit-success-page';
 import { LotteryPage } from './lottery-page';
 import { RedemptionPage } from './redemption-page';
 import { RegistrationFormPage } from './registration-form-page';
+import { ActivityPausedPage } from './activity-paused-page';
 
 /**
  * step → 页面分发。活动说明是独立于状态机的正交页面。
@@ -17,14 +18,19 @@ export function RuntimeScene() {
 
   let content;
   if (formSubmitted) content = <SubmitSuccessPage />;
+  else if (view === 'prizes') content = <RedemptionPage />;
+  else if (step === 'PAUSED' && (view === 'home' || view === 'flow'))
+    content = <ActivityPausedPage />;
   else if (view === 'home') content = <HomePage />;
   else if (view === 'rules') content = <ActivityRulesPage />;
   else if (view === 'info') content = <ActivityInfoPage />;
-  else if (view === 'prizes') content = <RedemptionPage />;
   else
     switch (step) {
       case 'NOT_STARTED':
         content = <HomePage />;
+        break;
+      case 'PAUSED':
+        content = <ActivityPausedPage />;
         break;
       case 'SUBSCRIBE':
         content = <SubscribePage />;

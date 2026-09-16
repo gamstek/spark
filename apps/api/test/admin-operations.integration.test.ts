@@ -24,8 +24,8 @@ import {
 } from './support/fixtures.js';
 const config = {
   requireSubscribe: true,
-  noPrizeWeight: 1,
-  heroAssetId: 'hero',
+  winningProbability: 0,
+  halfDayPrizeLimits: {},
   rulesText: '规则',
 };
 describe('admin operations', () => {
@@ -261,23 +261,29 @@ describe('admin operations', () => {
       }),
     ).rejects.toThrow('ACTIVITY_STARTED');
   });
-  it('updates the live no-prize weight after an activity starts', async () => {
+  it('updates live draw rules after an activity starts', async () => {
     const service = new PrizesService(database.dataSource);
 
-    await service.updateNoPrizeWeight(scenario.activityId, 12.5);
+    await service.updateDrawRules(scenario.activityId, 12.5, {
+      [scenario.activityPrizeId]: 3,
+    });
 
     const versions = await database.dataSource.query<
-      { no_prize_weight: number }[]
+      { winning_probability: number; half_day_limit: number }[]
     >(
-      `SELECT (config->>'noPrizeWeight')::double precision AS no_prize_weight
+      `SELECT (config->>'winningProbability')::double precision AS winning_probability,
+              (config->'halfDayPrizeLimits'->>$2)::integer AS half_day_limit
        FROM activity_version
        WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,
-      [scenario.activityId],
+      [scenario.activityId, scenario.activityPrizeId],
     );
-    expect(versions[0]?.no_prize_weight).toBe(12.5);
+    expect(versions[0]).toMatchObject({
+      winning_probability: 12.5,
+      half_day_limit: 3,
+    });
     await expect(
-      service.updateNoPrizeWeight(scenario.activityId, -1),
-    ).rejects.toThrow('INVALID_NO_PRIZE_WEIGHT');
+      service.updateDrawRules(scenario.activityId, 101, {}),
+    ).rejects.toThrow('INVALID_DRAW_RULES');
   });
   it('creates a new draft from an immutable published snapshot before start', async () => {
     const activities = new ActivitiesService(database.dataSource);

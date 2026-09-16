@@ -95,6 +95,8 @@ describe('TypeORM entity metadata', () => {
       'WechatActivityEntryTokens1788739208000',
       'WechatCallbackReceipts1788739209000',
       'DropWechatEventActivityEntry1788739210000',
+      'LotteryDrawRules1788739211000',
+      'ActivityPause1788739212000',
     ]);
   });
 

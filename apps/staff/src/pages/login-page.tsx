@@ -86,6 +86,7 @@ export function LoginPage() {
 
       <form
         className="relative -mt-8 mx-4 rounded-2xl bg-white px-5 pt-7 pb-6 shadow-[0_12px_36px_rgba(27,27,31,0.09)]"
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           void submit();

@@ -19,11 +19,14 @@ import {
   EmptyState,
   FeedbackCallout,
   LoadingState,
+  Notification,
+  NotificationViewport,
 } from '../../components/feedback';
 import { RequiredFieldMark } from '../../components/required-field-mark';
 import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
 import { TableRowActions } from '../../components/table-row-actions';
 import { randomUUID } from '../../random';
+import { getPrizeLevel } from './prize-level';
 
 type Prize = {
   id: string;
@@ -32,7 +35,6 @@ type Prize = {
   prize_image_url: string | null;
   total_stock: number;
   awarded_stock: number;
-  weight: string;
 };
 
 type StockAttempt = {
@@ -43,13 +45,11 @@ type StockAttempt = {
 type ActivityDetail = {
   revision: number;
   published_version_id: string | null;
+  starts_at: string | null;
   status: ActivityStatus;
   serverNow: string;
-  starts_at: string | null;
   config: Record<string, unknown>;
 };
-
-const MAX_PRIZE_COUNT = 3;
 
 const readBase64 = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -66,8 +66,11 @@ export function PrizesPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [activity, setActivity] = useState<ActivityDetail | null>(null);
-  const [noPrizeWeight, setNoPrizeWeight] = useState('1');
-  const [savingNoPrizeWeight, setSavingNoPrizeWeight] = useState(false);
+  const [winningProbability, setWinningProbability] = useState('0');
+  const [halfDayPrizeLimits, setHalfDayPrizeLimits] = useState<
+    Record<string, string>
+  >({});
+  const [savingDrawRules, setSavingDrawRules] = useState(false);
   const [creatingPrize, setCreatingPrize] = useState(false);
   const creatingPrizeRef = useRef(false);
   const [stockPrize, setStockPrize] = useState<Prize | null>(null);
@@ -89,61 +92,83 @@ export function PrizesPage() {
       load(),
       api<ActivityDetail>(`admin/activities/${id}`).then((activity) => {
         setActivity(activity);
-        setNoPrizeWeight(String(activity.config?.noPrizeWeight ?? 1));
+        setWinningProbability(String(activity.config?.winningProbability ?? 0));
+        const savedLimits =
+          (activity.config?.halfDayPrizeLimits as Record<string, number>) ?? {};
+        setHalfDayPrizeLimits(
+          Object.fromEntries(
+            Object.entries(savedLimits).map(([prizeId, limit]) => [
+              prizeId,
+              String(limit),
+            ]),
+          ),
+        );
       }),
     ])
       .catch(() => setError('奖品数据加载失败，请刷新后重试。'))
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function saveNoPrizeWeight(event: React.FormEvent<HTMLFormElement>) {
+  async function saveDrawRules(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!activity || savingNoPrizeWeight) return;
-    const weight = Number(noPrizeWeight);
-    if (!Number.isFinite(weight) || weight < 0) {
-      setError('未中奖权重必须是大于或等于 0 的数字。');
+    if (!activity || savingDrawRules) return;
+    const probability = Number(winningProbability);
+    const limits = Object.fromEntries(
+      rows.map((row) => [row.id, Number(halfDayPrizeLimits[row.id] ?? 0)]),
+    );
+    if (!Number.isFinite(probability) || probability < 0 || probability > 100) {
+      setError('中奖概率必须是 0 到 100 之间的数字。');
       return;
     }
-    setSavingNoPrizeWeight(true);
+    if (
+      Object.values(limits).some(
+        (limit) => !Number.isSafeInteger(limit) || limit < 0,
+      )
+    ) {
+      setError('每半天中奖数量必须是大于或等于 0 的整数。');
+      return;
+    }
+    setSavingDrawRules(true);
     setError('');
     setMessage('');
     try {
-      await api<{ noPrizeWeight: number }>(
-        `admin/prizes/activities/${id}/no-prize-weight`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({
-            noPrizeWeight: weight,
-          }),
-        },
-      );
+      await api<{
+        winningProbability: number;
+        halfDayPrizeLimits: Record<string, number>;
+      }>(`admin/prizes/activities/${id}/draw-rules`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          winningProbability: probability,
+          halfDayPrizeLimits: limits,
+        }),
+      });
       setActivity((current) =>
         current
           ? {
               ...current,
-              config: { ...current.config, noPrizeWeight: weight },
+              config: {
+                ...current.config,
+                winningProbability: probability,
+                halfDayPrizeLimits: limits,
+              },
             }
           : current,
       );
-      setMessage('未中奖权重已保存');
+      setMessage('抽奖规则已保存');
     } catch (caught) {
       setError(
         String(caught).includes('VERSION_CONFLICT')
           ? '活动已被其他人修改，请刷新后重试。'
-          : '未中奖权重保存失败，请稍后重试。',
+          : '抽奖规则保存失败，请稍后重试。',
       );
     } finally {
-      setSavingNoPrizeWeight(false);
+      setSavingDrawRules(false);
     }
   }
 
   async function create(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (creatingPrizeRef.current) return;
-    if (rows.length >= MAX_PRIZE_COUNT) {
-      setError(`当前模板最多配置 ${MAX_PRIZE_COUNT} 个奖项。`);
-      return;
-    }
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const image = form.get('image');
@@ -172,7 +197,7 @@ export function PrizesPage() {
           name: form.get('name'),
           imageAssetId: uploaded.id,
           totalStock: Number(form.get('stock')),
-          weight: Number(form.get('weight')),
+          weight: 1,
         }),
       });
       formElement.reset();
@@ -182,7 +207,7 @@ export function PrizesPage() {
       setError(
         uploadingImage
           ? '奖品图片上传失败，请使用不超过 5 MB 的 JPEG、PNG 或 WebP 图片。'
-          : '新增奖项失败，请检查名称、图片、库存和权重。',
+          : '新增奖项失败，请检查名称、图片和库存。',
       );
     } finally {
       creatingPrizeRef.current = false;
@@ -254,24 +279,26 @@ export function PrizesPage() {
   const started = Boolean(
     activity && !['DRAFT', 'UPCOMING'].includes(activity.status),
   );
-  const prizeLimitReached = rows.length >= MAX_PRIZE_COUNT;
-
   if (loading) return <LoadingState label="正在加载奖品与库存" />;
 
   return (
     <>
-      {message && (
-        <FeedbackCallout
-          tone="success"
-          message={message}
-        />
-      )}
-      {error && (
-        <FeedbackCallout
-          tone="error"
-          message={error}
-        />
-      )}
+      <NotificationViewport>
+        {message && (
+          <Notification
+            tone="success"
+            message={message}
+            onDismiss={() => setMessage('')}
+          />
+        )}
+        {error && (
+          <Notification
+            tone="error"
+            message={error}
+            onDismiss={() => setError('')}
+          />
+        )}
+      </NotificationViewport>
 
       <section className="form-section activity-form-section">
         <div className="form-section-heading">
@@ -282,56 +309,154 @@ export function PrizesPage() {
           >
             抽奖配置
           </Text>
-          <Heading size="4">未中奖设置</Heading>
+          <Heading size="4">抽奖规则</Heading>
           <Text
             as="p"
             size="2"
             color="gray"
           >
-            与各奖品的抽奖权重一起计算；填 0 表示有库存时必定中奖。
+            先按总中奖概率判断，再按上海时间的上午、下午时段控制各奖项中奖数量。
           </Text>
         </div>
-        <form onSubmit={saveNoPrizeWeight}>
-          <Flex
-            gap="3"
-            align="end"
-            wrap="wrap"
-          >
+        <form
+          className="draw-rules-form"
+          onSubmit={saveDrawRules}
+          noValidate
+        >
+          <div className="draw-rules-probability">
+            <div>
+              <Text
+                as="div"
+                size="2"
+                weight="medium"
+              >
+                总中奖概率
+              </Text>
+              <Text
+                as="p"
+                size="1"
+                color="gray"
+              >
+                每次抽奖先执行此概率；设置为 0% 时默认不中奖。
+              </Text>
+            </div>
             <Flex
-              direction="column"
+              className="probability-input"
+              align="center"
               gap="2"
             >
               <label
-                className="field-label"
-                htmlFor="no-prize-weight"
+                className="visually-hidden"
+                htmlFor="winning-probability"
               >
-                <Text
-                  size="2"
-                  weight="medium"
-                >
-                  未中奖权重 <RequiredFieldMark />
-                </Text>
+                中奖概率
               </label>
               <TextField.Root
-                id="no-prize-weight"
-                name="noPrizeWeight"
+                id="winning-probability"
+                name="winningProbability"
                 type="number"
                 min="0"
-                step="any"
-                value={noPrizeWeight}
-                onChange={(event) => setNoPrizeWeight(event.target.value)}
-                disabled={savingNoPrizeWeight}
+                max="100"
+                step="0.01"
+                value={winningProbability}
+                onChange={(event) => setWinningProbability(event.target.value)}
+                disabled={savingDrawRules}
                 required
               />
+              <Text
+                size="3"
+                weight="medium"
+                aria-hidden="true"
+              >
+                %
+              </Text>
             </Flex>
+          </div>
+          <div className="draw-rule-list">
+            <div className="draw-rule-list-heading">
+              <Text
+                size="2"
+                weight="medium"
+              >
+                各奖项半天上限
+              </Text>
+              <Text
+                size="1"
+                color="gray"
+              >
+                0 个表示该奖项当前不中奖
+              </Text>
+            </div>
+            {rows.length ? (
+              rows.map((row) => (
+                <div
+                  className="draw-rule-row"
+                  key={row.id}
+                >
+                  <div className="draw-rule-prize">
+                    <Text
+                      size="2"
+                      weight="medium"
+                    >
+                      {row.prize_level}
+                    </Text>
+                    <Text
+                      size="1"
+                      color="gray"
+                    >
+                      {row.prize_name}
+                    </Text>
+                  </div>
+                  <label
+                    className="draw-rule-limit-label"
+                    htmlFor={`half-day-limit-${row.id}`}
+                  >
+                    <span>{row.prize_level}半天中奖数量</span>
+                    <TextField.Root
+                      id={`half-day-limit-${row.id}`}
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={halfDayPrizeLimits[row.id] ?? '0'}
+                      onChange={(event) =>
+                        setHalfDayPrizeLimits((current) => ({
+                          ...current,
+                          [row.id]: event.target.value,
+                        }))
+                      }
+                      disabled={savingDrawRules}
+                      required
+                    />
+                    <Text
+                      size="2"
+                      color="gray"
+                    >
+                      个 / 半天
+                    </Text>
+                  </label>
+                </div>
+              ))
+            ) : (
+              <Text
+                className="draw-rule-empty"
+                size="2"
+                color="gray"
+              >
+                新增奖项后，可在这里设置对应的半天中奖数量。
+              </Text>
+            )}
+          </div>
+          <Flex
+            className="draw-rules-actions"
+            justify="end"
+          >
             <Button
               type="submit"
-              variant="ghost"
-              color="gray"
-              loading={savingNoPrizeWeight}
-              disabled={savingNoPrizeWeight}
+              variant="solid"
+              loading={savingDrawRules}
+              disabled={savingDrawRules}
             >
-              保存设置
+              保存抽奖规则
             </Button>
           </Flex>
         </form>
@@ -357,9 +482,6 @@ export function PrizesPage() {
                 </Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell justify="end">
                   总库存
-                </Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell justify="end">
-                  权重
                 </Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell justify="end">
                   操作
@@ -408,12 +530,6 @@ export function PrizesPage() {
                   >
                     {row.total_stock}
                   </Table.Cell>
-                  <Table.Cell
-                    justify="end"
-                    className="is-numeric"
-                  >
-                    {row.weight}
-                  </Table.Cell>
                   <Table.Cell justify="end">
                     <TableRowActions
                       label={`奖品操作：${row.prize_name}`}
@@ -438,7 +554,7 @@ export function PrizesPage() {
       )}
 
       {!started && (
-        <section className="form-section activity-form-section">
+        <section className="form-section activity-form-section prize-create-section">
           <div className="form-section-heading">
             <Text
               size="1"
@@ -453,40 +569,35 @@ export function PrizesPage() {
               size="2"
               color="gray"
             >
-              {prizeLimitReached
-                ? `当前模板最多配置 ${MAX_PRIZE_COUNT} 个奖项，已达到上限。`
-                : `最多配置 ${MAX_PRIZE_COUNT} 个奖项；奖品权重会与未中奖权重共同计算。`}
+              点击新增后自动按顺序设置奖项等级，可按活动需要继续添加。
             </Text>
           </div>
-          <form onSubmit={create}>
+          <form
+            className="prize-create-panel"
+            onSubmit={create}
+            noValidate
+          >
             <div className="form-grid form-grid-prize">
-              <Flex
-                direction="column"
-                gap="2"
-              >
-                <label
-                  className="field-label"
-                  htmlFor="prize-level"
-                >
-                  <Text
-                    size="2"
-                    weight="medium"
-                  >
-                    奖项等级 <RequiredFieldMark />
-                  </Text>
-                </label>
-                <TextField.Root
+              <div className="prize-level-block">
+                <Text
                   size="2"
-                  variant="soft"
-                  color="gray"
-                  id="prize-level"
+                  weight="medium"
+                >
+                  奖项等级
+                </Text>
+                <Text
+                  className="prize-level-preview"
+                  size="3"
+                  weight="bold"
+                >
+                  {getPrizeLevel(rows.length)}
+                </Text>
+                <input
+                  type="hidden"
                   name="prizeLevel"
-                  placeholder="例如：三等奖"
-                  maxLength={40}
-                  required
-                  disabled={prizeLimitReached || creatingPrize}
+                  value={getPrizeLevel(rows.length)}
                 />
-              </Flex>
+              </div>
               <Flex
                 direction="column"
                 gap="2"
@@ -510,7 +621,7 @@ export function PrizesPage() {
                   name="name"
                   placeholder="奖品名称"
                   required
-                  disabled={prizeLimitReached || creatingPrize}
+                  disabled={creatingPrize}
                 />
               </Flex>
               <Flex
@@ -541,7 +652,7 @@ export function PrizesPage() {
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
                   required
-                  disabled={prizeLimitReached || creatingPrize}
+                  disabled={creatingPrize}
                 />
               </Flex>
               <Flex
@@ -569,43 +680,17 @@ export function PrizesPage() {
                   min="0"
                   placeholder="初始库存"
                   required
-                  disabled={prizeLimitReached || creatingPrize}
+                  disabled={creatingPrize}
                 />
               </Flex>
               <Flex
-                direction="column"
-                gap="2"
+                className="prize-create-action"
+                align="end"
               >
-                <label
-                  className="field-label"
-                  htmlFor="prize-weight"
-                >
-                  <Text
-                    size="2"
-                    weight="medium"
-                  >
-                    抽奖权重 <RequiredFieldMark />
-                  </Text>
-                </label>
-                <TextField.Root
-                  size="2"
-                  variant="soft"
-                  color="gray"
-                  id="prize-weight"
-                  name="weight"
-                  type="number"
-                  min="0.000001"
-                  step="any"
-                  placeholder="权重"
-                  required
-                  disabled={prizeLimitReached || creatingPrize}
-                />
-              </Flex>
-              <Flex align="end">
                 <Button
                   variant="solid"
                   type="submit"
-                  disabled={prizeLimitReached || creatingPrize}
+                  disabled={creatingPrize}
                   loading={creatingPrize}
                 >
                   <PlusIcon />
@@ -637,7 +722,10 @@ export function PrizesPage() {
           >
             为“{stockPrize?.prize_name}”增加库存。该操作不能撤销或减少库存。
           </Dialog.Description>
-          <form onSubmit={add}>
+          <form
+            onSubmit={add}
+            noValidate
+          >
             <Flex
               direction="column"
               gap="2"
@@ -689,7 +777,7 @@ export function PrizesPage() {
               <Dialog.Close>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="soft"
                   color="gray"
                   disabled={stockBusy}
                 >

@@ -3,7 +3,10 @@ import { z } from 'zod';
 export const ApiErrorCodeSchema = z.enum([
   'OUT_OF_STOCK',
   'ACTIVITY_ENDED',
+  'ACTIVITY_PAUSED',
   'ACTIVITY_NOT_RUNNING',
+  'ACTIVITY_ALREADY_PAUSED',
+  'ACTIVITY_NOT_PAUSED',
   'NOT_QUALIFIED',
   'UNAUTHORIZED',
   'FORBIDDEN',
