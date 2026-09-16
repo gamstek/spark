@@ -256,6 +256,10 @@ body {
   font-family: var(--font-body);
 }
 
+.page-shell-artboard {
+  min-height: max(100dvh, 769px);
+}
+
 .lottery-wheel--spinning,
 .lottery-wheel--settling,
 .lottery-wheel--stopping {
@@ -291,13 +295,20 @@ body {
 
 @media (max-height: 700px) {
   .lottery-wheel-region {
-    top: clamp(136px, 24dvh, 168px);
-    width: min(82vw, 328px);
+    top: clamp(132px, 23dvh, 160px);
+    width: min(72vw, 270px);
   }
 
   .lottery-action,
   .lottery-outcome {
     bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-height: 701px) and (max-height: 800px) {
+  .lottery-wheel-region {
+    top: clamp(160px, 24dvh, 190px);
+    width: min(78vw, 335px);
   }
 }
 

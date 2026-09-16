@@ -252,6 +252,23 @@ test.describe('anonymous self-hosted activity form', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test('keeps submission-success actions reachable at 375×667', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await mockForm(page);
+    await fillForm(page);
+    await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
+    await page.getByRole('button', { name: '提交信息' }).click();
+    const action = page.getByRole('button', { name: '去抽奖' });
+    await action.scrollIntoViewIfNeeded();
+
+    await expect(action).toBeInViewport();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight),
+    ).toBeGreaterThanOrEqual(769);
+  });
+
   test('requires questions 01–12 and consent, focuses the first error, and leaves 13 optional', async ({
     page,
   }) => {

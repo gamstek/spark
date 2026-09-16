@@ -101,41 +101,59 @@ for (const viewport of [
   });
 }
 
-test('keeps the revealed result action centered at 430px', async ({
-  page,
-}, testInfo) => {
-  test.skip(testInfo.project.name === 'development-simulation');
-  await page.setViewportSize({ width: 430, height: 932 });
-  await page.route('**/api/activity/demo/runtime**', (route) =>
-    route.fulfill({
-      json: { ...runtime, nextStep: 'PRIZE', win: winningResult },
-    }),
-  );
-  await page.route('**/api/activity/demo/info', (route) =>
-    route.fulfill({
-      json: {
-        ...info,
-        prizes: [
-          {
-            prizeLevel: winningResult.prizeLevel,
-            name: winningResult.prizeName,
-            imageUrl: null,
-          },
-        ],
-      },
-    }),
-  );
-  await page.goto('/activity/demo');
-  await page.getByRole('button', { name: '立即参与' }).click();
-  const resultAction = page.getByRole('button', { name: '查看奖品' });
-  await expect(resultAction).toBeVisible();
+for (const viewport of [
+  { width: 375, height: 568 },
+  { width: 430, height: 740 },
+  { width: 430, height: 932 },
+]) {
+  test(`keeps the revealed result clear of the wheel at ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'development-simulation');
+    await page.setViewportSize(viewport);
+    await page.route('**/api/activity/demo/runtime**', (route) =>
+      route.fulfill({
+        json: { ...runtime, nextStep: 'PRIZE', win: winningResult },
+      }),
+    );
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({
+        json: {
+          ...info,
+          prizes: [
+            {
+              prizeLevel: winningResult.prizeLevel,
+              name: winningResult.prizeName,
+              imageUrl: null,
+            },
+          ],
+        },
+      }),
+    );
+    await page.goto('/activity/demo');
+    await page.getByRole('button', { name: '立即参与' }).click();
+    const resultAction = page.getByRole('button', { name: '查看奖品' });
+    await expect(resultAction).toBeVisible();
 
-  const resultCenter = await resultAction.evaluate((element) => {
-    const box = element.getBoundingClientRect();
-    return box.left + box.width / 2;
+    const geometry = await page.evaluate(() => {
+      const wheel = document.querySelector('.lottery-wheel-region');
+      const outcome = document.querySelector('.lottery-outcome');
+      if (!wheel || !outcome)
+        throw new Error('Lottery result layout is missing');
+      const wheelBox = wheel.getBoundingClientRect();
+      const outcomeBox = outcome.getBoundingClientRect();
+      return {
+        wheelBottom: wheelBox.bottom,
+        outcomeTop: outcomeBox.top,
+        actionBottom: outcomeBox.bottom,
+      };
+    });
+
+    expect(geometry.wheelBottom).toBeLessThanOrEqual(geometry.outcomeTop);
+    expect(geometry.actionBottom).toBeLessThanOrEqual(viewport.height);
+    expect(await resultAction.boundingBox()).not.toBeNull();
   });
-  expect(resultCenter).toBeCloseTo(215, 0);
-});
+}
 
 for (const width of [390, 430]) {
   test(`keeps the fixed-coordinate subscribe artwork centered at ${width}px`, async ({
@@ -166,3 +184,18 @@ for (const width of [390, 430]) {
     expect(geometry.qrCenter).toBeCloseTo(width / 2, 0);
   });
 }
+
+test('keeps the subscribe verification action reachable at 375×667', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === 'development-simulation');
+  await page.setViewportSize({ width: 375, height: 667 });
+  await openSubscribedPage(page);
+  const action = page.getByRole('button', { name: '我已关注，立即验证' });
+  await action.scrollIntoViewIfNeeded();
+
+  await expect(action).toBeInViewport();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight),
+  ).toBeGreaterThanOrEqual(769);
+});

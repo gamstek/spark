@@ -47,3 +47,15 @@ did not fail the build and is outside this layout-only task.
 
 `apps/activity/src/assets/slices/lottery/bg.jpg` was already modified before
 this task. It was not edited or staged.
+
+## Final Integrated Review Follow-up
+
+The standard shell now uses a dedicated `.page-shell-artboard` minimum of the
+dynamic viewport or 769px, preserving the scrollable fixed-coordinate stage for
+Subscribe and Submit Success on short phones. Lottery retains the viewport-only
+wide shell. Its wheel has separate short and intermediate-height geometry so the
+bottom-anchored result panel remains clear at 375×568 and 430×740.
+
+Added browser regressions verify the subscription verification action and the
+submission-success action are reachable at 375×667, plus result-panel clearance
+at both reported heights. The focused activity browser suite passed 21 tests.

@@ -17,9 +17,9 @@ export function PageShell({
   contentWidth = 'standard',
 }: PageShellProps) {
   return (
-    <div className="flex min-h-dvh justify-center bg-canvas">
+    <div className="min-h-dvh bg-canvas">
       <div
-        className={`relative min-h-dvh w-full ${contentWidth === 'wide' ? 'max-w-[430px]' : 'max-w-[375px]'} overflow-hidden ${className}`}
+        className={`relative mx-auto w-full ${contentWidth === 'wide' ? 'min-h-dvh max-w-[430px]' : 'page-shell-artboard max-w-[375px]'} overflow-hidden ${className}`}
       >
         {children}
       </div>
