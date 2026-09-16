@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: 'tests/e2e',
-  testMatch: 'staff-shell-layout.spec.ts',
+  testMatch: ['staff-shell-layout.spec.ts', 'staff-scanner.spec.ts'],
   workers: 1,
   reporter: 'line',
   use: {

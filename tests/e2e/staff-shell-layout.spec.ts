@@ -1,5 +1,70 @@
 import { expect, test, type Page } from '@playwright/test';
 
+for (const viewport of [
+  { width: 320, height: 568 },
+  { width: 375, height: 667 },
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+]) {
+  test(`keeps unauthenticated login and feedback reachable at ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize(viewport);
+    await page.route('**/api/staff/auth/me', (route) =>
+      route.fulfill({ status: 401, json: { code: 'UNAUTHORIZED' } }),
+    );
+    const attempts: unknown[] = [];
+    await page.route('**/api/staff/auth/login', (route) => {
+      attempts.push(route.request().postDataJSON());
+      return route.fulfill({ status: 401, json: { code: 'UNAUTHORIZED' } });
+    });
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/staff\/login$/);
+    await expect(
+      page.getByRole('heading', { name: '工作人员工作台' }),
+    ).toBeVisible();
+    const shell = page.locator('.bg-canvas > .w-full');
+    const bounds = await shell.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.width).toBe(viewport.width);
+    expect(bounds!.x + bounds!.width / 2).toBeCloseTo(viewport.width / 2, 0);
+    expect(bounds!.height).toBeGreaterThanOrEqual(viewport.height);
+    const username = page.getByLabel('账号', { exact: true });
+    const password = page.getByLabel('密码', { exact: true });
+    const submit = page.getByRole('button', { name: '进入工作台' });
+    for (const control of [username, password, submit]) {
+      await control.scrollIntoViewIfNeeded();
+      await expect(control).toBeInViewport({ ratio: 1 });
+    }
+    await submit.click();
+    const feedback = page.locator('form [aria-live="polite"]');
+    await expect(feedback).toContainText('请输入账号和密码');
+    await feedback.scrollIntoViewIfNeeded();
+    await expect(feedback).toBeInViewport({ ratio: 1 });
+    expect(attempts).toEqual([]);
+    await username.fill('staff-test');
+    await password.fill('wrong-password');
+    await submit.click();
+    await expect(feedback).toContainText('账号或密码错误');
+    await feedback.scrollIntoViewIfNeeded();
+    await expect(feedback).toBeInViewport({ ratio: 1 });
+    await submit.scrollIntoViewIfNeeded();
+    await expect(submit).toBeInViewport({ ratio: 1 });
+    await expect(submit).toBeEnabled();
+    await expect(username).toHaveValue('staff-test');
+    expect(attempts).toEqual([
+      { username: 'staff-test', password: 'wrong-password' },
+    ]);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(viewport.width);
+    await page.screenshot({
+      path: testInfo.outputPath('login-error.png'),
+      fullPage: true,
+    });
+  });
+}
+
 async function mockStaffSession(page: Page) {
   await page.route('**/api/staff/auth/me', (route) =>
     route.fulfill({
@@ -47,6 +112,15 @@ for (const width of [390, 430]) {
     expect(navBounds).not.toBeNull();
     expect(navBounds!.width).toBe(width);
     expect(navBounds!.x + navBounds!.width / 2).toBeCloseTo(width / 2, 0);
+    const shellBounds = await page
+      .locator('.bg-canvas > .w-full')
+      .boundingBox();
+    expect(shellBounds).not.toBeNull();
+    expect(shellBounds!.x).toBe(navBounds!.x);
+    expect(shellBounds!.width).toBe(navBounds!.width);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
 
     await page.getByText('测试活动').click();
     const sheet = page.getByRole('dialog');

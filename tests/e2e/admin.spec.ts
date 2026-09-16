@@ -2,6 +2,51 @@ import { adminActivityDefaults } from './admin-activity-fixture';
 import { expect, type Locator } from '@playwright/test';
 import { test } from './admin-test';
 
+test('opens the encoded public activity in a separate safe tab', async ({
+  page,
+  context,
+}) => {
+  await page.route('**/api/admin/auth/me', (route) =>
+    route.fulfill({ json: { csrfToken: 'csrf' } }),
+  );
+  await page.route('**/api/admin/activities', (route) =>
+    route.fulfill({
+      json: [
+        {
+          ...adminActivityDefaults,
+          id: 'link-activity',
+          name: '公开活动',
+          code: 'expo / 2026',
+          published_version_id: null,
+          starts_at: null,
+          ends_at: null,
+          status: 'DRAFT',
+          serverNow: '2026-09-16T08:00:00.000Z',
+        },
+      ],
+    }),
+  );
+  // The admin server does not host the public app; capture its navigation target.
+  await context.route('**/activity/expo%20%2F%202026', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<h1>公开活动</h1>' }),
+  );
+  await page.goto('/admin/activities');
+  const link = page.getByRole('link', {
+    name: '/activity/expo / 2026',
+    exact: true,
+  });
+  await expect(link).toHaveAttribute('href', '/activity/expo%20%2F%202026');
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  const popupPromise = page.waitForEvent('popup');
+  await link.click();
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL(/\/activity\/expo%20%2F%202026$/);
+  expect(await popup.evaluate(() => window.opener)).toBeNull();
+  await expect(page).toHaveURL(/\/admin\/activities$/);
+  await popup.close();
+});
+
 async function expectDialogActionsAligned(dialog: Locator) {
   const actions = dialog.locator('.dialog-actions').getByRole('button');
   const firstBox = await actions.first().boundingBox();
