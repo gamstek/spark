@@ -25,6 +25,7 @@ import { GhostTable, GhostTableFooter } from '../../components/ghost-table';
 import { PageHeader } from '../../components/page-header';
 import { StatusBadge } from '../../components/status-badge';
 import { TableRowActions } from '../../components/table-row-actions';
+import { ActivityPublicLink } from './activity-link';
 import { getActivityStatusPresentation } from './activity-status';
 
 type Activity = {
@@ -353,14 +354,7 @@ export function ActivitiesListPage() {
                       </div>
                     </Table.RowHeaderCell>
                     <Table.Cell>
-                      <Text
-                        as="div"
-                        size="1"
-                        className="activity-path"
-                        title={`/activity/${row.code}`}
-                      >
-                        /activity/{row.code}
-                      </Text>
+                      <ActivityPublicLink code={row.code} />
                     </Table.Cell>
                     <Table.Cell>
                       <StatusBadge status={row.status} />

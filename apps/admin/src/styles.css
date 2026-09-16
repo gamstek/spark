@@ -799,6 +799,26 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.activity-public-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--spark-primary);
+  text-decoration: none;
+}
+.activity-public-link:hover {
+  color: var(--spark-primary-hover);
+  text-decoration: underline;
+}
+.activity-public-link:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid var(--accent-8);
+  outline-offset: 3px;
+}
+.activity-public-link svg {
+  flex: none;
+}
 .activity-name-copy {
   min-width: 0;
   overflow: hidden;
