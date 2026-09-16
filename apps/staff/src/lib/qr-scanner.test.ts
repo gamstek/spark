@@ -6,7 +6,10 @@ import {
   type ScannerDependencies,
 } from './qr-scanner';
 
-type DecoderCallback = (result: { getText(): string } | null) => void;
+type DecoderCallback = (
+  result: { getText(): string } | null,
+  error?: unknown,
+) => void;
 type DecodeFromConstraints = (
   constraints: MediaStreamConstraints,
   video: HTMLVideoElement,
@@ -90,6 +93,59 @@ describe('startQrScanner', () => {
     expect(onResult).toHaveBeenCalledTimes(1);
     expect(onResult).toHaveBeenCalledWith('FIRSTCODE');
   });
+
+  it('reports a fatal decoder callback error and releases scanner resources', async () => {
+    let callback: DecoderCallback | undefined;
+    const controls = { stop: vi.fn() };
+    const track = { stop: vi.fn() };
+    const onFailure = vi.fn();
+    const decodeFromConstraints = vi.fn(
+      async (_constraints, _video, nextCallback: DecoderCallback) => {
+        callback = nextCallback;
+        return controls;
+      },
+    );
+
+    await startQrScanner(
+      createVideo([track]),
+      vi.fn(),
+      createDependencies(decodeFromConstraints),
+      onFailure,
+    );
+    callback?.(null, new Error('decoder stopped unexpectedly'));
+
+    expect(onFailure).toHaveBeenCalledWith('SCAN_FAILED');
+    expect(controls.stop).toHaveBeenCalledTimes(1);
+    expect(track.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['NotFoundException', 'ChecksumException', 'FormatException'])(
+    'continues scanning after a %s frame miss',
+    async (name) => {
+      let callback: DecoderCallback | undefined;
+      const controls = { stop: vi.fn() };
+      const track = { stop: vi.fn() };
+      const onFailure = vi.fn();
+      const decodeFromConstraints = vi.fn(
+        async (_constraints, _video, nextCallback: DecoderCallback) => {
+          callback = nextCallback;
+          return controls;
+        },
+      );
+
+      await startQrScanner(
+        createVideo([track]),
+        vi.fn(),
+        createDependencies(decodeFromConstraints),
+        onFailure,
+      );
+      callback?.(null, { getKind: () => name });
+
+      expect(onFailure).not.toHaveBeenCalled();
+      expect(controls.stop).not.toHaveBeenCalled();
+      expect(track.stop).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     ['NotAllowedError', 'PERMISSION_DENIED'],

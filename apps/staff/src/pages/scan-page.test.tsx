@@ -5,7 +5,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { startQrScanner, type QrScannerSession } from '../lib/qr-scanner';
+import {
+  startQrScanner,
+  type QrScannerSession,
+  type ScannerFailure,
+} from '../lib/qr-scanner';
 import type * as ScannerModule from '../lib/qr-scanner';
 import { StaffRuntimeProvider, useStaff } from '../lib/runtime';
 import { ScanPage } from './scan-page';
@@ -26,6 +30,7 @@ describe('ScanPage camera lifecycle', () => {
   let client: QueryClient;
   let resolveSession: (session: QrScannerSession) => void;
   let result: (code: string) => void;
+  let failure: ((failure: ScannerFailure) => void) | undefined;
   let router: ReturnType<typeof createMemoryRouter>;
   const stop = vi.fn();
 
@@ -36,8 +41,9 @@ describe('ScanPage camera lifecycle', () => {
     stop.mockReset();
     vi.mocked(startQrScanner)
       .mockReset()
-      .mockImplementation((_video, callback) => {
+      .mockImplementation((_video, callback, _dependencies, onFailure) => {
         result = callback;
+        failure = onFailure;
         return new Promise((resolve) => {
           resolveSession = resolve;
         });
@@ -131,6 +137,28 @@ describe('ScanPage camera lifecycle', () => {
     expect(container.textContent).toContain('重新扫描');
     await click('手动输入兑奖码');
     expect(router.state.location.pathname).toBe('/enter');
+  });
+
+  it('recovers after a fatal decoder callback error', async () => {
+    await render();
+    await act(async () => resolveSession({ stop }));
+    await act(async () => failure?.('SCAN_FAILED'));
+
+    expect(router.state.location.pathname).toBe('/scan');
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      '二维码识别中断',
+    );
+    expect(
+      container.querySelector('[role="status"]')?.textContent,
+    ).not.toContain('正在扫描');
+    expect(stop).toHaveBeenCalledTimes(1);
+    const retry = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '重新扫描',
+    );
+    expect(retry?.disabled).toBe(false);
+
+    await click('重新扫描');
+    expect(startQrScanner).toHaveBeenCalledTimes(2);
   });
 
   it('explains HTTPS in an insecure context without requesting the camera', async () => {

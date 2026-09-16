@@ -64,30 +64,41 @@ export function ScanPage() {
       const video = videoRef.current;
       if (!video) return;
       let pendingCode: string | undefined;
+      const fail = (failure: ScannerFailure) => {
+        if (generation !== generationRef.current) return;
+        stop();
+        setError(failureMessages[failure]);
+        setState('error');
+      };
       const finish = (code: string) => {
         stop();
         setCode(code);
         navigate('/redeem/confirm');
       };
       try {
-        const session = await startQrScanner(video, (raw) => {
-          if (generation !== generationRef.current || handledRef.current)
-            return;
-          const code = extractRedemptionCode(raw);
-          handledRef.current = true;
-          if (!code) {
-            // The adapter stops after any decoded QR, including an empty code.
-            // Invalidate this attempt so late initialization cannot resume it.
-            stop();
-            setError(
-              '二维码未包含兑奖码，请重新扫描用户兑奖二维码，或手动输入兑奖码。',
-            );
-            setState('error');
-            return;
-          }
-          if (sessionRef.current) finish(code);
-          else pendingCode = code;
-        });
+        const session = await startQrScanner(
+          video,
+          (raw) => {
+            if (generation !== generationRef.current || handledRef.current)
+              return;
+            const code = extractRedemptionCode(raw);
+            handledRef.current = true;
+            if (!code) {
+              // The adapter stops after any decoded QR, including an empty code.
+              // Invalidate this attempt so late initialization cannot resume it.
+              stop();
+              setError(
+                '二维码未包含兑奖码，请重新扫描用户兑奖二维码，或手动输入兑奖码。',
+              );
+              setState('error');
+              return;
+            }
+            if (sessionRef.current) finish(code);
+            else pendingCode = code;
+          },
+          undefined,
+          fail,
+        );
         if (generation !== generationRef.current) {
           session.stop();
           return;
@@ -97,12 +108,11 @@ export function ScanPage() {
         else setState('scanning');
       } catch (failure) {
         if (generation !== generationRef.current) return;
-        const message =
+        const normalizedFailure =
           typeof failure === 'string' && Object.hasOwn(failureMessages, failure)
-            ? failureMessages[failure as ScannerFailure]
-            : failureMessages.SCAN_FAILED;
-        setError(message);
-        setState('error');
+            ? (failure as ScannerFailure)
+            : 'SCAN_FAILED';
+        fail(normalizedFailure);
       }
     };
     pendingRef.current = run();

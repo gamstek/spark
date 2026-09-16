@@ -21,7 +21,10 @@ type ScannerReader = {
   decodeFromConstraints(
     constraints: MediaStreamConstraints,
     video: HTMLVideoElement,
-    callback: (result: ScannerResult | null | undefined) => void,
+    callback: (
+      result: ScannerResult | null | undefined,
+      error?: unknown,
+    ) => void,
   ): Promise<ScannerControls>;
 };
 
@@ -41,11 +44,19 @@ export function extractRedemptionCode(raw: string): string {
   }
 }
 
+function getScannerErrorKind(error: unknown): string {
+  if (typeof error !== 'object' || error === null) return '';
+
+  const candidate = error as { getKind?: () => unknown; name?: unknown };
+  if (typeof candidate.getKind === 'function') {
+    return String(candidate.getKind());
+  }
+
+  return typeof candidate.name === 'undefined' ? '' : String(candidate.name);
+}
+
 function normalizeScannerFailure(error: unknown): ScannerFailure {
-  const name =
-    typeof error === 'object' && error !== null && 'name' in error
-      ? String(error.name)
-      : '';
+  const name = getScannerErrorKind(error);
 
   switch (name) {
     case 'NotAllowedError':
@@ -60,6 +71,16 @@ function normalizeScannerFailure(error: unknown): ScannerFailure {
     default:
       return 'SCAN_FAILED';
   }
+}
+
+function isExpectedDecodeMiss(error: unknown): boolean {
+  const name = getScannerErrorKind(error);
+
+  return (
+    name === 'NotFoundException' ||
+    name === 'ChecksumException' ||
+    name === 'FormatException'
+  );
 }
 
 async function createBrowserReader(): Promise<ScannerReader> {
@@ -81,6 +102,7 @@ export async function startQrScanner(
   video: HTMLVideoElement,
   onResult: (code: string) => void,
   dependencies: ScannerDependencies = { createReader: createBrowserReader },
+  onFailure?: (failure: ScannerFailure) => void,
 ): Promise<QrScannerSession> {
   if (
     dependencies.createReader === createBrowserReader &&
@@ -105,11 +127,21 @@ export async function startQrScanner(
     controls = await reader.decodeFromConstraints(
       { video: { facingMode: { ideal: 'environment' } }, audio: false },
       video,
-      (result) => {
-        if (!result || handled) return;
+      (result, error) => {
+        if (handled) return;
+        if (result) {
+          handled = true;
+          try {
+            onResult(extractRedemptionCode(result.getText()));
+          } finally {
+            stop();
+          }
+          return;
+        }
+        if (!error || isExpectedDecodeMiss(error)) return;
         handled = true;
         try {
-          onResult(extractRedemptionCode(result.getText()));
+          onFailure?.(normalizeScannerFailure(error));
         } finally {
           stop();
         }
