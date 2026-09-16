@@ -30,7 +30,7 @@ export function SelectSheet({
         className="absolute inset-0 h-full w-full cursor-default bg-black/70"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-[375px] rounded-t-[16px] bg-white px-4 pb-6 pt-4">
+      <div className="relative w-full max-w-[430px] rounded-t-[16px] bg-white px-4 pb-6 pt-4">
         <p
           id="select-sheet-title"
           className="text-[15px] text-ink"

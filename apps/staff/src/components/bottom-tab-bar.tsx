@@ -16,7 +16,7 @@ export function BottomTabBar({ active, onChange }: BottomTabBarProps) {
   return (
     <nav
       aria-label="工作人员平台主导航"
-      className="fixed bottom-0 left-1/2 z-30 w-full max-w-[375px] -translate-x-1/2 border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(25,28,38,0.05)] backdrop-blur"
+      className="fixed bottom-0 left-1/2 z-30 w-full max-w-[430px] -translate-x-1/2 border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(25,28,38,0.05)] backdrop-blur"
     >
       <div className="flex h-[74px] items-center justify-around">
         {TABS.map((t) => {

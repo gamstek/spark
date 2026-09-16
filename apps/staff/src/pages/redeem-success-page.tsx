@@ -35,7 +35,7 @@ export function RedeemSuccessPage() {
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
 
-      <div className="relative">
+      <div className="relative mx-auto w-[375px] max-w-full">
         <header className="pt-[53px] text-center text-[18px] text-ink">
           {already ? '已核销' : '核销成功'}
         </header>
@@ -57,9 +57,7 @@ export function RedeemSuccessPage() {
 
         {/* 副文 (93.5,348) 18px */}
         <p className="absolute left-[93px] top-[348px] w-[187px] text-center text-[18px] leading-snug text-sub">
-          {already
-            ? `奖品已于 ${timeText} 完成核销`
-            : '奖品已成功发送给用户'}
+          {already ? `奖品已于 ${timeText} 完成核销` : '奖品已成功发送给用户'}
         </p>
 
         {/* 详情三行 (43.5,419) 15px */}
