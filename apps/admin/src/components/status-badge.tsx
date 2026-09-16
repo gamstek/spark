@@ -36,6 +36,8 @@ const statusPresentation: Record<string, { label: string; color: BadgeColor }> =
     completed: { label: '已完成', color: 'jade' },
     pending: { label: '处理中', color: 'amber' },
     processing: { label: '处理中', color: 'blue' },
+    wait_redeem: { label: '待核销', color: 'amber' },
+    redeemed: { label: '已核销', color: 'jade' },
     failed: { label: '失败', color: 'tomato' },
     expired: { label: '已过期', color: 'gray' },
     enabled: { label: '已启用', color: 'jade' },

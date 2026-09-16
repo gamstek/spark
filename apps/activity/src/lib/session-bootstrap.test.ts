@@ -3,6 +3,33 @@ import { describe, expect, it, vi } from 'vitest';
 import { bootstrapActivitySession } from './session-bootstrap';
 
 describe('bootstrapActivitySession', () => {
+  it('coalesces concurrent anonymous session bootstraps', async () => {
+    let releaseSession!: () => void;
+    const sessionReady = new Promise<void>((resolve) => {
+      releaseSession = resolve;
+    });
+    const createSession = vi.fn(async () => {
+      await sessionReady;
+      return { authenticated: true } as const;
+    });
+    const refresh = vi.fn(async () => undefined);
+    const options = {
+      simulateDevelopmentSession: false,
+      createDevelopmentSession: vi.fn(),
+      createSession,
+      refresh,
+      redirect: vi.fn(),
+    };
+
+    const first = bootstrapActivitySession(options);
+    const second = bootstrapActivitySession(options);
+    releaseSession();
+    await Promise.all([first, second]);
+
+    expect(createSession).toHaveBeenCalledOnce();
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
   it('refreshes after anonymous session creation authenticates the visitor', async () => {
     const createDevelopmentSession = vi.fn();
     const createSession = vi.fn(async () => ({ authenticated: true }) as const);

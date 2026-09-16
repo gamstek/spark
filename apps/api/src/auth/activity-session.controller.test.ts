@@ -30,6 +30,7 @@ function createController(
   const manager = { getRepository: vi.fn(() => users) };
   const sessions = {
     create: vi.fn().mockResolvedValue({ token: 'activity-session-token' }),
+    resolve: vi.fn().mockResolvedValue(null),
   };
   const states = new OAuthStateService({} as never, 'test-secret');
   const reply = {
@@ -151,6 +152,33 @@ describe('ActivitySessionController', () => {
     );
     expect(dataSource.getRepository).toHaveBeenCalledWith(Activity);
     expect(manager.getRepository).toHaveBeenCalledWith(UserAccount);
+  });
+
+  it('reuses an existing anonymous activity session', async () => {
+    const { controller, insert, reply, sessions } =
+      createController('anonymous');
+    sessions.resolve.mockResolvedValue({
+      subjectId: 'existing-user',
+      role: 'ACTIVITY',
+      csrfToken: 'csrf-token',
+    });
+
+    await expect(
+      controller.create(
+        'expo-2026',
+        '/activity/expo-2026',
+        {
+          id: 'request-id',
+          headers: { cookie: 'spark_activity=existing-token' },
+        } as never,
+        reply as never,
+      ),
+    ).resolves.toEqual({ authenticated: true });
+
+    expect(sessions.resolve).toHaveBeenCalledWith('existing-token', 'ACTIVITY');
+    expect(insert).not.toHaveBeenCalled();
+    expect(sessions.create).not.toHaveBeenCalled();
+    expect(reply.header).not.toHaveBeenCalled();
   });
 
   it('redirects WeChat sessions without creating a user', async () => {

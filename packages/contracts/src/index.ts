@@ -41,7 +41,7 @@ export const ActivityRuntimeSchema = z
     activityCode: z.string().min(1).max(64),
     templateId: z.string().min(1).max(64),
     templateVersion: z.int().positive(),
-    participationId: z.uuid(),
+    participationId: z.uuid().nullable(),
     nextStep: RuntimeStepSchema,
     win: WinViewSchema.nullable(),
     /** CSRF token for ACTIVITY-session write requests (lottery draw). */

@@ -98,5 +98,28 @@ describe('anonymous session persistence', () => {
         session!.subjectId,
       ]),
     ).toEqual([]);
+
+    const repeatedReply = {
+      header: vi.fn().mockReturnThis(),
+      send: vi.fn((value: unknown) => value),
+    };
+    await expect(
+      controller.create(
+        'expo-2026',
+        undefined,
+        {
+          id: 'repeat-bootstrap-test',
+          headers: { cookie: `spark_activity=${token}` },
+        } as never,
+        repeatedReply as never,
+      ),
+    ).resolves.toEqual({ authenticated: true });
+    expect(repeatedReply.header).not.toHaveBeenCalled();
+    expect(await dataSource.getRepository(UserAccount).count()).toBe(
+      usersBefore + 1,
+    );
+    expect(await dataSource.getRepository(AppSession).count()).toBe(
+      sessionsBefore + 1,
+    );
   });
 });

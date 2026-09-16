@@ -61,10 +61,7 @@ export class RuntimeService {
     );
     const activity = rows[0];
     if (!activity) throw new Error('ACTIVITY_NOT_FOUND');
-    const participation = await this.participants.getOrCreate(
-      userId,
-      activity.id,
-    );
+    const participation = await this.participants.find(userId, activity.id);
 
     if (recordVisit) {
       const safeChannel = /^[a-zA-Z0-9_-]{1,64}$/.test(channel)
@@ -92,7 +89,7 @@ export class RuntimeService {
             : win.redemptionStatus === 'EXPIRED'
               ? 'EXPIRED'
               : 'PRIZE';
-      } else if (participation.drawnAt) {
+      } else if (participation?.drawnAt) {
         nextStep = 'NO_PRIZE';
       } else if (status === 'DRAW_ENDED' || status === 'ENDED') {
         nextStep = 'ENDED';
@@ -105,19 +102,16 @@ export class RuntimeService {
       ) {
         nextStep = 'SUBSCRIBE';
       } else {
-        const state = await this.dataSource.query<
-          { lead_completed: boolean; available: number }[]
-        >(
-          `SELECT p.lead_completed,
-             COALESCE((SELECT sum(ap.total_stock-ap.awarded_stock) FROM activity_version_prize vp
-               JOIN activity_prize ap ON ap.id=vp.activity_prize_id
-               WHERE vp.activity_version_id=(SELECT published_version_id FROM activity WHERE id=$2)),0)::int AS available
-           FROM activity_participation p WHERE p.id=$1`,
-          [participation.id, activity.id],
+        const inventory = await this.dataSource.query<{ available: number }[]>(
+          `SELECT COALESCE(sum(ap.total_stock-ap.awarded_stock),0)::int AS available
+           FROM activity_version_prize vp
+           JOIN activity_prize ap ON ap.id=vp.activity_prize_id
+           WHERE vp.activity_version_id=(SELECT published_version_id FROM activity WHERE id=$1)`,
+          [activity.id],
         );
-        nextStep = !state[0]?.lead_completed
+        nextStep = !participation?.leadCompleted
           ? 'FORM'
-          : (state[0]?.available ?? 0) <= 0
+          : (inventory[0]?.available ?? 0) <= 0
             ? Number(activity.config.winningProbability ?? 0) < 100
               ? 'LOTTERY'
               : 'OUT_OF_STOCK'
@@ -129,7 +123,7 @@ export class RuntimeService {
       activityCode,
       templateId: activity.template_id,
       templateVersion: activity.template_version,
-      participationId: participation.id,
+      participationId: participation?.id ?? null,
       nextStep,
       win,
     };

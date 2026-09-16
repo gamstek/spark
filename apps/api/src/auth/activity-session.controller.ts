@@ -20,7 +20,7 @@ import {
   ACTIVITY_IDENTITY_MODE,
   type ActivityIdentityMode,
 } from './activity-identity-mode.js';
-import { cookieNames } from './session.guard.js';
+import { cookieNames, readCookie } from './session.guard.js';
 import { SessionService } from './session.service.js';
 
 function secureSuffix(): string {
@@ -61,6 +61,17 @@ export class ActivitySessionController {
       where: { code, publishedVersionId: Not(IsNull()) },
     });
     if (!activity) throw new NotFoundException('ACTIVITY_NOT_FOUND');
+
+    const existingToken = readCookie(
+      request.headers?.cookie,
+      cookieNames.ACTIVITY,
+    );
+    if (
+      existingToken &&
+      (await this.sessions.resolve(existingToken, 'ACTIVITY'))
+    ) {
+      return reply.send({ authenticated: true });
+    }
 
     if (this.identityMode === 'wechat') {
       return reply.send({

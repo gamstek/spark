@@ -11,7 +11,13 @@ function formatRedemptionCode(code: string | undefined): string {
 }
 
 export function RedemptionPage() {
-  const { activity, win, prizeCode } = useRuntime();
+  const {
+    activity,
+    win,
+    prizeCode,
+    refreshPrizeStatus,
+    refreshingPrizeStatus,
+  } = useRuntime();
   const navigate = useNavigate();
   useDocumentTitle(activity.title, '我的奖品');
   const canRedeem = win?.redemptionStatus === 'WAIT_REDEEM';
@@ -50,6 +56,14 @@ export function RedemptionPage() {
             <span>状态：</span>
             {win && <StatusTag status={win.redemptionStatus} />}
           </div>
+          <button
+            type="button"
+            className="mx-auto mt-4 block rounded-full border border-black/10 px-4 py-2 text-[14px] text-sub disabled:opacity-50"
+            onClick={() => void refreshPrizeStatus()}
+            disabled={refreshingPrizeStatus}
+          >
+            {refreshingPrizeStatus ? '刷新中…' : '刷新状态'}
+          </button>
         </section>
 
         <section className="flex min-h-[385px] flex-col items-center rounded-xl bg-white px-5 pt-12 pb-9 text-center">

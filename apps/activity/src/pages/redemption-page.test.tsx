@@ -19,6 +19,8 @@ const runtime = vi.hoisted(() => ({
     code: '7K3MP9RX',
     qrUrl: 'https://example.com/redeem/836215',
   },
+  refreshPrizeStatus: vi.fn().mockResolvedValue(undefined),
+  refreshingPrizeStatus: false,
 }));
 
 vi.mock('../hooks/use-runtime', () => ({
@@ -39,6 +41,7 @@ describe('RedemptionPage', () => {
     expect(markup).toContain('7K3M P9RX');
     expect(markup).toContain('min-h-dvh');
     expect(markup).not.toContain('h-[769px]');
+    expect(markup).toContain('刷新状态');
   });
 
   it.each([

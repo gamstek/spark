@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ApiErrorCodeSchema,
+  ActivityRuntimeSchema,
   ActivityFormSubmissionSchema,
   ActivityInputSchema,
   LotteryConfigSchema,
@@ -109,6 +110,19 @@ describe('shared API contracts', () => {
   it('does not expose an asynchronous external-form runtime step', () => {
     expect(RuntimeStepSchema.safeParse('WAITING_FORM').success).toBe(false);
     expect(RuntimeStepSchema.parse('PAUSED')).toBe('PAUSED');
+  });
+
+  it('allows runtime state before a visitor becomes a participant', () => {
+    expect(
+      ActivityRuntimeSchema.parse({
+        activityCode: 'expo-2026',
+        templateId: 'exhibition-lottery',
+        templateVersion: 1,
+        participationId: null,
+        nextStep: 'FORM',
+        win: null,
+      }).participationId,
+    ).toBeNull();
   });
 
   it('accepts Shanghai-offset activity times and rejects a client code', () => {

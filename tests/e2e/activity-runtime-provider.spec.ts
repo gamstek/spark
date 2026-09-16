@@ -31,6 +31,58 @@ async function mockSuccessfulActivity(page: Page) {
 }
 
 test.describe('ActivityRuntimeProvider lifecycle', () => {
+  test('refreshes redemption state when opening the prize page and on demand', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'development-simulation');
+    const waitingWin = {
+      id: '8f72385d-54b9-4614-a8b1-c926aa22018e',
+      prizeLevel: '一等奖',
+      prizeName: '小米充电宝',
+      prizeImageUrl: null,
+      redeemEndAt: '2026-09-12T10:00:00.000Z',
+      redemptionStatus: 'WAIT_REDEEM',
+    } as const;
+    let runtimeRequests = 0;
+    await page.route('**/api/activity/demo/runtime**', (route) => {
+      runtimeRequests += 1;
+      const redeemed = runtimeRequests >= 4;
+      return route.fulfill({
+        json: {
+          ...runtime,
+          nextStep: redeemed ? 'REDEEMED' : 'PRIZE',
+          win: {
+            ...waitingWin,
+            redemptionStatus: redeemed ? 'REDEEMED' : 'WAIT_REDEEM',
+          },
+        },
+      });
+    });
+    await page.route('**/api/activity/demo/info', (route) =>
+      route.fulfill({ json: info }),
+    );
+    await page.route('**/api/activity/demo/prize-code', (route) =>
+      route.fulfill({ json: { code: 'PRIZE-CODE', qrUrl: '/code.png' } }),
+    );
+
+    await page.goto('/activity/demo');
+    await page.getByRole('button', { name: '我的奖品' }).click();
+
+    await expect(page.getByRole('button', { name: '刷新状态' })).toBeVisible();
+    await expect.poll(() => runtimeRequests).toBe(2);
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect.poll(() => runtimeRequests).toBe(3);
+    await page.getByRole('button', { name: '刷新状态' }).click();
+    await expect(page.getByText('该奖品已完成核销')).toBeVisible();
+    await expect.poll(() => runtimeRequests).toBe(4);
+  });
+
   test('announces an ended draw without navigating away from the activity home', async ({
     page,
   }, testInfo) => {

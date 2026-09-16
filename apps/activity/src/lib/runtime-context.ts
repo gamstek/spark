@@ -37,6 +37,7 @@ export interface ActivityRuntimeValue {
   formSubmitted: boolean;
   continuingToLottery: boolean;
   continueError: string | null;
+  refreshingPrizeStatus: boolean;
   openView: (view: ActivityView) => void;
   closeView: () => void;
   participate: () => Promise<void>;
@@ -46,6 +47,7 @@ export interface ActivityRuntimeValue {
   draw: () => Promise<void>;
   showPrize: () => void;
   showMyPrizes: () => void;
+  refreshPrizeStatus: () => Promise<void>;
   setMessage: (message: string | null) => void;
 }
 

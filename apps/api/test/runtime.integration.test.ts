@@ -106,6 +106,34 @@ describe('activity runtime', () => {
     }
   });
 
+  it('does not create a participation for a passive activity-page visit', async () => {
+    const userId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO user_account (id) VALUES ($1)`,
+      [userId],
+    );
+    const runtime = new RuntimeService(
+      database.dataSource,
+      new ParticipantsService(database.dataSource),
+      { isSubscribed: async () => true } as never,
+      'anonymous',
+      fixedClock(new Date(scenario.now.getTime() + 1_000)),
+    );
+
+    await expect(
+      runtime.get(userId, 'expo-2026', 'direct', false),
+    ).resolves.toMatchObject({
+      participationId: null,
+      nextStep: 'FORM',
+    });
+    await expect(
+      database.dataSource.query(
+        `SELECT id FROM activity_participation WHERE activity_id=$1 AND user_id=$2`,
+        [scenario.activityId, userId],
+      ),
+    ).resolves.toHaveLength(0);
+  });
+
   it('returns SUBSCRIBE for WeChat runtime when subscription is required', async () => {
     await database.dataSource.query(
       `UPDATE activity_version SET config=config || '{"requireSubscribe":true}'::jsonb WHERE id=(SELECT published_version_id FROM activity WHERE id=$1)`,

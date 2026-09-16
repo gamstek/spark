@@ -95,6 +95,7 @@ export function ActivityRuntimeProvider({
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [continuingToLottery, setContinuingToLottery] = useState(false);
   const [continueError, setContinueError] = useState<string | null>(null);
+  const [refreshingPrizeStatus, setRefreshingPrizeStatus] = useState(false);
   const [sessionBootstrapError, setSessionBootstrapError] = useState<
     string | null
   >(null);
@@ -223,6 +224,32 @@ export function ActivityRuntimeProvider({
     return data;
   }, [code, queryClient]);
 
+  const refreshPrizeStatus = useCallback(async () => {
+    setRefreshingPrizeStatus(true);
+    try {
+      await refreshRuntime();
+    } catch (error) {
+      setMessage(messageForError(error));
+    } finally {
+      setRefreshingPrizeStatus(false);
+    }
+  }, [refreshRuntime]);
+
+  useEffect(() => {
+    if (view !== 'prizes') return;
+    void refreshPrizeStatus();
+  }, [refreshPrizeStatus, view]);
+
+  useEffect(() => {
+    if (view !== 'prizes') return;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshPrizeStatus();
+    };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () =>
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+  }, [refreshPrizeStatus, view]);
+
   const openView = useCallback(
     (nextView: ActivityView) => navigate(activityPath(code, nextView)),
     [code, navigate],
@@ -350,6 +377,7 @@ export function ActivityRuntimeProvider({
       formSubmitted,
       continuingToLottery,
       continueError,
+      refreshingPrizeStatus,
       openView,
       closeView,
       participate,
@@ -359,6 +387,7 @@ export function ActivityRuntimeProvider({
       draw,
       showPrize,
       showMyPrizes,
+      refreshPrizeStatus,
       setMessage,
     }),
     [
@@ -374,6 +403,7 @@ export function ActivityRuntimeProvider({
       formSubmitted,
       continuingToLottery,
       continueError,
+      refreshingPrizeStatus,
       openView,
       closeView,
       participate,
@@ -383,6 +413,7 @@ export function ActivityRuntimeProvider({
       draw,
       showPrize,
       showMyPrizes,
+      refreshPrizeStatus,
     ],
   );
 
