@@ -53,10 +53,9 @@ test('runs database-backed template compatibility after migrations', () => {
   );
 });
 
-test('runs the browser regression suite in CI', () => {
-  const e2eJob = job('e2e');
-  assert.match(e2eJob, /playwright install --with-deps chromium/);
-  assert.match(e2eJob, /playwright test/);
+test('keeps browser regression tests out of CI', () => {
+  assert.doesNotMatch(workflow, /^  e2e:\r?$/m);
+  assert.doesNotMatch(workflow, /playwright (?:install|test)/);
 });
 
 test('verifies release ancestry from the full checkout without another authenticated fetch', () => {
