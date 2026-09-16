@@ -103,7 +103,13 @@ for (const viewport of [
 
 for (const viewport of [
   { width: 375, height: 568 },
+  { width: 430, height: 699 },
+  { width: 430, height: 700 },
+  { width: 430, height: 701 },
   { width: 430, height: 740 },
+  { width: 430, height: 799 },
+  { width: 430, height: 800 },
+  { width: 430, height: 801 },
   { width: 430, height: 932 },
 ]) {
   test(`keeps the revealed result clear of the wheel at ${viewport.width}×${viewport.height}`, async ({

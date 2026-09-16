@@ -59,3 +59,15 @@ bottom-anchored result panel remains clear at 375×568 and 430×740.
 Added browser regressions verify the subscription verification action and the
 submission-success action are reachable at 375×667, plus result-panel clearance
 at both reported heights. The focused activity browser suite passed 21 tests.
+
+## Breakpoint-edge Follow-up
+
+Lottery wheel geometry now caps its square size using dynamic viewport height
+after reserving the complete safe-area-aware outcome region. Short screens use
+their smaller action reserve; taller screens reserve the full result footprint.
+This removes the discrete 700px/800px wheel-size transitions that could overlap
+the outcome immediately above a breakpoint.
+
+Result-state browser coverage now includes 430px widths at 699px, 700px, 701px,
+799px, 800px, and 801px heights, in addition to the existing short, intermediate,
+and tall viewports. The expanded lottery layout matrix passed 16 tests.
