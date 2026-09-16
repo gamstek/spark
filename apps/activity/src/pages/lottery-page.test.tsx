@@ -53,6 +53,12 @@ describe('LotteryPage', () => {
   it('renders the design artwork without an additional page header', () => {
     const markup = renderToStaticMarkup(<LotteryPage />);
 
+    expect(markup).toContain('lottery-stage');
+    expect(markup).toContain('lottery-wheel-region');
+    expect(markup).toContain('lottery-action');
+    expect(markup).toContain('max-w-[430px]');
+    expect(markup).not.toContain('left-[15px] top-[211px]');
+    expect(markup).not.toContain('left-[43px] top-[573px]');
     expect(markup).toContain('一等奖');
     expect(markup).toContain('二等奖');
     expect(markup).toContain('立即抽奖');

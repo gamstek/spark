@@ -262,6 +262,45 @@ body {
   will-change: transform;
 }
 
+.lottery-stage {
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.lottery-wheel-region {
+  position: absolute;
+  top: clamp(168px, 27.4dvh, 232px);
+  left: 50%;
+  width: min(92vw, 396px);
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+}
+
+.lottery-action,
+.lottery-outcome {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  left: max(24px, env(safe-area-inset-left));
+}
+
+.lottery-action > button,
+.lottery-outcome button {
+  margin-inline: auto;
+}
+
+@media (max-height: 700px) {
+  .lottery-wheel-region {
+    top: clamp(136px, 24dvh, 168px);
+    width: min(82vw, 328px);
+  }
+
+  .lottery-action,
+  .lottery-outcome {
+    bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
 .registration-page {
   max-width: 720px;
   min-height: 100dvh;

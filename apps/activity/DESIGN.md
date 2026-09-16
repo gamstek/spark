@@ -73,6 +73,12 @@ The dialog is white and near full screen on mobile, with 8px horizontal margins,
 safe-area bounds, a fixed title row, and one scrolling body. At 768px and above,
 it is bounded to 720px width and 800px height, leaving 24px viewport margins.
 
+The illustrated lottery page fills the dynamic viewport across supported
+320–430px mobile widths. Its campaign content is centered with a 430px cap: the
+wheel uses clamped, viewport-relative square geometry, while the outcome and
+draw action sit above the bottom safe area. The supplied campaign assets and
+existing motion authority remain unchanged.
+
 ## Elevation & Depth
 
 Depth belongs to the dimmed backdrop and dialog. Existing illustrated campaign

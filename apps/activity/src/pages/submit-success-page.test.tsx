@@ -57,4 +57,11 @@ describe('SubmitSuccessPage', () => {
     expect(markup).toContain('网络异常，请稍后重试');
     expect(markup).toContain('重试进入抽奖');
   });
+
+  it('keeps the fixed-coordinate acknowledgement on the standard 375px stage', () => {
+    const markup = renderToStaticMarkup(<SubmitSuccessPage />);
+
+    expect(markup).toContain('max-w-[375px]');
+    expect(markup).not.toContain('max-w-[430px]');
+  });
 });

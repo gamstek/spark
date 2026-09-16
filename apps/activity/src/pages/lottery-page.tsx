@@ -172,7 +172,10 @@ export function LotteryPage() {
   useDocumentTitle(activity.title, '参与抽奖');
 
   return (
-    <PageShell className="bg-[#ef363e]">
+    <PageShell
+      className="lottery-stage bg-[#ef363e]"
+      contentWidth="wide"
+    >
       <img
         src={SLICES.lotteryBg}
         alt=""
@@ -180,7 +183,7 @@ export function LotteryPage() {
         className="absolute inset-0 size-full object-cover"
       />
 
-      <div className="absolute left-[15px] top-[211px] size-[345px]">
+      <div className="lottery-wheel-region">
         <div
           ref={wheelRef}
           className={`relative size-full ${visualPhase === 'spinning' ? 'lottery-wheel--spinning' : ''} ${visualPhase === 'settling' ? 'lottery-wheel--settling' : ''} ${visualPhase === 'stopping' ? 'lottery-wheel--stopping' : ''}`}
@@ -236,7 +239,7 @@ export function LotteryPage() {
       </div>
 
       {showOutcome ? (
-        <div className="absolute inset-x-[43px] top-[555px] text-center text-[#8f1822] drop-shadow-[0_1px_0_rgba(255,255,255,0.65)]">
+        <div className="lottery-outcome text-center text-[#8f1822] drop-shadow-[0_1px_0_rgba(255,255,255,0.65)]">
           <p className="text-[17px] font-medium">
             {win ? '恭喜抽中' : '很遗憾'}
           </p>
@@ -250,7 +253,7 @@ export function LotteryPage() {
           </div>
         </div>
       ) : (
-        <div className="absolute left-[43px] top-[573px] w-[293px]">
+        <div className="lottery-action">
           <ActionButton
             onClick={startDraw}
             disabled={disabled}

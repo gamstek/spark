@@ -2,7 +2,11 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: 'tests/e2e',
-  testMatch: ['activity-runtime-provider.spec.ts', 'activity-form.spec.ts'],
+  testMatch: [
+    'activity-runtime-provider.spec.ts',
+    'activity-form.spec.ts',
+    'activity-layout.spec.ts',
+  ],
   fullyParallel: false,
   workers: 1,
   reporter: 'line',
