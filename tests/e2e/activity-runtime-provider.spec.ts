@@ -137,6 +137,11 @@ test.describe('ActivityRuntimeProvider lifecycle', () => {
     const result = page.getByText('一等奖 · 小米充电宝');
     const startedAt = Date.now();
 
+    await expect(wheel.locator(':scope > span')).toHaveCount(6);
+    await expect(wheel.getByText('一等奖', { exact: true })).toBeVisible();
+    await expect(wheel.getByText('二等奖', { exact: true })).toBeVisible();
+    await expect(wheel.getByText('谢谢参与', { exact: true })).toHaveCount(4);
+
     await page.getByRole('button', { name: '立即抽奖' }).click();
     await expect(wheel).toHaveClass(/lottery-wheel--spinning/);
     await page.waitForTimeout(500);

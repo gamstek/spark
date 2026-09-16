@@ -53,10 +53,13 @@ describe('LotteryPage', () => {
   it('renders the design artwork without an additional page header', () => {
     const markup = renderToStaticMarkup(<LotteryPage />);
 
-    expect(markup).toContain('小米充电宝');
+    expect(markup).toContain('一等奖');
+    expect(markup).toContain('二等奖');
     expect(markup).toContain('立即抽奖');
-    expect(markup).toMatch(/小米充电宝[\s\S]*谢谢参与[\s\S]*定制保温杯/);
-    expect(markup).toContain('transform:translate(-50%, -50%) rotate(90deg)');
+    expect(markup.match(/谢谢参与/g)).toHaveLength(4);
+    expect(markup).not.toContain('小米充电宝');
+    expect(markup).not.toContain('定制保温杯');
+    expect(markup).toContain('transform:translate(-50%, -50%) rotate(60deg)');
     expect(markup).not.toContain('aria-label="返回"');
   });
 

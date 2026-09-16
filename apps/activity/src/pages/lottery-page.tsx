@@ -9,6 +9,7 @@ import {
   createWheelDeceleration,
   sampleWheelDeceleration,
 } from '../lib/wheel-motion';
+import { buildWheelOptions } from '../lib/wheel-options';
 
 const WHEEL_SPIN_CYCLE_MS = 720;
 const WHEEL_MINIMUM_SPIN_MS = WHEEL_SPIN_CYCLE_MS * 2;
@@ -43,21 +44,15 @@ export function LotteryPage() {
     wheelPhase === 'idle' && drawing ? 'spinning' : wheelPhase;
   const animating = drawing || wheelPhase !== 'idle';
   const disabled = animating || soldOut || Boolean(win) || noPrize;
-  const wheelOptions = (
-    activity.winningProbability < 100
-      ? activity.prizes.flatMap((prize) => [
-          prize,
-          { prizeLevel: '', name: '谢谢参与' },
-        ])
-      : activity.prizes
-  ).slice(0, 12);
+  const wheelOptions = buildWheelOptions(activity.prizes, win);
   const winningIndex = win
     ? wheelOptions.findIndex(
-        (prize) =>
-          prize.prizeLevel === win.prizeLevel && prize.name === win.prizeName,
+        (option) =>
+          option.prizeLevel === win.prizeLevel &&
+          option.prizeName === win.prizeName,
       )
     : noPrize
-      ? wheelOptions.findIndex((option) => option.name === '谢谢参与')
+      ? wheelOptions.findIndex((option) => option.kind === 'no-prize')
       : -1;
   const slotAngle = 360 / Math.max(wheelOptions.length, 1);
   const restingRotation = winningIndex >= 0 ? winningIndex * -slotAngle : 0;
@@ -198,12 +193,12 @@ export function LotteryPage() {
             className="absolute inset-0 size-full object-contain"
           />
 
-          {wheelOptions.map((prize, index) => {
+          {wheelOptions.map((option, index) => {
             const radians = ((index * slotAngle - 90) * Math.PI) / 180;
             const labelRotation = (index * slotAngle) % 180;
             return (
               <span
-                key={`${prize.prizeLevel}-${prize.name}-${index}`}
+                key={`${option.kind}-${option.prizeLevel}-${option.prizeName}-${index}`}
                 className="absolute flex h-[54px] w-[92px] items-center justify-center text-center text-[15px] leading-[18px] font-medium text-[#ff423d]"
                 style={{
                   left: `${50 + Math.cos(radians) * 27.8}%`,
@@ -211,7 +206,7 @@ export function LotteryPage() {
                   transform: `translate(-50%, -50%) rotate(${labelRotation}deg)`,
                 }}
               >
-                {prize.name}
+                {option.label}
               </span>
             );
           })}
