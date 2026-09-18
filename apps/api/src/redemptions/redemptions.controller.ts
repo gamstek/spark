@@ -37,6 +37,16 @@ export class RedemptionsController {
     );
   }
 
+  @Post('activity/:code/redemption/confirm')
+  @RequireSession('ACTIVITY')
+  @UseGuards(SessionGuard, CsrfGuard)
+  confirmOwnReceipt(
+    @Param('code') code: string,
+    @Req() request: SessionRequest,
+  ) {
+    return this.redemptions.confirmOwnReceipt(request.session.subjectId, code);
+  }
+
   @Post('staff/redemptions/lookup')
   @RequireSession('STAFF')
   @UseGuards(SessionGuard)

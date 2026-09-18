@@ -185,6 +185,53 @@ export class RedemptionsService {
     });
   }
 
+  async confirmOwnReceipt(
+    userId: string,
+    activityCode: string,
+  ): Promise<RedemptionView> {
+    await this.dataSource.query(
+      `UPDATE redemption r SET status='EXPIRED' FROM lottery_record l,activity a
+       WHERE r.lottery_record_id=l.id AND a.id=l.activity_id AND l.user_id=$1 AND a.code=$2
+         AND r.status='WAIT_REDEEM' AND r.redeem_end_at<=$3`,
+      [userId, activityCode, this.now()],
+    );
+
+    return this.dataSource.transaction(async (manager) => {
+      const rows = await manager.query<RedemptionRow[]>(
+        `SELECT r.id AS redemption_id,l.id AS lottery_record_id,l.activity_id,l.user_id,l.prize_name,l.prize_image_url,r.status,r.redeem_end_at,r.redeemed_at
+         FROM redemption r JOIN lottery_record l ON l.id=r.lottery_record_id JOIN activity a ON a.id=l.activity_id
+         WHERE l.user_id=$1 AND a.code=$2 FOR UPDATE OF r`,
+        [userId, activityCode],
+      );
+      const row = rows[0];
+      if (!row) throw new Error('REDEMPTION_NOT_FOUND');
+      if (row.status === 'REDEEMED') return this.toView(row);
+      if (row.status === 'EXPIRED') throw new Error('REDEMPTION_EXPIRED');
+
+      const redeemedAt = this.now();
+      if (redeemedAt >= new Date(row.redeem_end_at))
+        throw new Error('REDEMPTION_EXPIRED');
+      await manager.query(
+        `UPDATE redemption SET status='REDEEMED',redeemed_at=$2 WHERE id=$1 AND status='WAIT_REDEEM'`,
+        [row.redemption_id, redeemedAt],
+      );
+      await manager.query(
+        `INSERT INTO audit_event (id,actor_type,actor_id,action,resource_type,resource_id,details) VALUES ($1,'ACTIVITY',$2,'ONSITE_REDEMPTION_CONFIRMED','redemption',$3,$4)`,
+        [
+          randomUUID(),
+          userId,
+          row.redemption_id,
+          { activityId: row.activity_id, confirmationMethod: 'ONSITE_HANDOFF' },
+        ],
+      );
+      return this.toView({
+        ...row,
+        status: 'REDEEMED',
+        redeemed_at: redeemedAt,
+      });
+    });
+  }
+
   private hash(code: string): string {
     return createHash('sha256')
       .update(code.replace(/[\s-]/g, '').toUpperCase())

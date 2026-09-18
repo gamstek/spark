@@ -19,11 +19,6 @@ export interface ActivityDisplay {
   prizes: { prizeLevel: string; name: string; imageUrl?: string }[];
 }
 
-export interface PrizeCodeView {
-  code: string;
-  qrUrl: string;
-}
-
 export interface ActivityRuntimeValue {
   step: RuntimeStep;
   view: ActivityView;
@@ -31,13 +26,13 @@ export interface ActivityRuntimeValue {
   loadError: string | null;
   activity: ActivityDisplay;
   win: WinView | null;
-  prizeCode: PrizeCodeView | null;
   message: string | null;
   drawing: boolean;
   formSubmitted: boolean;
   continuingToLottery: boolean;
   continueError: string | null;
   refreshingPrizeStatus: boolean;
+  confirmingPrizeReceipt: boolean;
   openView: (view: ActivityView) => void;
   closeView: () => void;
   participate: () => Promise<void>;
@@ -48,6 +43,7 @@ export interface ActivityRuntimeValue {
   showPrize: () => void;
   showMyPrizes: () => void;
   refreshPrizeStatus: () => Promise<void>;
+  confirmPrizeReceipt: () => Promise<void>;
   setMessage: (message: string | null) => void;
 }
 

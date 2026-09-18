@@ -15,10 +15,6 @@ const runtime = vi.hoisted(() => ({
     prizeImageUrl: 'https://example.com/prize.png',
     redemptionStatus: 'WAIT_REDEEM' as 'WAIT_REDEEM' | 'REDEEMED' | 'EXPIRED',
   },
-  prizeCode: {
-    code: '7K3MP9RX',
-    qrUrl: 'https://example.com/redeem/836215',
-  },
   refreshPrizeStatus: vi.fn().mockResolvedValue(undefined),
   refreshingPrizeStatus: false,
 }));
@@ -38,10 +34,13 @@ describe('RedemptionPage', () => {
     expect(markup).toContain('三等奖');
     expect(markup).toContain('定制手机支架');
     expect(markup).toContain('待核销');
-    expect(markup).toContain('7K3M P9RX');
+    expect(markup).not.toContain('7K3M P9RX');
+    expect(markup).not.toContain('https://example.com/redeem/836215');
     expect(markup).toContain('min-h-dvh');
     expect(markup).not.toContain('h-[769px]');
     expect(markup).toContain('刷新状态');
+    expect(markup).toContain('确认领奖');
+    expect(markup).toContain('请交由现场工作人员操作');
   });
 
   it.each([
@@ -57,6 +56,7 @@ describe('RedemptionPage', () => {
       expect(markup).toContain(text);
       expect(markup).not.toContain('7K3M P9RX');
       expect(markup).not.toContain('https://example.com/redeem/836215');
+      expect(markup).not.toContain('确认领奖');
     },
   );
 });

@@ -100,6 +100,7 @@ containers, generic SaaS card grids, and decorative gradients.
 | Form fields    | `FormField`, `ChoiceField` in `src/components/`        | Native labelled text controls and semantic fieldsets with Radix Checkbox/RadioGroup; persistent error regions, visible required markers and focus                         |
 | Registration   | `src/pages/registration-form-page.tsx`                 | React Hook Form with the shared Zod resolver; 01–12 required, 13 optional; first-error focus, preserved values, duplicate prevention and stable busy action               |
 | Lottery motion | `src/pages/lottery-page.tsx`, `src/styles.css`         | Server-authoritative draw; immediate continuous rotation, minimum visible spin, eased target settlement, then result reveal; reduced-motion path and duplicate prevention |
+| Prize receipt  | `src/pages/redemption-page.tsx`                        | Waiting prizes use an app-owned staff handoff dialog; server-confirmed, CSRF-protected and duplicate-safe; success refreshes to 已兑奖, failure stays open for retry      |
 | Scrollbar      | `src/styles.css` global baseline                       | Every owned overflow surface inherits standard/WebKit colors without opt-in class; forced-colors fallback                                                                 |
 
 Color paths map `colors.*` to matching `--color-*`; `typography.*` maps to

@@ -120,6 +120,28 @@ describe('redemption recovery and atomic confirmation', () => {
     expect(retry).toEqual(first);
   });
 
+  it('allows the owning participant to confirm an onsite handoff exactly once', async () => {
+    const first = await service().confirmOwnReceipt(
+      scenario.userIds[0],
+      'expo-2026',
+    );
+    const retry = await service().confirmOwnReceipt(
+      scenario.userIds[0],
+      'expo-2026',
+    );
+
+    expect(first.status).toBe('REDEEMED');
+    expect(retry).toEqual(first);
+    expect(
+      await database.dataSource.query(
+        `SELECT id FROM audit_event WHERE action='ONSITE_REDEMPTION_CONFIRMED'`,
+      ),
+    ).toHaveLength(1);
+    await expect(
+      service().confirmOwnReceipt(scenario.userIds[1], 'expo-2026'),
+    ).rejects.toThrow('REDEMPTION_NOT_FOUND');
+  });
+
   it('lists records for permitted activities with masked participant data', async () => {
     const answers: ActivityFormAnswers = {
       name: '陈小明',

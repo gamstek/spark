@@ -99,9 +99,13 @@ export const activityApi = {
         body: input,
       },
     ),
-  prizeCode: (code: string) =>
-    request<{ code: string; qrUrl: string }>(
-      `/api/activity/${encodeURIComponent(code)}/prize-code`,
+  confirmPrizeReceipt: (code: string, csrfToken: string) =>
+    request<{ status: 'REDEEMED' }>(
+      `/api/activity/${encodeURIComponent(code)}/redemption/confirm`,
+      {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrfToken },
+      },
     ),
   createDevelopmentSession: () =>
     request<{ authenticated: true }>('/api/wechat/oauth/simulate', {

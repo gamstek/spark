@@ -96,6 +96,7 @@ export function ActivityRuntimeProvider({
   const [continuingToLottery, setContinuingToLottery] = useState(false);
   const [continueError, setContinueError] = useState<string | null>(null);
   const [refreshingPrizeStatus, setRefreshingPrizeStatus] = useState(false);
+  const [confirmingPrizeReceipt, setConfirmingPrizeReceipt] = useState(false);
   const [sessionBootstrapError, setSessionBootstrapError] = useState<
     string | null
   >(null);
@@ -206,14 +207,6 @@ export function ActivityRuntimeProvider({
 
   const step = stepOverride ?? runtime?.nextStep ?? 'NOT_STARTED';
   const win = runtime?.win ?? null;
-  const prizeCodeQuery = useQuery({
-    queryKey: ['activity-prize-code', code],
-    queryFn: () => activityApi.prizeCode(code),
-    enabled: win?.redemptionStatus === 'WAIT_REDEEM',
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
   const refreshRuntime = useCallback(async () => {
     const data = await queryClient.fetchQuery({
       queryKey: ['activity-runtime', code],
@@ -234,6 +227,20 @@ export function ActivityRuntimeProvider({
       setRefreshingPrizeStatus(false);
     }
   }, [refreshRuntime]);
+
+  const confirmPrizeReceipt = useCallback(async () => {
+    const csrfToken = runtime?.csrfToken;
+    if (!csrfToken) {
+      throw new ApiError('UNAUTHORIZED', 401, '会话已失效，请刷新页面重试');
+    }
+    setConfirmingPrizeReceipt(true);
+    try {
+      await activityApi.confirmPrizeReceipt(code, csrfToken);
+      await refreshRuntime();
+    } finally {
+      setConfirmingPrizeReceipt(false);
+    }
+  }, [code, queryClient, refreshRuntime, runtime?.csrfToken]);
 
   useEffect(() => {
     if (view !== 'prizes') return;
@@ -320,9 +327,6 @@ export function ActivityRuntimeProvider({
       setMessage(null);
       await activityApi.draw(code, csrfToken);
       await refreshRuntime();
-      await queryClient.invalidateQueries({
-        queryKey: ['activity-prize-code', code],
-      });
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.code === 'OUT_OF_STOCK') setStepOverride('OUT_OF_STOCK');
@@ -371,13 +375,13 @@ export function ActivityRuntimeProvider({
       loadError,
       activity,
       win,
-      prizeCode: prizeCodeQuery.data ?? null,
       message,
       drawing,
       formSubmitted,
       continuingToLottery,
       continueError,
       refreshingPrizeStatus,
+      confirmingPrizeReceipt,
       openView,
       closeView,
       participate,
@@ -388,6 +392,7 @@ export function ActivityRuntimeProvider({
       showPrize,
       showMyPrizes,
       refreshPrizeStatus,
+      confirmPrizeReceipt,
       setMessage,
     }),
     [
@@ -397,13 +402,13 @@ export function ActivityRuntimeProvider({
       loadError,
       activity,
       win,
-      prizeCodeQuery.data,
       message,
       drawing,
       formSubmitted,
       continuingToLottery,
       continueError,
       refreshingPrizeStatus,
+      confirmingPrizeReceipt,
       openView,
       closeView,
       participate,
@@ -414,6 +419,7 @@ export function ActivityRuntimeProvider({
       showPrize,
       showMyPrizes,
       refreshPrizeStatus,
+      confirmPrizeReceipt,
     ],
   );
 
