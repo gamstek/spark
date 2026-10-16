@@ -5,16 +5,16 @@ const textAnswers = [
   ['单位（公司/院校/研究所）全称', '星火研究院'],
   ['部门/实验室/课题组', '分析实验室'],
   ['职位/职称', '研究员'],
-  ['手机号码', '+86 138 0000 0000 转 2'],
-  ['电子邮箱', '请通过助理联系'],
+  ['手机号码', '13800000000'],
+  ['电子邮箱', 'expert@example.com'],
 ] as const;
 const expectedSubmission = {
   name: '张三',
   organization: '星火研究院',
   department: '分析实验室',
   jobTitle: '研究员',
-  phone: '+86 138 0000 0000 转 2',
-  email: '请通过助理联系',
+  phone: '13800000000',
+  email: 'expert@example.com',
   researchAreas: ['life_sciences', 'other'],
   researchAreaOther: '交叉研究',
   instrumentInterests: ['mass_spectrometry', 'other'],
@@ -175,6 +175,39 @@ test.describe('anonymous self-hosted activity form', () => {
       'Form journey exercises the anonymous, non-WeChat browser',
     );
     await page.setViewportSize({ width: 390, height: 844 });
+  });
+
+  test('blocks invalid contact details and allows submission after correction', async ({
+    page,
+  }) => {
+    const { state } = await mockForm(page);
+    await fillForm(page);
+    await page.getByRole('checkbox', { name: /我已阅读并同意/ }).check();
+    const phone = page.getByRole('textbox', { name: /手机号码/ });
+    const email = page.getByRole('textbox', { name: /电子邮箱/ });
+    await phone.fill('12345678901');
+    await email.fill('not-an-email');
+    await page.getByRole('button', { name: '提交信息' }).click();
+    await expect(phone).toBeFocused();
+    await expect(phone).toHaveAttribute('aria-invalid', 'true');
+    await expect(email).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#phone-error')).toHaveText(
+      '请输入正确的11位手机号码',
+    );
+    await expect(page.locator('#email-error')).toHaveText(
+      '请输入正确的电子邮箱地址',
+    );
+    expect(state.submissions).toEqual([]);
+
+    await phone.fill('13800000000');
+    await email.fill('expert@example.com');
+    await page.getByRole('button', { name: '提交信息' }).click();
+    await expect(
+      page
+        .getByRole('banner')
+        .getByRole('heading', { name: '提交成功', exact: true }),
+    ).toBeVisible();
+    expect(state.submissions).toEqual([expectedSubmission]);
   });
 
   test('submits all 13 questions with stable codes and CSRF, then explicitly refreshes into lottery', async ({
@@ -360,8 +393,8 @@ test.describe('anonymous self-hosted activity form', () => {
         organization: '星火研究院',
         department: '分析实验室',
         jobTitle: '研究员',
-        phone: '+86 138 0000 0000 转 2',
-        email: '请通过助理联系',
+        phone: '13800000000',
+        email: 'expert@example.com',
         visitPurposes: ['new_products'],
         followUpPreferences: ['product_pdf'],
         contactPreference: 'email_first',
@@ -374,9 +407,7 @@ test.describe('anonymous self-hosted activity form', () => {
     ]);
   });
 
-  test('accepts conventional phone and email values as well as the non-format-validated contact values', async ({
-    page,
-  }) => {
+  test('accepts conventional phone and email values', async ({ page }) => {
     const { state } = await mockForm(page);
     await fillForm(page);
     await page.getByRole('textbox', { name: /手机号码/ }).fill('13800000000');

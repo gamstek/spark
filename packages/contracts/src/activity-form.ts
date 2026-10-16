@@ -91,8 +91,13 @@ export const ActivityFormSubmissionSchema = z
     organization: z.string().trim().min(1).max(200),
     department: z.string().trim().min(1).max(200),
     jobTitle: z.string().trim().min(1).max(100),
-    phone: z.string().trim().min(1).max(64),
-    email: z.string().trim().min(1).max(254),
+    phone: z
+      .string()
+      .trim()
+      .min(1)
+      .max(64)
+      .regex(/^1[3-9]\d{9}$/, '请输入正确的11位手机号码'),
+    email: z.string().trim().min(1).max(254).email('请输入正确的电子邮箱地址'),
     researchAreas: nonEmptyUniqueArray(ResearchAreaSchema),
     researchAreaOther: z.string().trim().max(500).optional(),
     instrumentInterests: nonEmptyUniqueArray(InstrumentInterestSchema),

@@ -41,17 +41,45 @@ describe('shared API contracts', () => {
     ]);
   });
 
-  it('accepts a complete fixed activity form without phone or email format checks', () => {
+  it('accepts a complete fixed activity form', () => {
     expect(
       ActivityFormSubmissionSchema.safeParse(validActivityForm).success,
     ).toBe(true);
-    expect(
-      ActivityFormSubmissionSchema.safeParse({
-        ...validActivityForm,
-        phone: 'not-a-number',
-        email: 'not-an-email',
-      }).success,
-    ).toBe(true);
+  });
+
+  it.each([
+    ['phone', 'not-a-number', '请输入正确的11位手机号码'],
+    ['phone', '12800138000', '请输入正确的11位手机号码'],
+    ['phone', '1380013800', '请输入正确的11位手机号码'],
+    ['phone', '138001380000', '请输入正确的11位手机号码'],
+    ['phone', '1380013800a', '请输入正确的11位手机号码'],
+    ['email', 'not-an-email', '请输入正确的电子邮箱地址'],
+    ['email', 'name@', '请输入正确的电子邮箱地址'],
+    ['email', 'name@example', '请输入正确的电子邮箱地址'],
+    ['email', 'name @example.com', '请输入正确的电子邮箱地址'],
+  ])('rejects invalid %s: %s', (field, value, message) => {
+    const result = ActivityFormSubmissionSchema.safeParse({
+      ...validActivityForm,
+      [field]: value,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: [field], message }),
+        ]),
+      );
+    }
+  });
+
+  it('trims contact details before validating and preserves valid email aliases', () => {
+    const result = ActivityFormSubmissionSchema.parse({
+      ...validActivityForm,
+      phone: ' 19900138000 ',
+      email: ' expert+expo@research.example.com ',
+    });
+    expect(result.phone).toBe('19900138000');
+    expect(result.email).toBe('expert+expo@research.example.com');
   });
 
   it.each([
