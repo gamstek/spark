@@ -178,6 +178,8 @@ export function LotteryPage() {
     >
       <img
         src={SLICES.lotteryBg}
+        fetchPriority="high"
+        decoding="async"
         alt=""
         aria-hidden="true"
         className="absolute inset-0 size-full object-cover"
@@ -191,6 +193,8 @@ export function LotteryPage() {
         >
           <img
             src={SLICES.lotteryWheelFace}
+            fetchPriority="high"
+            decoding="async"
             alt=""
             aria-hidden="true"
             className="absolute inset-0 size-full object-contain"

@@ -14,6 +14,7 @@ import type { DataSource } from 'typeorm';
 import type { Clock } from '../src/common/clock.js';
 import { LotteryService } from '../src/lottery/lottery.service.js';
 import { chooseWeightedPrize } from '../src/lottery/weighted-draw.js';
+import { PrizesService } from '../src/prizes/prizes.service.js';
 import { CodeService } from '../src/redemptions/code.service.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 import { createScenario, type Scenario } from './support/fixtures.js';
@@ -119,6 +120,68 @@ describe('atomic lottery and inventory', () => {
         [scenario.activityId],
       ),
     ).toHaveLength(1);
+  });
+
+  it('randomly allocates the first draw using remaining half-day quantities instead of tier order', async () => {
+    const regularId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+    const regularPrizeId = randomUUID();
+    await database.dataSource.query(
+      `INSERT INTO prize (id,name) VALUES ($1,'普通奖')`,
+      [regularPrizeId],
+    );
+    await database.dataSource.query(
+      `UPDATE activity_prize SET total_stock=1000 WHERE id=$1`,
+      [scenario.activityPrizeId],
+    );
+    await database.dataSource.query(
+      `INSERT INTO activity_prize (id,activity_id,prize_id,total_stock,weight,prize_level,prize_name)
+       SELECT $2,activity_id,$3,99,1,'普通奖','普通奖' FROM activity_prize WHERE id=$1`,
+      [scenario.activityPrizeId, regularId, regularPrizeId],
+    );
+    await database.dataSource.query(
+      `INSERT INTO activity_version_prize (id,activity_version_id,activity_prize_id,prize_level,prize_name,weight)
+       SELECT $1,published_version_id,$2,'普通奖','普通奖',1 FROM activity WHERE id=$3`,
+      [randomUUID(), regularId, scenario.activityId],
+    );
+    await new PrizesService(database.dataSource).updateDrawRules(
+      scenario.activityId,
+      100,
+      {
+        [scenario.activityPrizeId]: 1,
+        [regularId]: 99,
+      },
+    );
+    const lottery = new LotteryService(
+      database.dataSource,
+      codes,
+      'anonymous',
+      fixedClock(scenario.now),
+      (total) => Math.floor(total / 4),
+    );
+    await expect(
+      lottery.draw(scenario.userIds[0], 'expo-2026'),
+    ).resolves.toMatchObject({ prizeName: '普通奖' });
+  });
+
+  it('serializes a live stock reduction with a draw without removing awarded items', async () => {
+    const results = await Promise.allSettled([
+      service().draw(scenario.userIds[0], 'expo-2026'),
+      new PrizesService(database.dataSource).adjustStock(
+        scenario.activityPrizeId,
+        -1,
+        randomUUID(),
+        scenario.adminId,
+      ),
+    ]);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    const [stock] = await database.dataSource.query<
+      { total_stock: number; awarded_stock: number }[]
+    >(`SELECT total_stock,awarded_stock FROM activity_prize WHERE id=$1`, [
+      scenario.activityPrizeId,
+    ]);
+    expect(stock!.total_stock).toBe(stock!.awarded_stock);
   });
 
   it('returns the same result for simultaneous draws by one user', async () => {

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -248,16 +248,118 @@ describe('activity publishing and mutable inventory', () => {
     ).rejects.toThrow('ACTIVITY_NOT_RUNNING');
   });
 
-  it('accepts real PNG bytes and rejects disguised or oversized media', async () => {
+  it('compresses historical uploaded images in place without changing their URLs', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'spark-media-'));
+    try {
+      const { default: sharp } = await import('sharp');
+      const bytes = await sharp({
+        create: {
+          width: 1800,
+          height: 900,
+          channels: 3,
+          background: '#e84356',
+        },
+      })
+        .png({ compressionLevel: 0 })
+        .toBuffer();
+      const id = randomUUID();
+      const storageKey = `${randomUUID()}.png`;
+      const path = join(root, storageKey);
+      await writeFile(path, bytes);
+      await database.dataSource.query(
+        `INSERT INTO media_asset (id,storage_key,mime_type,byte_size) VALUES ($1,$2,'image/png',$3)`,
+        [id, storageKey, bytes.length],
+      );
+      const service = new MediaService(database.dataSource, root);
+      const preview = await service.optimizeStoredAsset(id);
+      expect(preview.after).toBeLessThan(preview.before / 10);
+      expect((await readFile(path)).length).toBe(bytes.length);
+      const result = await service.optimizeStoredAsset(id, true);
+      expect((await readFile(path)).length).toBe(result.after);
+      const [asset] = await database.dataSource.query(
+        `SELECT storage_key,mime_type,byte_size FROM media_asset WHERE id=$1`,
+        [id],
+      );
+      expect(asset).toMatchObject({
+        storage_key: storageKey,
+        mime_type: 'image/png',
+        byte_size: String(result.after),
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each(['jpeg', 'webp'] as const)(
+    'preserves the %s format when compressing uploaded prize images',
+    async (format) => {
+      const root = await mkdtemp(join(tmpdir(), 'spark-media-'));
+      try {
+        const { default: sharp } = await import('sharp');
+        const bytes = await sharp({
+          create: {
+            width: 1800,
+            height: 900,
+            channels: 3,
+            background: '#e84356',
+          },
+        })
+          .toFormat(format, { quality: 100 })
+          .toBuffer();
+        const saved = await new MediaService(database.dataSource, root).save({
+          bytes,
+          originalName: `prize.${format}`,
+        });
+        const compressed = await readFile(saved.absolutePath);
+        expect(compressed.length).toBeLessThanOrEqual(bytes.length);
+        expect((await sharp(compressed).metadata()).format).toBe(format);
+        expect(saved.storageKey).toMatch(
+          format === 'jpeg' ? /\.jpg$/ : /\.webp$/,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it('compresses real PNG uploads and rejects disguised, truncated or oversized media', async () => {
     const root = await mkdtemp(join(tmpdir(), 'spark-media-'));
     try {
       const media = new MediaService(database.dataSource, root);
-      const png = Buffer.from(
-        '89504e470d0a1a0a0000000d4948445200000001000000010806000000',
-        'hex',
-      );
+      const { default: sharp } = await import('sharp');
+      const png = await sharp({
+        create: {
+          width: 1800,
+          height: 900,
+          channels: 3,
+          background: '#f13c45',
+        },
+      })
+        .png({ compressionLevel: 0 })
+        .toBuffer();
       const saved = await media.save({ bytes: png, originalName: 'hero.png' });
-      expect((await readFile(saved.absolutePath)).equals(png)).toBe(true);
+      const compressed = await readFile(saved.absolutePath);
+      expect(compressed.length).toBeLessThan(png.length / 10);
+      expect(saved.storageKey).toMatch(/\.png$/);
+      expect(await sharp(compressed).metadata()).toMatchObject({
+        format: 'png',
+        width: 1280,
+        height: 640,
+      });
+      const [asset] = await database.dataSource.query(
+        `SELECT mime_type,byte_size FROM media_asset WHERE id=$1`,
+        [saved.id],
+      );
+      expect(asset).toMatchObject({
+        mime_type: 'image/png',
+        byte_size: String(compressed.length),
+      });
+      await expect(
+        media.save({
+          bytes: png.subarray(0, 24),
+          originalName: 'truncated.png',
+        }),
+      ).rejects.toThrow('UNSUPPORTED_MEDIA');
       await expect(
         media.save({ bytes: Buffer.from('<svg/>'), originalName: 'fake.png' }),
       ).rejects.toThrow('UNSUPPORTED_MEDIA');

@@ -1,39 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { MediaAsset } from '../../database/entities/index.js';
+import { compressImage } from './compress-image.js';
 
 export const MEDIA_ROOT = Symbol('MEDIA_ROOT');
-
-function inspect(
-  bytes: Buffer,
-): { extension: string; mimeType: string } | null {
-  if (
-    bytes.length >= 24 &&
-    bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')) &&
-    bytes.readUInt32BE(16) > 0 &&
-    bytes.readUInt32BE(20) > 0
-  )
-    return { extension: 'png', mimeType: 'image/png' };
-  if (
-    bytes.length >= 4 &&
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff
-  )
-    return { extension: 'jpg', mimeType: 'image/jpeg' };
-  if (
-    bytes.length >= 16 &&
-    bytes.toString('ascii', 0, 4) === 'RIFF' &&
-    bytes.toString('ascii', 8, 12) === 'WEBP'
-  )
-    return { extension: 'webp', mimeType: 'image/webp' };
-  return null;
-}
 
 @Injectable()
 export class MediaService {
@@ -49,21 +24,47 @@ export class MediaService {
     bytes: Buffer;
     originalName: string;
   }): Promise<{ id: string; storageKey: string; absolutePath: string }> {
-    if (input.bytes.length > 5 * 1024 * 1024)
-      throw new Error('MEDIA_TOO_LARGE');
-    const detected = inspect(input.bytes);
-    if (!detected) throw new Error('UNSUPPORTED_MEDIA');
+    const { bytes, extension, mimeType } = await compressImage(input.bytes);
     const id = randomUUID();
-    const storageKey = `${randomUUID()}.${detected.extension}`;
+    const storageKey = `${randomUUID()}.${extension}`;
     const absolutePath = resolve(this.root, storageKey);
     await mkdir(this.root, { recursive: true });
-    await writeFile(absolutePath, input.bytes, { flag: 'wx' });
+    await writeFile(absolutePath, bytes, { flag: 'wx' });
     await this.dataSource.getRepository(MediaAsset).insert({
       id,
       storageKey,
-      mimeType: detected.mimeType,
-      byteSize: String(input.bytes.length),
+      mimeType,
+      byteSize: String(bytes.length),
     });
     return { id, storageKey, absolutePath };
+  }
+
+  async optimizeStoredAsset(
+    id: string,
+    write = false,
+  ): Promise<{ before: number; after: number }> {
+    const asset = await this.dataSource
+      .getRepository(MediaAsset)
+      .findOneByOrFail({ id });
+    const absolutePath = resolve(this.root, asset.storageKey);
+    const localPath = relative(this.root, absolutePath);
+    if (localPath.startsWith('..') || isAbsolute(localPath))
+      throw new Error('INVALID_MEDIA_PATH');
+    const original = await readFile(absolutePath);
+    const { bytes, mimeType } = await compressImage(original);
+    if (mimeType !== asset.mimeType) throw new Error('UNSUPPORTED_MEDIA');
+    if (write && bytes.length < original.length) {
+      const temporaryPath = `${absolutePath}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporaryPath, bytes, { flag: 'wx' });
+        await rename(temporaryPath, absolutePath);
+        await this.dataSource
+          .getRepository(MediaAsset)
+          .update(id, { byteSize: String(bytes.length) });
+      } finally {
+        await rm(temporaryPath, { force: true });
+      }
+    }
+    return { before: original.length, after: bytes.length };
   }
 }

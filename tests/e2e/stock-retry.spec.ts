@@ -65,6 +65,45 @@ async function totalStockCell(page: Page) {
   return stockRow(page).locator('td, th').nth(totalStockColumn);
 }
 
+test('reduces inventory during a running activity and safely retries an uncertain adjustment', async ({
+  page,
+}) => {
+  let totalStock = 10;
+  const requests: StockOperation[] = [];
+  const applied = new Set<string>();
+  await mockPrizePage(page, () => totalStock);
+  await page.route(
+    '**/api/admin/prizes/activity-prizes/p1/stock-adjustments',
+    async (route) => {
+      const operation = route.request().postDataJSON() as StockOperation;
+      requests.push(operation);
+      if (!applied.has(operation.operationId)) {
+        applied.add(operation.operationId);
+        totalStock += operation.quantity;
+        await route.abort('failed');
+        return;
+      }
+      await route.fulfill({ json: { success: true } });
+    },
+  );
+  await page.goto('/admin/activities/a1/prizes');
+  await page.getByRole('button', { name: '奖品操作：定制礼盒' }).click();
+  await page.getByRole('menuitem', { name: '调整库存' }).click();
+  const dialog = page.getByRole('dialog', { name: '调整库存' });
+  await expect(dialog).toContainText('已发放 3');
+  await page.getByLabel('调整数量').fill('-2');
+  await page.getByRole('button', { name: '确认调整' }).click();
+  await expect(
+    page.getByText('本次调整结果尚未确认，请按原数量重试。', { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByLabel('调整数量')).toBeDisabled();
+  await page.getByRole('button', { name: '重试调整' }).click();
+  await expect(page.getByText('库存已调整', { exact: true })).toBeVisible();
+  await expect(await totalStockCell(page)).toHaveText('8');
+  expect(requests).toHaveLength(2);
+  expect(requests[1]).toEqual(requests[0]);
+});
+
 test('retries an uncertain stock addition without adding inventory twice', async ({
   page,
 }) => {

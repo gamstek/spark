@@ -166,7 +166,10 @@ export class LotteryService {
         )
         .map((prize) => ({
           id: prize.id,
-          remainingStock: Number(prize.remaining_stock),
+          remainingStock: Math.min(
+            Number(prize.remaining_stock),
+            Number(limits[prize.id] ?? 0) - (halfDayAwards.get(prize.id) ?? 0),
+          ),
           weight: Number(prize.weight),
         }));
       const selected = chooseWeightedPrize(candidates, this.randomInteger);

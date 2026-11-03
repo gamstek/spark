@@ -8,6 +8,7 @@ import {
   type ActivityFormSubmissionInput,
 } from '@spark/contracts';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { preload } from 'react-dom';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 
 import { ActionButton } from '../components/action-button';
@@ -20,6 +21,7 @@ import { FormField } from '../components/form-field';
 import { useDocumentTitle } from '../hooks/use-document-title';
 import { useRuntime } from '../hooks/use-runtime';
 import { ApiError } from '../lib/api';
+import { SLICES } from '../lib/assets';
 
 const heading = '行业专家信息登记与技术交流预约';
 const validationSummary = '请检查标记的项目后重新提交';
@@ -89,6 +91,11 @@ export function RegistrationFormPage() {
   });
   const showResearchOther = researchAreas.includes('other');
   const showInstrumentOther = instrumentInterests.includes('other');
+  useEffect(() => {
+    // Fetch the next screen's large visuals while the visitor fills the form.
+    preload(SLICES.lotteryBg, { as: 'image', fetchPriority: 'low' });
+    preload(SLICES.lotteryWheelFace, { as: 'image', fetchPriority: 'low' });
+  }, []);
   useEffect(() => {
     if (!showResearchOther) unregister('researchAreaOther');
   }, [showResearchOther, unregister]);

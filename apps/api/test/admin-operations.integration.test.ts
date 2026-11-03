@@ -251,6 +251,62 @@ describe('admin operations', () => {
       service.addStock(prize.id, -1, randomUUID(), scenario.adminId),
     ).rejects.toThrow('INVALID_STOCK_QUANTITY');
   });
+  it('adjusts live inventory in either direction idempotently without removing awarded items', async () => {
+    const service = new PrizesService(database.dataSource);
+    const [before] = await service.list(scenario.activityId);
+    const operationId = randomUUID();
+    await service.adjustStock(
+      scenario.activityPrizeId,
+      5,
+      randomUUID(),
+      scenario.adminId,
+    );
+    await service.adjustStock(
+      scenario.activityPrizeId,
+      -2,
+      operationId,
+      scenario.adminId,
+    );
+    await service.adjustStock(
+      scenario.activityPrizeId,
+      -2,
+      operationId,
+      scenario.adminId,
+    );
+    const [after] = await service.list(scenario.activityId);
+    expect(after.total_stock).toBe(before.total_stock + 3);
+    expect(after.awarded_stock).toBe(before.awarded_stock);
+    await expect(
+      service.adjustStock(
+        scenario.activityPrizeId,
+        -(after.total_stock - after.awarded_stock + 1),
+        randomUUID(),
+        scenario.adminId,
+      ),
+    ).rejects.toThrow('STOCK_BELOW_AWARDED');
+    await expect(
+      service.adjustStock(
+        scenario.activityPrizeId,
+        0,
+        randomUUID(),
+        scenario.adminId,
+      ),
+    ).rejects.toThrow('INVALID_STOCK_QUANTITY');
+    await expect(
+      service.adjustStock(
+        scenario.activityPrizeId,
+        1,
+        operationId,
+        scenario.adminId,
+      ),
+    ).rejects.toThrow('STOCK_OPERATION_CONFLICT');
+    const adjustments = await database.dataSource.query(
+      `SELECT quantity FROM stock_adjustment WHERE operation_id=$1`,
+      [operationId],
+    );
+    expect(adjustments).toEqual([{ quantity: -2 }]);
+  });
+
   it('rejects adding a prize after the published activity starts', async () => {
     await expect(
       new PrizesService(database.dataSource).create(scenario.activityId, {

@@ -11,6 +11,8 @@ export function HomePage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-white shadow-[0_0_32px_rgba(26,31,44,0.08)]">
       <img
         src={SLICES.homeBg}
+        fetchPriority="high"
+        decoding="async"
         alt="幸运抽奖赢大礼活动主视觉"
         className="aspect-[3000/3008] w-full shrink-0 object-cover"
       />

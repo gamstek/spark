@@ -131,22 +131,64 @@ export class PrizesService {
   ): Promise<void> {
     if (!Number.isSafeInteger(quantity) || quantity <= 0)
       throw new Error('INVALID_STOCK_QUANTITY');
+    await this.adjustStock(activityPrizeId, quantity, operationId, adminId);
+  }
+  async adjustStock(
+    activityPrizeId: string,
+    quantity: number,
+    operationId: string,
+    adminId: string,
+  ): Promise<void> {
+    if (
+      !Number.isSafeInteger(quantity) ||
+      quantity === 0 ||
+      Math.abs(quantity) > 2_147_483_647
+    )
+      throw new Error('INVALID_STOCK_QUANTITY');
+    if (
+      typeof operationId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        operationId,
+      )
+    )
+      throw new Error('INVALID_STOCK_OPERATION');
     await this.dataSource.transaction(async (manager) => {
-      await manager.query(
-        `SELECT id FROM activity_prize WHERE id=$1 FOR UPDATE`,
+      const [prize] = await manager.query<
+        { total_stock: number; awarded_stock: number }[]
+      >(
+        `SELECT total_stock,awarded_stock FROM activity_prize WHERE id=$1 FOR UPDATE`,
         [activityPrizeId],
       );
-      const duplicate = await manager.query(
-        `SELECT 1 FROM stock_adjustment WHERE operation_id=$1`,
+      if (!prize) throw new Error('PRIZE_NOT_FOUND');
+      const [duplicate] = await manager.query<
+        {
+          activity_prize_id: string;
+          quantity: number;
+          admin_account_id: string;
+        }[]
+      >(
+        `SELECT activity_prize_id,quantity,admin_account_id FROM stock_adjustment WHERE operation_id=$1`,
         [operationId],
       );
-      if (duplicate[0]) return;
+      if (duplicate) {
+        if (
+          duplicate.activity_prize_id !== activityPrizeId ||
+          duplicate.quantity !== quantity ||
+          duplicate.admin_account_id !== adminId
+        )
+          throw new Error('STOCK_OPERATION_CONFLICT');
+        return;
+      }
+      const totalStock = prize.total_stock + quantity;
+      if (totalStock < prize.awarded_stock)
+        throw new Error('STOCK_BELOW_AWARDED');
+      if (totalStock > 2_147_483_647) throw new Error('INVALID_STOCK_QUANTITY');
       await manager.query(
         `UPDATE activity_prize SET total_stock=total_stock+$2 WHERE id=$1`,
         [activityPrizeId, quantity],
       );
       await manager.query(
-        `INSERT INTO stock_adjustment (id,activity_prize_id,quantity,reason,admin_account_id,operation_id) VALUES ($1,$2,$3,'ADMIN_ADD_STOCK',$4,$5)`,
+        `INSERT INTO stock_adjustment (id,activity_prize_id,quantity,reason,admin_account_id,operation_id) VALUES ($1,$2,$3,'ADMIN_ADJUST_STOCK',$4,$5)`,
         [randomUUID(), activityPrizeId, quantity, adminId, operationId],
       );
     });

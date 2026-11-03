@@ -1,7 +1,7 @@
 /**
  * 蓝湖切图（slices）资源统一加载。
- * 通过 import.meta.glob 预加载 all slices 下的图片，按「屏/语义名」索引。
- * 仅被页面组件引用，未引用的切图不会打包。
+ * 通过 import.meta.glob 索引 JPG/PNG 资源 URL，按「屏/语义名」索引。
+ * 图片只在页面引用对应 URL 时加载，glob 不会提前下载图片。
  */
 
 export interface SliceAssets {

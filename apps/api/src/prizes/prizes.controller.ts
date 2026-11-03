@@ -62,4 +62,19 @@ export class PrizesController {
     );
     return { success: true };
   }
+  @Post('activity-prizes/:id/stock-adjustments')
+  @UseGuards(CsrfGuard)
+  async adjustStock(
+    @Param('id') id: string,
+    @Body() body: { quantity: number; operationId: string },
+    @Req() request: { session: { subjectId: string } },
+  ) {
+    await this.prizes.adjustStock(
+      id,
+      body.quantity,
+      body.operationId,
+      request.session.subjectId,
+    );
+    return { success: true };
+  }
 }

@@ -15,8 +15,19 @@ export function chooseWeightedPrize(
       prize.weight > 0,
   );
   if (eligible.length === 0) return null;
+  // A ticket represents one remaining item, not one prize tier. Normalize
+  // weights and stock so the integer range remains safe for crypto.randomInt.
+  const maxWeight = Math.max(...eligible.map((prize) => prize.weight));
+  const maxStock = Math.max(...eligible.map((prize) => prize.remainingStock));
   const units = eligible.map((prize) =>
-    Math.max(1, Math.round(prize.weight * 1_000_000)),
+    Math.max(
+      1,
+      Math.round(
+        (prize.weight / maxWeight) *
+          (prize.remainingStock / maxStock) *
+          1_000_000_000,
+      ),
+    ),
   );
   const total = units.reduce((sum, value) => sum + value, 0);
   let cursor = randomInteger(total);

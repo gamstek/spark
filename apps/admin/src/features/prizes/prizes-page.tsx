@@ -40,6 +40,7 @@ type Prize = {
 type StockAttempt = {
   operationId: string;
   quantity: number;
+  mode: 'add' | 'adjust';
 };
 
 type ActivityDetail = {
@@ -74,6 +75,8 @@ export function PrizesPage() {
   const [creatingPrize, setCreatingPrize] = useState(false);
   const creatingPrizeRef = useRef(false);
   const [stockPrize, setStockPrize] = useState<Prize | null>(null);
+  const [stockMode, setStockMode] = useState<'add' | 'adjust'>('add');
+  const [stockValidationMessage, setStockValidationMessage] = useState('');
   const [stockAttempts, setStockAttempts] = useState<
     Record<string, StockAttempt>
   >({});
@@ -227,23 +230,30 @@ export function PrizesPage() {
       ({
         quantity: Number(form.get('quantity')),
         operationId: randomUUID(),
+        mode: stockMode,
       } satisfies StockAttempt);
     setStockAttempts((current) => ({ ...current, [prizeId]: attempt }));
     setStockValidationErrorPrizeId('');
     setError('');
     setMessage('');
     try {
-      await api(`admin/prizes/activity-prizes/${prizeId}/stock`, {
-        method: 'POST',
-        body: JSON.stringify(attempt),
-      });
+      await api(
+        `admin/prizes/activity-prizes/${prizeId}/${attempt.mode === 'adjust' ? 'stock-adjustments' : 'stock'}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            quantity: attempt.quantity,
+            operationId: attempt.operationId,
+          }),
+        },
+      );
       setStockAttempts((current) => {
         const next = { ...current };
         delete next[prizeId];
         return next;
       });
       setStockPrize(null);
-      setMessage('库存已添加');
+      setMessage(attempt.mode === 'adjust' ? '库存已调整' : '库存已添加');
       try {
         await load();
       } catch {
@@ -252,7 +262,9 @@ export function PrizesPage() {
     } catch (caught) {
       if (
         caught instanceof Error &&
-        caught.message.includes('INVALID_STOCK_QUANTITY')
+        /INVALID_STOCK_QUANTITY|STOCK_BELOW_AWARDED|STOCK_OPERATION_CONFLICT/.test(
+          caught.message,
+        )
       ) {
         setStockAttempts((current) => {
           const next = { ...current };
@@ -260,6 +272,15 @@ export function PrizesPage() {
           return next;
         });
         setStockValidationErrorPrizeId(prizeId);
+        setStockValidationMessage(
+          caught.message.includes('STOCK_BELOW_AWARDED')
+            ? '可用库存不足，不能减少已发放的奖品。请刷新库存后重新填写。'
+            : caught.message.includes('STOCK_OPERATION_CONFLICT')
+              ? '操作记录已发生变化，请重新填写后提交。'
+              : stockMode === 'adjust'
+                ? '调整数量无效，请输入非零整数，且调整后总库存不能超出安全范围。'
+                : '增加数量无效，请输入安全范围内的正整数。',
+        );
       }
     } finally {
       stockBusyRef.current = false;
@@ -315,7 +336,7 @@ export function PrizesPage() {
             size="2"
             color="gray"
           >
-            先按总中奖概率判断，再按上海时间的上午、下午时段控制各奖项中奖数量。
+            先按总中奖概率判断，再按各奖项本半天剩余可发数量随机抽取，不按奖项顺序发放。规则在活动开始后仍可调整。
           </Text>
         </div>
         <form
@@ -540,8 +561,21 @@ export function PrizesPage() {
                         if (stockPrize) event.preventDefault();
                       }}
                     >
-                      <DropdownMenu.Item onSelect={() => setStockPrize(row)}>
+                      <DropdownMenu.Item
+                        onSelect={() => {
+                          setStockMode(stockAttempts[row.id]?.mode ?? 'add');
+                          setStockPrize(row);
+                        }}
+                      >
                         添加库存
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        onSelect={() => {
+                          setStockMode(stockAttempts[row.id]?.mode ?? 'adjust');
+                          setStockPrize(row);
+                        }}
+                      >
+                        调整库存
                       </DropdownMenu.Item>
                     </TableRowActions>
                   </Table.Cell>
@@ -715,12 +749,16 @@ export function PrizesPage() {
             stockReturnFocusRef.current?.focus();
           }}
         >
-          <Dialog.Title>添加库存</Dialog.Title>
+          <Dialog.Title>
+            {stockMode === 'adjust' ? '调整库存' : '添加库存'}
+          </Dialog.Title>
           <Dialog.Description
             size="2"
             color="gray"
           >
-            为“{stockPrize?.prize_name}”增加库存。该操作不能撤销或减少库存。
+            {stockMode === 'adjust'
+              ? `调整“${stockPrize?.prize_name}”库存，活动开始后仍可操作。正数增加、负数减少；当前可用 ${stockPrize ? stockPrize.total_stock - stockPrize.awarded_stock : 0}，已发放 ${stockPrize?.awarded_stock ?? 0}，不能减少已发放的奖品。`
+              : `为“${stockPrize?.prize_name}”增加库存。活动开始后仍可添加。`}
           </Dialog.Description>
           <form
             onSubmit={add}
@@ -739,7 +777,7 @@ export function PrizesPage() {
                   size="2"
                   weight="medium"
                 >
-                  增加数量
+                  {stockMode === 'adjust' ? '调整数量' : '增加数量'}
                 </Text>
               </label>
               <TextField.Root
@@ -749,8 +787,15 @@ export function PrizesPage() {
                 id="stock-quantity"
                 name="quantity"
                 type="number"
-                min="1"
-                placeholder="增加数量"
+                min={
+                  stockMode === 'adjust' && stockPrize
+                    ? -(stockPrize.total_stock - stockPrize.awarded_stock)
+                    : 1
+                }
+                step="1"
+                placeholder={
+                  stockMode === 'adjust' ? '例如 5 或 -2' : '增加数量'
+                }
                 required
                 autoFocus
                 defaultValue={currentStockAttempt?.quantity}
@@ -761,7 +806,11 @@ export function PrizesPage() {
               <Flex mt="4">
                 <FeedbackCallout
                   tone="warning"
-                  message="本次添加结果尚未确认，请按原数量重试。重试不会重复增加库存。"
+                  message={
+                    stockMode === 'adjust'
+                      ? '本次调整结果尚未确认，请按原数量重试。重试不会重复调整库存。'
+                      : '本次添加结果尚未确认，请按原数量重试。重试不会重复增加库存。'
+                  }
                 />
               </Flex>
             )}
@@ -769,7 +818,7 @@ export function PrizesPage() {
               <Flex mt="4">
                 <FeedbackCallout
                   tone="error"
-                  message="增加数量无效，请输入安全范围内的正整数。"
+                  message={stockValidationMessage}
                 />
               </Flex>
             )}
@@ -789,7 +838,13 @@ export function PrizesPage() {
                 type="submit"
                 loading={stockBusy}
               >
-                {currentStockAttemptIsUncertain ? '重试添加' : '确认添加'}
+                {stockMode === 'adjust'
+                  ? currentStockAttemptIsUncertain
+                    ? '重试调整'
+                    : '确认调整'
+                  : currentStockAttemptIsUncertain
+                    ? '重试添加'
+                    : '确认添加'}
               </Button>
             </DialogActions>
           </form>
